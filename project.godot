@@ -1,0 +1,42 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="ProjectSeWoo"
+run/main_scene="res://scenes/Shell.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+run/low_processor_mode=true
+
+[display]
+
+; --- Day 1-2 오버레이 셸 스파이크 ---
+; per_pixel_transparency/allowed 는 런타임에 못 켠다. 반드시 여기서 켜야 한다.
+window/size/viewport_width=420
+window/size/viewport_height=560
+window/size/borderless=true
+window/size/transparent=true
+window/size/always_on_top=true
+window/per_pixel_transparency/allowed=true
+; passthrough 폴리곤 좌표 = 창 픽셀 좌표. 스트레치가 걸리면 좌표가 어긋나므로 1:1 고정.
+window/stretch/mode="disabled"
+
+[dotnet]
+
+project/assembly_name="ProjectSeWoo"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"

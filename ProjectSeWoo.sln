@@ -1,0 +1,18 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectSeWoo", "ProjectSeWoo.csproj", "{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+EndGlobal
