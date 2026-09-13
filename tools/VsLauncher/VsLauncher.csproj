@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Visual Studio 에서 F5 로 게임을 띄우고 중단점을 잡기 위한 런처.
+
+    왜 필요한가:
+      ProjectSeWoo.csproj 는 클래스 라이브러리다. Godot exe 가 호스트이고 우리
+      ProjectSeWoo.dll 을 로드하는 구조이기 때문이다. VS 는 출력 형식이 Library 인
+      프로젝트를 시작 프로젝트로 삼지 못하므로 F5 를 누르면 거절한다.
+
+      그래서 "시작 가능한" Exe 프로젝트를 하나 두고, 그 실행 대상을
+      Properties/launchSettings.json 에서 Godot exe 로 바꿔치기한다.
+      VS 가 실행하는 것은 Godot 이고, 이 프로젝트의 Program.Main 은 F5 경로에서는
+      아예 실행되지 않는다. ProjectSeWoo.dll 이 로드될 때 pdb 가 같이 읽혀서
+      중단점이 정상으로 걸린다. _Ready() 같은 기동 코드도 잡힌다.
+
+    이 프로젝트는 게임의 일부가 아니다. 배포물에 들어가지 않는다.
+    tools/.gdignore 로 Godot 에디터가 이 폴더 전체를 무시하게 해 두었다.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>VsLauncher</AssemblyName>
+    <RootNamespace>ProjectSeWoo.Tools</RootNamespace>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+</Project>

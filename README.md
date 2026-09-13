@@ -40,4 +40,10 @@ scenes/Shell.tscn          루트 노드 하나. 나머지는 코드로 구성
 src/OverlayShell.cs        창 설정, 클릭 통과, 드래그, 핫키, 리포트
 src/PerfProbe.cs           CPU%/메모리 샘플링
 src/DebugHud.cs            HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
+tools/VsLauncher/          Visual Studio F5 디버깅용 런처 (게임 아님, 배포 제외)
 ```
+
+`tools/VsLauncher`는 VS에서 F5로 게임을 띄우고 중단점을 잡기 위한 껍데기 프로젝트다.
+`ProjectSeWoo`는 클래스 라이브러리라 VS가 직접 실행하지 못해서 필요하다.
+엔진 경로는 `tools/VsLauncher/Properties/launchSettings.json`의 `executablePath` 한 줄이므로,
+각자 환경에 맞게 고쳐서 쓴다.

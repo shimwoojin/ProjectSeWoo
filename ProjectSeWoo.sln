@@ -1,6 +1,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectSeWoo", "ProjectSeWoo.csproj", "{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VsLauncher", "tools\VsLauncher\VsLauncher.csproj", "{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,5 +16,9 @@ Global
 		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
 		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
 		{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 EndGlobal

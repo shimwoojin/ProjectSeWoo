@@ -5,4 +5,14 @@
     <RootNamespace>ProjectSeWoo</RootNamespace>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
+  <!--
+    Godot.NET.Sdk 는 프로젝트 폴더 아래 모든 .cs 를 자동으로 컴파일한다.
+    tools/ 는 개발 도구(VS F5 런처)이고 게임의 일부가 아니므로 제외한다.
+    제외하지 않으면 런처 코드가 ProjectSeWoo.dll 안에 같이 들어간다.
+    Godot 에디터 쪽은 tools/.gdignore 가 같은 역할을 한다.
+  -->
+  <ItemGroup>
+    <Compile Remove="tools/**" />
+  </ItemGroup>
 </Project>
