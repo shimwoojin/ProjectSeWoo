@@ -36,8 +36,18 @@ public sealed class PerfProbe
     private double _cpuSum;
     private int _samples;
 
-    /// <summary>작업관리자의 "메모리(활성 개인 작업 집합)"에 해당.</summary>
+    /// <summary>
+    /// 전체 작업 집합. D3D12 런타임 / GPU 드라이버 / .NET 런타임처럼 다른 프로세스와
+    /// 공유되는 DLL 페이지까지 포함하므로, 작업관리자의 "메모리" 열보다 크게 나온다.
+    /// 이 값을 150MB 기준에 그대로 대면 우리 앱이 실제로 점유하는 양을 과대평가한다.
+    /// </summary>
     public long WorkingSetMb => _proc.WorkingSet64 / (1024 * 1024);
+
+    /// <summary>
+    /// 개인 커밋. 작업관리자의 "커밋 크기" 열과 같은 값이고, 공유 페이지가 빠진다.
+    /// 상주 앱이 실제로 차지하는 양에 더 가까우므로 150MB 판정은 이 값으로 한다.
+    /// </summary>
+    public long PrivateCommitMb => _proc.PrivateMemorySize64 / (1024 * 1024);
 
     /// <summary>Godot이 직접 할당한 메모리. .NET 힙은 포함되지 않는다.</summary>
     public long GodotStaticMb => (long)(OS.GetStaticMemoryUsage() / (1024 * 1024));

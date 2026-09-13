@@ -375,8 +375,10 @@ public partial class OverlayShell : Node2D
         return string.Join("\n", new[]
         {
             $"cpu   {_perf.CpuPercent,5:F2}%  avg {_perf.AvgCpuPercent,5:F2}%  peak {_perf.PeakCpuPercent,5:F2}%",
-            $"mem   {_perf.WorkingSetMb,4} MB working   godot {_perf.GodotStaticMb} MB   clr {_perf.ManagedHeapMb} MB",
+            $"mem   priv {_perf.PrivateCommitMb,4} MB   ws {_perf.WorkingSetMb,4} MB"
+                + $"   godot {_perf.GodotStaticMb} MB   clr {_perf.ManagedHeapMb} MB",
             $"fps   {Engine.GetFramesPerSecond(),5:F0}  cap {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}  lowpower {OnOff(_lowPower)}",
+            $"rend  {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             "",
             $"pass  {OnOff(_passthroughOn)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
             $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}   clicks {_clicks}",
@@ -400,8 +402,10 @@ public partial class OverlayShell : Node2D
             "=== ProjectSeWoo overlay shell spike ===",
             $"uptime         {_uptime:F0}s",
             $"cpu avg/peak   {_perf.AvgCpuPercent:F2}% / {_perf.PeakCpuPercent:F2}%   (cores {_perf.Cores})",
-            $"memory         {_perf.WorkingSetMb} MB working set"
+            $"memory         {_perf.PrivateCommitMb} MB private commit"
+                + $" / {_perf.WorkingSetMb} MB working set"
                 + $" (godot {_perf.GodotStaticMb} MB, clr heap {_perf.ManagedHeapMb} MB)",
+            $"renderer       {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
             $"passthrough    {OnOff(_passthroughOn)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
                 + $" writes {_regionWrites}",
@@ -413,9 +417,18 @@ public partial class OverlayShell : Node2D
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
             $"clicks on body {_clicks}",
             "",
-            "PASS: idle cpu < 1%, memory < 150MB, no flicker, drag ok on every screen",
+            // 자동 판정은 숫자로 확인되는 두 항목만 한다.
+            // 플리커 / 드래그 / 멀티모니터는 사람이 눈으로 봐야 하므로 미정으로 남긴다.
+            $"[auto] idle cpu avg < 1%       {Verdict(_perf.AvgCpuPercent < 1.0)}"
+                + $"   ({_perf.AvgCpuPercent:F2}%, sampled {_uptime:F0}s)",
+            $"[auto] private commit < 150MB  {Verdict(_perf.PrivateCommitMb < 150)}"
+                + $"   ({_perf.PrivateCommitMb} MB)",
+            "[eye ] no flicker              ?   <- F3 로 every-frame 과 비교해서 직접 채운다",
+            "[eye ] drag ok on every screen ?   <- F7/F8 로 모니터별 확인 후 직접 채운다",
         });
     }
 
     private static string OnOff(bool value) => value ? "on" : "off";
+
+    private static string Verdict(bool pass) => pass ? "PASS" : "FAIL";
 }
