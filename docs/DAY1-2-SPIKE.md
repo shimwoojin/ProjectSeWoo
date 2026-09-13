@@ -16,7 +16,7 @@
 ## 1. 실행
 
 ```
-Godot_v4.7.2-stable_mono_win64.exe --path C:\EtcProjects\pc-idle
+Godot_v4.7.2-stable_mono_win64.exe --path C:\EtcProjects\ProjectSeWoo
 ```
 
 또는 mono 에디터에서 프로젝트를 열고 F5.
