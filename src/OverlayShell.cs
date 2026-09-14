@@ -45,6 +45,13 @@ public partial class OverlayShell : Node2D
     private bool _dragging;
     private Vector2I _dragOffset;
 
+    // --- 무인 측정 모드 (tools/measure-renderers.ps1) ---
+    private string _autoReportPath;
+    private double _autoWarmupSec = 15.0;
+    private double _autoDurationSec;
+    private double _autoElapsed;
+    private bool _autoWarmedUp;
+
     // --- 계측 ---
     private Vector2[] _appliedRegion = Array.Empty<Vector2>();
     private long _regionWrites;
@@ -71,6 +78,8 @@ public partial class OverlayShell : Node2D
         var tick = new Timer { WaitTime = 0.5, Autostart = true };
         tick.Timeout += OnTick;
         AddChild(tick);
+
+        ParseAutoReportArgs();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
     }
@@ -221,6 +230,11 @@ public partial class OverlayShell : Node2D
         }
 
         ApplyPassthrough(force: _updateEveryFrame);
+
+        if (_autoReportPath != null)
+        {
+            TickAutoReport(delta);
+        }
     }
 
     private void OnTick()
@@ -390,6 +404,106 @@ public partial class OverlayShell : Node2D
                 + $"  {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"up    {_uptime:F0}s",
         });
+    }
+
+    // ------------------------------------------------------------------ 무인 측정
+
+    /// <summary>
+    /// 렌더러 A/B(DAY1-2-SPIKE.md §4)를 사람이 네 번 재시작하며 F9를 누르는 대신
+    /// 스크립트로 돌리기 위한 모드. 인자는 Godot 자체 옵션과 섞이지 않게 <c>--</c> 뒤에 둔다:
+    /// <code>Godot.exe --path . --rendering-method mobile -- --report=&lt;경로&gt; --seconds=60</code>
+    ///
+    /// <c>--seconds</c>는 워밍을 포함한 총 실행 시간이다. 워밍 구간이 따로 있는 이유는,
+    /// 기동 직후의 CPU 스파이크와 30~60초에 걸쳐 안정되는 메모리가 유휴 판정에 섞이면
+    /// 안 되기 때문이다. 워밍이 끝나는 순간 계측을 리셋하므로, 리포트의 <c>uptime</c>이
+    /// 곧 실제 측정 구간이 된다.
+    /// </summary>
+    private void ParseAutoReportArgs()
+    {
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg.StartsWith("--report=", StringComparison.Ordinal))
+            {
+                _autoReportPath = arg["--report=".Length..];
+            }
+            else if (TryParseSeconds(arg, "--seconds=", out double duration))
+            {
+                _autoDurationSec = duration;
+            }
+            else if (TryParseSeconds(arg, "--warmup=", out double warmup))
+            {
+                _autoWarmupSec = warmup;
+            }
+        }
+
+        if (_autoReportPath == null)
+        {
+            return;
+        }
+
+        if (_autoDurationSec <= 0.0)
+        {
+            _autoDurationSec = 60.0;
+        }
+
+        // 워밍이 전체 시간을 잡아먹으면 측정 구간이 사라진다.
+        _autoWarmupSec = Math.Clamp(_autoWarmupSec, 0.0, _autoDurationSec * 0.5);
+
+        GD.Print($"[shell] auto report -> {_autoReportPath}"
+            + $" (warmup {_autoWarmupSec:F0}s, measure {_autoDurationSec - _autoWarmupSec:F0}s)");
+    }
+
+    private static bool TryParseSeconds(string arg, string prefix, out double value)
+    {
+        value = 0.0;
+        return arg.StartsWith(prefix, StringComparison.Ordinal)
+            && double.TryParse(
+                arg[prefix.Length..],
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out value);
+    }
+
+    private void TickAutoReport(double delta)
+    {
+        _autoElapsed += delta;
+
+        if (!_autoWarmedUp)
+        {
+            if (_autoElapsed < _autoWarmupSec)
+            {
+                return;
+            }
+
+            _autoWarmedUp = true;
+            _perf.Reset();
+            _uptime = 0.0;
+            return;
+        }
+
+        if (_autoElapsed < _autoDurationSec)
+        {
+            return;
+        }
+
+        // 마지막 구간을 한 번 더 반영하고 쓴다. 0.5초 틱 사이에서 끝날 수 있기 때문이다.
+        _perf.Sample();
+
+        try
+        {
+            // BOM 을 붙여서 쓴다. Windows PowerShell 5.1 의 Get-Content 는 BOM 이 없으면
+            // UTF-8 을 ANSI 로 읽어서 리포트의 한글이 깨진다.
+            System.IO.File.WriteAllText(
+                _autoReportPath, BuildReport(), new System.Text.UTF8Encoding(true));
+            GD.Print($"[shell] auto report written: {_autoReportPath}");
+        }
+        catch (Exception e)
+        {
+            // 쓰기가 실패해도 종료는 한다. 스크립트는 파일 부재를 실패로 읽는다.
+            GD.PrintErr($"[shell] auto report failed: {e.Message}");
+        }
+
+        GetTree().Quit();
     }
 
     /// <summary>F9. 노션 측정 기록표에 그대로 붙일 수 있는 형태로 뽑는다.</summary>
