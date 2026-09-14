@@ -76,13 +76,20 @@ public sealed class CursorLayer
     /// <summary>클릭 통과 구현 방식. 어느 것이 실제로 먹는지는 재 봐야 안다.</summary>
     public enum ClickThroughMode
     {
-        /// <summary>WS_EX_TRANSPARENT 만. **실측 결과 클릭을 막지 못했다.**</summary>
+        /// <summary>WS_EX_TRANSPARENT 만. **다른 프로세스의 클릭을 막는다. 쓰면 안 된다.**</summary>
         Transparent,
 
-        /// <summary>WS_EX_TRANSPARENT | WS_EX_LAYERED. 오버레이의 교과서 조합.</summary>
+        /// <summary>
+        /// WS_EX_TRANSPARENT | WS_EX_LAYERED. **채택.** 오버레이의 교과서 조합이고,
+        /// 실사용에서 다른 앱의 클릭이 정상 통과하는 유일한 방식이었다.
+        /// </summary>
         Layered,
 
-        /// <summary>WndProc 을 가로채 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.</summary>
+        /// <summary>
+        /// WndProc 을 가로채 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.
+        /// **같은 프로세스 창에는 통하지만 프로세스 경계를 못 넘는다.** 쓰면 안 된다.
+        /// 자동 계측에서 이것 때문에 오판했다 - 표적이 우리 셸 창이었다.
+        /// </summary>
         HitTest,
     }
 
@@ -158,8 +165,13 @@ public sealed class CursorLayer
     /// <summary>클릭 통과가 실제로 걸렸는지. 리포트에 박아서 조용한 실패를 막는다.</summary>
     public string ClickThroughState { get; private set; } = "미적용";
 
-    /// <summary>어느 방식으로 클릭 통과를 걸 것인가.</summary>
-    public ClickThroughMode ClickThrough { get; set; } = ClickThroughMode.HitTest;
+    /// <summary>
+    /// 어느 방식으로 클릭 통과를 걸 것인가.
+    ///
+    /// <see cref="ClickThroughMode.Layered"/> 가 정답이다. 실사용으로 확인했다 —
+    /// 나머지 둘은 메모장·브라우저 같은 **다른 프로세스**의 클릭을 막는다.
+    /// </summary>
+    public ClickThroughMode ClickThrough { get; set; } = ClickThroughMode.Layered;
 
     // WndProc 후킹용. 델리게이트를 필드로 잡아두지 않으면 GC 가 수거해서
     // OS 가 죽은 함수 포인터를 부른다 = 프로세스 크래시.
@@ -329,8 +341,10 @@ public sealed class CursorLayer
 
             case ClickThroughMode.Layered:
                 ApplyExStyle(hwnd, WsExTransparent | WsExLayered, "TRANSPARENT|LAYERED");
+
                 // LAYERED 를 붙이면 알파를 정해주기 전까지 창이 아예 안 보인다.
-                // 255 = 완전 불투명. per-pixel 알파가 살아남는지는 실측으로 확인한다.
+                // 255 = 완전 불투명이지만, Godot 이 DWM 합성으로 그리는 per-pixel 알파는
+                // 그대로 살아남는다(실측: 장식 주변 모서리에 뒤 배경이 비쳤다).
                 if (!SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha))
                 {
                     GD.PrintErr("[cursor] SetLayeredWindowAttributes 실패");
