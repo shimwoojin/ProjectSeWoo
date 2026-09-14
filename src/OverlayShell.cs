@@ -32,7 +32,7 @@ public partial class OverlayShell : Node2D
 
     // A4 실물. A3 에서 셸을 모듈화할 때 제대로 된 자리로 옮긴다.
     // 지금 여기 붙이는 이유는 스파이크 리포트로 검증하기 위해서다.
-    private Platform.RawInputSource _input;
+    private Platform.HelperInputSource _input;
 
     private Window _win;
     private Sprite2D _mascot;
@@ -91,7 +91,7 @@ public partial class OverlayShell : Node2D
 
         // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
         // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
-        _input = new Platform.RawInputSource();
+        _input = new Platform.HelperInputSource();
         _input.Start();
 
         _cursor = new CursorLayer(this);
@@ -501,6 +501,7 @@ public partial class OverlayShell : Node2D
             $"pass  {OnOff(_passthroughOn)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
             $"in    total {_input.TotalCount}  cap-drop {_input.DroppedByCap}"
                 + $"  decay-drop {_input.DroppedByDecay}  [{_input.Status}]",
+            $"      available {OnOff(_input.IsAvailable)}  restarts {_input.Restarts}",
             $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}"
                 + $"   in L{_clicks} R{_rclicks} W{_wheels} D{_drags}",
             _cursor.StatusLine(),
@@ -737,8 +738,6 @@ public partial class OverlayShell : Node2D
             $"input on body: left {_clicks}, right {_rclicks},"
                 + $" wheel {_wheels}, drag-moved {_drags}",
             _input.StatusLine(),
-            _input.TraceLine(),
-            _input.RegistrationLine(),
             _cursor.StatusLine(),
             _cursor.PositionLine(),
             _cursor.ProbeRenderTarget(),

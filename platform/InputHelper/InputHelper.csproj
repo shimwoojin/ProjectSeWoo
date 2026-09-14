@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    타건 수만 세는 최소 프로세스. 게임 본체와 별도 바이너리다.
+    왜 분리했는지는 docs/A4-GLOBAL-INPUT.md §3 참고 - 엔진 프로세스 안에서는
+    키보드 RawInput 을 안정적으로 받지 못했다.
+
+    WinExe 인 이유: 콘솔 창이 뜨면 안 된다. 상주 앱의 헬퍼가 검은 창을 띄우면
+    그 자체로 유저가 의심한다.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>InputHelper</AssemblyName>
+    <RootNamespace>ProjectSeWoo.InputHelper</RootNamespace>
+    <!-- 단일 파일로 뽑으면 배포와 백신 검증이 단순해진다 (§7-2) -->
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <!--
+    공유 메모리 규약은 게임과 헬퍼가 같은 정의를 써야 한다.
+    복사해 두면 언젠가 한쪽만 바뀌므로 링크한다.
+  -->
+  <ItemGroup>
+    <Compile Include="../../shared/InputBridge.cs" Link="InputBridge.cs" />
+  </ItemGroup>
+
+</Project>

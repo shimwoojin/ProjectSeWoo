@@ -14,5 +14,11 @@
   -->
   <ItemGroup>
     <Compile Remove="tools/**" />
+    <!--
+      입력 헬퍼는 별도 exe 다. 여기서 제외하지 않으면 헬퍼 코드가
+      ProjectSeWoo.dll 안에도 같이 들어가고, 그러면 "게임 본체에는 키보드
+      원본을 만지는 코드가 없다"(§7-2)가 성립하지 않는다.
+    -->
+    <Compile Remove="platform/InputHelper/**" />
   </ItemGroup>
 </Project>
