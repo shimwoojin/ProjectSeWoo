@@ -1,0 +1,33 @@
+using Godot;
+using ProjectSeWoo.Shared;
+
+namespace ProjectSeWoo.Platform.Mocks;
+
+/// <summary>
+/// <see cref="IShell"/> 목 구현. 값을 기억만 하고 창은 건드리지 않는다.
+///
+/// 실물은 A3 에서 <c>src/OverlayShell.cs</c> 의 스파이크 코드를 모듈화해 만든다.
+/// </summary>
+public sealed class MockShell : IShell
+{
+    public float Scale { get; private set; } = 1.0f;
+
+    public float Opacity { get; private set; } = 1.0f;
+
+    public bool ClickThrough { get; private set; } = true;
+
+    /// <summary>
+    /// 목이 돌려줄 배치 가능 영역. 기본값은 현재 화면이지만, **멀티모니터 좌표를
+    /// 시험하려면 음수 원점을 넣어 본다** — 실제로 이 프로젝트의 개발 PC 는
+    /// 모니터가 3대고 하나는 X 가 음수다. 게임 레이어가 (0,0) 을 가정하면 거기서 깨진다.
+    /// </summary>
+    public Rect2I SafeArea { get; set; } = new(Vector2I.Zero, new Vector2I(1920, 1080));
+
+    public void SetScale(float s) => Scale = s;
+
+    public void SetOpacity(float a) => Opacity = a;
+
+    public void SetClickThrough(bool on) => ClickThrough = on;
+
+    public Rect2I GetSafeArea() => SafeArea;
+}

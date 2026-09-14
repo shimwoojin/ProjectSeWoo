@@ -97,6 +97,16 @@ public partial class OverlayShell : Node2D
         tick.Timeout += OnTick;
         AddChild(tick);
 
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--selftest") >= 0)
+        {
+            // 세이브 스키마가 기획서 §7-5 의 JSON 과 맞는지 확인하고 끝낸다.
+            // 계약 문서와 코드가 갈라지는 것은 눈으로 안 잡히고, 을이 구현을
+            // 끝낸 뒤에야 드러난다.
+            GD.Print(Shared.SaveSchema.Describe());
+            GetTree().Quit(Shared.SaveSchema.SelfTest() == null ? 0 : 1);
+            return;
+        }
+
         ParseAutoReportArgs();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
