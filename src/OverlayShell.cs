@@ -30,6 +30,10 @@ public partial class OverlayShell : Node2D
     private readonly PerfProbe _perf = new();
     private CursorLayer _cursor;
 
+    // A4 실물. A3 에서 셸을 모듈화할 때 제대로 된 자리로 옮긴다.
+    // 지금 여기 붙이는 이유는 스파이크 리포트로 검증하기 위해서다.
+    private Platform.RawInputSource _input;
+
     private Window _win;
     private Sprite2D _mascot;
     private Line2D _outline;
@@ -87,6 +91,9 @@ public partial class OverlayShell : Node2D
 
         // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
         // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
+        _input = new Platform.RawInputSource();
+        _input.Start();
+
         _cursor = new CursorLayer(this);
         // 투명은 창 생성 시점에 정해지므로 이 인자만 다른 것들보다 먼저 읽는다.
         _cursor.Build(opaque: Array.IndexOf(OS.GetCmdlineUserArgs(), "--cursor-opaque") >= 0);
@@ -259,6 +266,7 @@ public partial class OverlayShell : Node2D
 
         ApplyPassthrough(force: _updateEveryFrame);
         _cursor.Tick(delta);
+        _input.Tick(delta);
 
         if (_autoReportPath != null)
         {
@@ -491,6 +499,8 @@ public partial class OverlayShell : Node2D
             $"rend  {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             "",
             $"pass  {OnOff(_passthroughOn)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
+            $"in    total {_input.TotalCount}  cap-drop {_input.DroppedByCap}"
+                + $"  decay-drop {_input.DroppedByDecay}  [{_input.Status}]",
             $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}"
                 + $"   in L{_clicks} R{_rclicks} W{_wheels} D{_drags}",
             _cursor.StatusLine(),
@@ -726,6 +736,9 @@ public partial class OverlayShell : Node2D
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
             $"input on body: left {_clicks}, right {_rclicks},"
                 + $" wheel {_wheels}, drag-moved {_drags}",
+            _input.StatusLine(),
+            _input.TraceLine(),
+            _input.RegistrationLine(),
             _cursor.StatusLine(),
             _cursor.PositionLine(),
             _cursor.ProbeRenderTarget(),
@@ -739,6 +752,13 @@ public partial class OverlayShell : Node2D
             "[eye ] no flicker              ?   <- F3 로 every-frame 과 비교해서 직접 채운다",
             "[eye ] drag ok on every screen ?   <- F7/F8 로 모니터별 확인 후 직접 채운다",
         });
+    }
+
+    public override void _ExitTree()
+    {
+        // RawInput 등록과 WndProc 후킹을 되돌린다. 상주 앱이라 프로세스가
+        // 오래 살고, 남겨두면 다음 실행에서 무엇이 원인인지 알기 어려워진다.
+        _input?.Dispose();
     }
 
     private static string OnOff(bool value) => value ? "on" : "off";
