@@ -28,6 +28,7 @@ public partial class OverlayShell : Node2D
     private static readonly int[] FpsCaps = { 60, 30, 10, 0 };
 
     private readonly PerfProbe _perf = new();
+    private CursorLayer _cursor;
 
     private Window _win;
     private Sprite2D _mascot;
@@ -51,6 +52,10 @@ public partial class OverlayShell : Node2D
     private double _autoDurationSec;
     private double _autoElapsed;
     private bool _autoWarmedUp;
+    private bool _autoCursor;
+    private bool _autoCursorSim;
+    private string _autoCursorIntervalMs;
+    private string _autoCursorMode;
 
     // --- 계측 ---
     private Vector2[] _appliedRegion = Array.Empty<Vector2>();
@@ -72,6 +77,11 @@ public partial class OverlayShell : Node2D
 
         ApplyPowerSettings();
         BuildScene();
+
+        // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
+        // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
+        _cursor = new CursorLayer(this);
+        _cursor.Build();
         MoveToScreen(DisplayServer.WindowGetCurrentScreen());
         ApplyPassthrough(force: true);
 
@@ -230,6 +240,7 @@ public partial class OverlayShell : Node2D
         }
 
         ApplyPassthrough(force: _updateEveryFrame);
+        _cursor.Tick(delta);
 
         if (_autoReportPath != null)
         {
@@ -349,6 +360,21 @@ public partial class OverlayShell : Node2D
                 _uptime = 0.0;
                 break;
 
+            case Key.F11:
+                _cursor.SetEnabled(!_cursor.Enabled);
+                _perf.Reset();
+                break;
+
+            case Key.F12:
+                _cursor.CycleInterval();
+                _perf.Reset();
+                break;
+
+            case Key.Key1:
+                _cursor.CycleMode();
+                _perf.Reset();
+                break;
+
             case Key.Escape:
                 GetTree().Quit();
                 break;
@@ -396,6 +422,7 @@ public partial class OverlayShell : Node2D
             "",
             $"pass  {OnOff(_passthroughOn)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
             $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}   clicks {_clicks}",
+            _cursor.StatusLine(),
             "",
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}",
             $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}",
@@ -434,7 +461,27 @@ public partial class OverlayShell : Node2D
             {
                 _autoWarmupSec = warmup;
             }
+            else if (arg == "--cursor")
+            {
+                // 커서 레이어를 켠 채로 잰다. §7-3 이 "커서 창을 포함해서 실측"하라고
+                // 요구하므로, 셸 단독 숫자만으로는 저부하 판정을 닫을 수 없다.
+                _autoCursor = true;
+            }
+            else if (arg == "--cursor-sim")
+            {
+                _autoCursorSim = true;
+            }
+            else if (arg.StartsWith("--cursor-interval=", StringComparison.Ordinal))
+            {
+                _autoCursorIntervalMs = arg["--cursor-interval=".Length..];
+            }
+            else if (arg.StartsWith("--cursor-mode=", StringComparison.Ordinal))
+            {
+                _autoCursorMode = arg["--cursor-mode=".Length..];
+            }
         }
+
+        ApplyAutoCursorArgs();
 
         if (_autoReportPath == null)
         {
@@ -451,6 +498,50 @@ public partial class OverlayShell : Node2D
 
         GD.Print($"[shell] auto report -> {_autoReportPath}"
             + $" (warmup {_autoWarmupSec:F0}s, measure {_autoDurationSec - _autoWarmupSec:F0}s)");
+    }
+
+    /// <summary>
+    /// 커서 레이어를 스크립트가 요구한 상태로 맞춘다. 인터랙티브 핫키(F11/F12/1)와
+    /// 같은 조작을 인자로 노출하는 것뿐이라, 사람이 손으로 재든 스크립트가 재든
+    /// 같은 상태를 만든다.
+    /// </summary>
+    private void ApplyAutoCursorArgs()
+    {
+        if (!_autoCursor)
+        {
+            return;
+        }
+
+        if (int.TryParse(_autoCursorIntervalMs, out int ms))
+        {
+            // 후보 배열에 없는 값을 넘기면 조용히 무시되는 게 최악이다. 못 맞추면 말한다.
+            int idx = Array.IndexOf(CursorLayer.IntervalsMs, ms);
+            if (idx < 0)
+            {
+                GD.PrintErr($"[shell] --cursor-interval={ms} 는 후보에 없다"
+                    + $" ({string.Join("/", CursorLayer.IntervalsMs)}). 기본값을 쓴다");
+            }
+            else
+            {
+                while (_cursor.IntervalIndex != idx)
+                {
+                    _cursor.CycleInterval();
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_autoCursorMode)
+            && Enum.TryParse(_autoCursorMode, ignoreCase: true, out CursorLayer.FollowMode mode))
+        {
+            while (_cursor.Mode != mode)
+            {
+                _cursor.CycleMode();
+            }
+        }
+
+        _cursor.Simulate = _autoCursorSim;
+        _cursor.SetEnabled(true);
+        _cursor.ResetCounters();
     }
 
     private static bool TryParseSeconds(string arg, string prefix, out double value)
@@ -477,6 +568,7 @@ public partial class OverlayShell : Node2D
 
             _autoWarmedUp = true;
             _perf.Reset();
+            _cursor.ResetCounters();
             _uptime = 0.0;
             return;
         }
@@ -530,6 +622,7 @@ public partial class OverlayShell : Node2D
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
             $"clicks on body {_clicks}",
+            _cursor.StatusLine(),
             "",
             // 자동 판정은 숫자로 확인되는 두 항목만 한다.
             // 플리커 / 드래그 / 멀티모니터는 사람이 눈으로 봐야 하므로 미정으로 남긴다.
