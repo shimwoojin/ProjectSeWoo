@@ -45,6 +45,7 @@ public partial class OverlayShell : Node2D
     // --- 드래그 ---
     private bool _dragging;
     private Vector2I _dragOffset;
+    private Vector2I _dragStart;
 
     // --- 무인 측정 모드 (tools/measure-renderers.ps1) ---
     private string _autoReportPath;
@@ -64,6 +65,9 @@ public partial class OverlayShell : Node2D
     private Vector2[] _appliedRegion = Array.Empty<Vector2>();
     private long _regionWrites;
     private int _clicks;
+    private int _rclicks;
+    private int _wheels;
+    private int _drags;
     private double _uptime;
     private double _punch;
 
@@ -262,18 +266,47 @@ public partial class OverlayShell : Node2D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is not InputEventMouseButton mb || mb.ButtonIndex != MouseButton.Left)
+        if (@event is not InputEventMouseButton mb)
         {
             return;
         }
 
-        if (mb.Pressed)
+        // 좌클릭 말고도 세는 이유: 커서 장식 창의 클릭 통과를 검증하려면 마우스 입력
+        // **경로마다** 따로 확인해야 한다. 좌클릭만 통과하고 우클릭·휠이 막히는 실패가
+        // 실제로 가능하고, 그건 "조금 불편"이 아니라 출시 불가다.
+        switch (mb.ButtonIndex)
         {
-            BeginDrag();
-        }
-        else
-        {
-            EndDrag();
+            case MouseButton.Left:
+                if (mb.Pressed)
+                {
+                    BeginDrag();
+                }
+                else
+                {
+                    EndDrag();
+                }
+
+                break;
+
+            case MouseButton.Right:
+                if (mb.Pressed)
+                {
+                    _rclicks++;
+                }
+
+                break;
+
+            case MouseButton.WheelUp:
+            case MouseButton.WheelDown:
+                if (mb.Pressed)
+                {
+                    _wheels++;
+                }
+
+                break;
+
+            default:
+                return;
         }
 
         GetViewport().SetInputAsHandled();
@@ -285,6 +318,7 @@ public partial class OverlayShell : Node2D
         _clicks++;
         _punch = 1.0;
         _dragOffset = DisplayServer.MouseGetPosition() - _win.Position;
+        _dragStart = _win.Position;
 
         // 드래그 중에는 창 전체가 마우스를 받게 한다.
         // 그러지 않으면 커서가 히트 영역을 벗어나는 순간 드래그가 끊긴다.
@@ -300,6 +334,13 @@ public partial class OverlayShell : Node2D
         }
 
         _dragging = false;
+
+        // 드래그로 창이 실제로 움직였는가. 누르고 떼기만 한 것과 구분한다.
+        if (_win.Position != _dragStart)
+        {
+            _drags++;
+        }
+
         ApplyPassthrough(force: true);
     }
 
@@ -361,6 +402,9 @@ public partial class OverlayShell : Node2D
                 _perf.Reset();
                 _regionWrites = 0;
                 _clicks = 0;
+                _rclicks = 0;
+                _wheels = 0;
+                _drags = 0;
                 _uptime = 0.0;
                 break;
 
@@ -433,7 +477,8 @@ public partial class OverlayShell : Node2D
             $"rend  {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             "",
             $"pass  {OnOff(_passthroughOn)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
-            $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}   clicks {_clicks}",
+            $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}"
+                + $"   in L{_clicks} R{_rclicks} W{_wheels} D{_drags}",
             _cursor.StatusLine(),
             "",
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}",
@@ -665,7 +710,8 @@ public partial class OverlayShell : Node2D
                 + $" scale {DisplayServer.ScreenGetScale(screen):F2},"
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
-            $"clicks on body {_clicks}",
+            $"input on body: left {_clicks}, right {_rclicks},"
+                + $" wheel {_wheels}, drag-moved {_drags}",
             _cursor.StatusLine(),
             _cursor.PositionLine(),
             _cursor.ProbeRenderTarget(),
