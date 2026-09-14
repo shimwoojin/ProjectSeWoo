@@ -54,6 +54,8 @@ public partial class OverlayShell : Node2D
     private bool _autoWarmedUp;
     private bool _autoCursor;
     private bool _autoCursorSim;
+    private bool _autoCursorFill;
+    private bool _autoCursorNoPass;
     private string _autoCursorIntervalMs;
     private string _autoCursorMode;
 
@@ -81,7 +83,8 @@ public partial class OverlayShell : Node2D
         // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
         // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
         _cursor = new CursorLayer(this);
-        _cursor.Build();
+        // 투명은 창 생성 시점에 정해지므로 이 인자만 다른 것들보다 먼저 읽는다.
+        _cursor.Build(opaque: Array.IndexOf(OS.GetCmdlineUserArgs(), "--cursor-opaque") >= 0);
         MoveToScreen(DisplayServer.WindowGetCurrentScreen());
         ApplyPassthrough(force: true);
 
@@ -375,6 +378,14 @@ public partial class OverlayShell : Node2D
                 _perf.Reset();
                 break;
 
+            case Key.Key2:
+                _cursor.ToggleDebugFill();
+                break;
+
+            case Key.Key3:
+                GD.Print($"[cursor] {_cursor.ProbeRenderTarget()}");
+                break;
+
             case Key.Escape:
                 GetTree().Quit();
                 break;
@@ -471,6 +482,14 @@ public partial class OverlayShell : Node2D
             {
                 _autoCursorSim = true;
             }
+            else if (arg == "--cursor-fill")
+            {
+                _autoCursorFill = true;
+            }
+            else if (arg == "--cursor-nopass")
+            {
+                _autoCursorNoPass = true;
+            }
             else if (arg.StartsWith("--cursor-interval=", StringComparison.Ordinal))
             {
                 _autoCursorIntervalMs = arg["--cursor-interval=".Length..];
@@ -540,6 +559,12 @@ public partial class OverlayShell : Node2D
         }
 
         _cursor.Simulate = _autoCursorSim;
+        _cursor.SkipClickThrough = _autoCursorNoPass;
+        if (_autoCursorFill)
+        {
+            _cursor.ToggleDebugFill();
+        }
+
         _cursor.SetEnabled(true);
         _cursor.ResetCounters();
     }
@@ -623,6 +648,7 @@ public partial class OverlayShell : Node2D
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
             $"clicks on body {_clicks}",
             _cursor.StatusLine(),
+            _cursor.ProbeRenderTarget(),
             "",
             // 자동 판정은 숫자로 확인되는 두 항목만 한다.
             // 플리커 / 드래그 / 멀티모니터는 사람이 눈으로 봐야 하므로 미정으로 남긴다.

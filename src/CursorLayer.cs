@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Godot;
 
 namespace ProjectSeWoo;
@@ -37,23 +38,25 @@ public sealed class CursorLayer
     /// <summary>이동 주기 후보(ms). 0 = 매 프레임.</summary>
     public static readonly int[] IntervalsMs = { 0, 16, 33, 50, 100 };
 
-    /// <summary>
-    /// "어떤 점도 포함하지 않는" passthrough 폴리곤 = 창 전체 클릭 통과.
-    ///
-    /// Godot 의 window_set_mouse_passthrough 는 "이 폴리곤 **안쪽**이 마우스를 받는다"는
-    /// 의미이고, 빈 배열은 passthrough 를 끄는 것(창 전체가 마우스를 먹음)이다.
-    /// 그래서 전체 통과를 표현하려면 비우는 게 아니라, 창 밖에 있는 축퇴 삼각형을
-    /// 준다. 그러면 어느 점을 찍어도 폴리곤 안이 아니므로 전부 통과한다.
-    ///
-    /// Windows 에서 Godot 은 이걸 WM_NCHITTEST 의 HTTRANSPARENT 로 구현하므로
-    /// 렌더링에는 영향이 없다. SetWindowRgn 처럼 창을 잘라내는 방식이 아니다.
-    /// </summary>
-    private static readonly Vector2[] NoHitRegion =
-    {
-        new(-4.0f, -4.0f),
-        new(-3.0f, -4.0f),
-        new(-4.0f, -3.0f),
-    };
+    // --- Win32 클릭 통과 ---------------------------------------------------
+    //
+    // Godot 의 window_set_mouse_passthrough 는 Windows 에서 SetWindowRgn 으로
+    // 구현돼 있다. 즉 창을 **물리적으로 잘라낸다.** 그래서 "창 전체 통과"를 노리고
+    // 창 밖의 축퇴 폴리곤을 주면 창이 통째로 잘려서 아무것도 안 보이게 된다.
+    // 실제로 이 프로젝트에서 그렇게 만들었고, "클릭이 통과된다"는 측정 결과까지
+    // 같이 나와서 성공으로 오판했다 — 거기 창이 아예 없었기 때문이다.
+    //
+    // 올바른 방법은 WS_EX_TRANSPARENT 를 직접 거는 것이다. 이건 히트테스트만
+    // 바꾸고 렌더링은 건드리지 않는다.
+
+    private const int GwlExStyle = -20;
+    private const long WsExTransparent = 0x00000020L;
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
     /// <summary>
     /// 추종 모드. Lazy 는 §1.3의 폴백안("고빈도 추종 없이 느슨하게 따라옴")을
@@ -75,6 +78,7 @@ public sealed class CursorLayer
 
     private Window _win;
     private Sprite2D _deco;
+    private ColorRect _debugFill;
 
     private Vector2 _pos;
     private double _sinceMove;
@@ -110,6 +114,22 @@ public sealed class CursorLayer
     /// </summary>
     public bool Simulate { get; set; }
 
+    /// <summary>
+    /// 창을 불투명하게 띄운다. 진단 전용.
+    ///
+    /// "커서에 아무것도 안 보인다"는 증상은 원인이 둘인데 화면상으로는 똑같이 보인다:
+    ///   (a) 창은 그려지는데 스프라이트가 안 보인다 (알파/좌표/텍스처 문제)
+    ///   (b) 창 자체가 아무것도 렌더하지 않는다 (서브 윈도우 투명 미지원)
+    /// 불투명 사각형을 강제로 깔면 둘이 갈린다. 사각형이 보이면 (a), 안 보이면 (b)다.
+    /// </summary>
+    public bool DebugFill { get; private set; }
+
+    /// <summary>진단용. 클릭 통과를 걸지 않는다. 그것이 창을 안 보이게 만드는 범인인지 가른다.</summary>
+    public bool SkipClickThrough { get; set; }
+
+    /// <summary>클릭 통과가 실제로 걸렸는지. 리포트에 박아서 조용한 실패를 막는다.</summary>
+    public string ClickThroughState { get; private set; } = "미적용";
+
     public int IntervalIndex { get; private set; } = 1;
 
     public int IntervalMs => IntervalsMs[IntervalIndex];
@@ -133,7 +153,12 @@ public sealed class CursorLayer
     /// 게임 화면 안에 그려지는 가짜 창이 아니라 진짜 OS 창이 된다. 그게 없으면
     /// 창이 "떠 있는 것처럼" 보이지만 바탕화면 위로는 못 나간다.
     /// </summary>
-    public void Build()
+    /// <param name="opaque">
+    /// 진단용. 창을 투명하지 않게 만든다. "서브 윈도우가 아무것도 렌더하지 않는다"는
+    /// 증상의 원인이 투명 설정인지 가르기 위한 것이다. 투명은 런타임에 못 바꾸므로
+    /// 생성 시점에 정해야 하고, 그래서 핫키가 아니라 인자다.
+    /// </param>
+    public void Build(bool opaque = false)
     {
         if (DisplayServer.GetName() == "headless")
         {
@@ -146,8 +171,8 @@ public sealed class CursorLayer
             Name = "CursorWindow",
             Borderless = true,
             AlwaysOnTop = true,
-            Transparent = true,
-            TransparentBg = true,
+            Transparent = !opaque,
+            TransparentBg = !opaque,
             Unfocusable = true,
             Unresizable = true,
             Size = new Vector2I(WindowSize, WindowSize),
@@ -155,7 +180,22 @@ public sealed class CursorLayer
         };
         _host.AddChild(_win);
 
+        // 창 전체를 덮는 진단용 사각형. 스프라이트보다 먼저 넣어서 뒤에 깔리게 한다.
+        _debugFill = new ColorRect
+        {
+            Name = "DebugFill",
+            Color = new Color(1.0f, 0.0f, 0.8f, 1.0f),
+            Size = new Vector2(WindowSize, WindowSize),
+            Visible = false,
+        };
+        _win.AddChild(_debugFill);
+
         var texture = GD.Load<Texture2D>("res://icon.svg");
+        if (texture == null)
+        {
+            GD.PrintErr("[cursor] icon.svg 로드 실패");
+        }
+
         _deco = new Sprite2D
         {
             Name = "Deco",
@@ -203,7 +243,9 @@ public sealed class CursorLayer
         }
 
         IsSupported = true;
-        GD.Print($"[cursor] window id={id} size={WindowSize} -> OS window OK");
+        GD.Print($"[cursor] window id={id} size={WindowSize} -> OS window OK"
+            + $" (tex {_deco.Texture?.GetSize()}, transparent {_win.Transparent},"
+            + $" bg {_win.TransparentBg})");
     }
 
     /// <summary>
@@ -219,7 +261,46 @@ public sealed class CursorLayer
     /// </summary>
     private void ApplyClickThrough()
     {
-        DisplayServer.WindowSetMousePassthrough(NoHitRegion, _win.GetWindowId());
+        if (SkipClickThrough)
+        {
+            GD.Print("[cursor] click-through 생략 (진단 모드)");
+            return;
+        }
+
+        if (OS.GetName() != "Windows")
+        {
+            ClickThroughState = "미지원 플랫폼";
+            return;
+        }
+
+        long handle = DisplayServer.WindowGetNativeHandle(
+            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
+
+        if (handle == 0)
+        {
+            ClickThroughState = "HWND 없음";
+            GD.PrintErr("[cursor] HWND 를 못 얻었다. 클릭 통과를 걸 수 없다");
+            return;
+        }
+
+        var hwnd = new IntPtr(handle);
+        long before = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
+        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent));
+
+        // 반드시 되읽어서 확인한다. 이 프로젝트에서 Window.Flags.MousePassthrough 가
+        // 조용히 아무것도 하지 않는 것을 이미 밟았다. "걸었다"와 "걸렸다"는 다르다.
+        long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
+        bool ok = (after & WsExTransparent) != 0;
+
+        ClickThroughState = ok ? "WS_EX_TRANSPARENT" : "실패";
+        if (!ok)
+        {
+            GD.PrintErr($"[cursor] WS_EX_TRANSPARENT 가 안 걸렸다 (ex 0x{after:X})");
+        }
+        else
+        {
+            GD.Print($"[cursor] click-through OK (ex 0x{before:X} -> 0x{after:X})");
+        }
     }
 
     // ------------------------------------------------------------------ 루프
@@ -344,6 +425,56 @@ public sealed class CursorLayer
         ResetCounters();
     }
 
+    /// <summary>
+    /// Godot 이 이 창의 렌더 타깃에 실제로 무엇을 그렸는지 읽는다.
+    ///
+    /// "화면에 아무것도 안 보인다"의 원인이 둘인데 밖에서는 구분이 안 된다:
+    ///   (a) Godot 이 애초에 안 그렸다        -> 렌더 타깃이 비어 있다
+    ///   (b) 그렸는데 화면에 못 올렸다        -> 렌더 타깃에는 내용이 있다 (합성/표시 문제)
+    /// 엔진 안에서 읽으면 이게 갈린다. 밖에서 화면을 캡처하는 것만으로는 못 가른다.
+    /// </summary>
+    public string ProbeRenderTarget()
+    {
+        if (!_built || !IsSupported)
+        {
+            return "render target: n/a";
+        }
+
+        try
+        {
+            Image img = _win.GetTexture()?.GetImage();
+            if (img == null)
+            {
+                return "render target: null (텍스처 없음)";
+            }
+
+            int w = img.GetWidth();
+            int h = img.GetHeight();
+            Color mid = img.GetPixel(w / 2, h / 2);
+            Color corner = img.GetPixel(2, 2);
+
+            return $"render target: {w}x{h} center=({mid.R:F2},{mid.G:F2},{mid.B:F2},{mid.A:F2})"
+                + $" corner=({corner.R:F2},{corner.G:F2},{corner.B:F2},{corner.A:F2})";
+        }
+        catch (Exception e)
+        {
+            return $"render target: 읽기 실패 ({e.GetType().Name}: {e.Message})";
+        }
+    }
+
+    /// <summary>진단용 불투명 사각형 토글. 자세한 이유는 <see cref="DebugFill"/>.</summary>
+    public void ToggleDebugFill()
+    {
+        if (!_built)
+        {
+            return;
+        }
+
+        DebugFill = !DebugFill;
+        _debugFill.Visible = DebugFill;
+        GD.Print($"[cursor] debug fill {(DebugFill ? "ON (분홍 사각형이 보여야 한다)" : "off")}");
+    }
+
     public void CycleMode()
     {
         Mode = (FollowMode)(((int)Mode + 1) % 3);
@@ -371,8 +502,8 @@ public sealed class CursorLayer
         }
 
         string interval = IntervalMs == 0 ? "frame" : $"{IntervalMs}ms";
-        return $"cursor {(Enabled ? "on" : "off")}{(Simulate ? " SIM" : "")},"
+        return $"cursor {(Enabled ? "on" : "off")}{(Simulate ? " SIM" : "")}{(DebugFill ? " FILL" : "")},"
             + $" {Mode.ToString().ToLowerInvariant()}, every {interval},"
-            + $" moves {_moves}, skip {_skipped}";
+            + $" moves {_moves}, skip {_skipped}, clickthru {ClickThroughState}";
     }
 }
