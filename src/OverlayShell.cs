@@ -56,6 +56,7 @@ public partial class OverlayShell : Node2D
     private bool _autoCursorSim;
     private bool _autoCursorFill;
     private bool _autoCursorNoPass;
+    private string _autoCursorClickThru;
     private string _autoCursorIntervalMs;
     private string _autoCursorMode;
 
@@ -490,6 +491,10 @@ public partial class OverlayShell : Node2D
             {
                 _autoCursorNoPass = true;
             }
+            else if (arg.StartsWith("--cursor-clickthru=", StringComparison.Ordinal))
+            {
+                _autoCursorClickThru = arg["--cursor-clickthru=".Length..];
+            }
             else if (arg.StartsWith("--cursor-interval=", StringComparison.Ordinal))
             {
                 _autoCursorIntervalMs = arg["--cursor-interval=".Length..];
@@ -560,6 +565,20 @@ public partial class OverlayShell : Node2D
 
         _cursor.Simulate = _autoCursorSim;
         _cursor.SkipClickThrough = _autoCursorNoPass;
+
+        if (!string.IsNullOrEmpty(_autoCursorClickThru))
+        {
+            if (Enum.TryParse(_autoCursorClickThru, ignoreCase: true,
+                    out CursorLayer.ClickThroughMode ctMode))
+            {
+                _cursor.ClickThrough = ctMode;
+            }
+            else
+            {
+                GD.PrintErr($"[shell] --cursor-clickthru={_autoCursorClickThru} 를 모른다"
+                    + " (transparent|layered|hittest)");
+            }
+        }
         if (_autoCursorFill)
         {
             _cursor.ToggleDebugFill();
@@ -648,6 +667,7 @@ public partial class OverlayShell : Node2D
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
             $"clicks on body {_clicks}",
             _cursor.StatusLine(),
+            _cursor.PositionLine(),
             _cursor.ProbeRenderTarget(),
             "",
             // 자동 판정은 숫자로 확인되는 두 항목만 한다.

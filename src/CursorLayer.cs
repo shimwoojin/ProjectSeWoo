@@ -50,13 +50,41 @@ public sealed class CursorLayer
     // 바꾸고 렌더링은 건드리지 않는다.
 
     private const int GwlExStyle = -20;
+    private const int GwlpWndProc = -4;
     private const long WsExTransparent = 0x00000020L;
+    private const long WsExLayered = 0x00080000L;
+    private const uint WmNcHitTest = 0x0084;
+    private const uint LwaAlpha = 0x00000002;
+
+    /// <summary>WM_NCHITTEST 응답. "이 창은 마우스에 없는 셈 쳐라".</summary>
+    private static readonly IntPtr HtTransparent = new(-1);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "CallWindowProcW")]
+    private static extern IntPtr CallWindowProc(IntPtr prev, IntPtr hWnd, uint msg, IntPtr w, IntPtr l);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
+
+    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>클릭 통과 구현 방식. 어느 것이 실제로 먹는지는 재 봐야 안다.</summary>
+    public enum ClickThroughMode
+    {
+        /// <summary>WS_EX_TRANSPARENT 만. **실측 결과 클릭을 막지 못했다.**</summary>
+        Transparent,
+
+        /// <summary>WS_EX_TRANSPARENT | WS_EX_LAYERED. 오버레이의 교과서 조합.</summary>
+        Layered,
+
+        /// <summary>WndProc 을 가로채 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.</summary>
+        HitTest,
+    }
 
     /// <summary>
     /// 추종 모드. Lazy 는 §1.3의 폴백안("고빈도 추종 없이 느슨하게 따라옴")을
@@ -129,6 +157,14 @@ public sealed class CursorLayer
 
     /// <summary>클릭 통과가 실제로 걸렸는지. 리포트에 박아서 조용한 실패를 막는다.</summary>
     public string ClickThroughState { get; private set; } = "미적용";
+
+    /// <summary>어느 방식으로 클릭 통과를 걸 것인가.</summary>
+    public ClickThroughMode ClickThrough { get; set; } = ClickThroughMode.HitTest;
+
+    // WndProc 후킹용. 델리게이트를 필드로 잡아두지 않으면 GC 가 수거해서
+    // OS 가 죽은 함수 포인터를 부른다 = 프로세스 크래시.
+    private WndProcDelegate _wndProcHook;
+    private IntPtr _originalWndProc;
 
     public int IntervalIndex { get; private set; } = 1;
 
@@ -284,23 +320,77 @@ public sealed class CursorLayer
         }
 
         var hwnd = new IntPtr(handle);
+
+        switch (ClickThrough)
+        {
+            case ClickThroughMode.Transparent:
+                ApplyExStyle(hwnd, WsExTransparent, "WS_EX_TRANSPARENT");
+                break;
+
+            case ClickThroughMode.Layered:
+                ApplyExStyle(hwnd, WsExTransparent | WsExLayered, "TRANSPARENT|LAYERED");
+                // LAYERED 를 붙이면 알파를 정해주기 전까지 창이 아예 안 보인다.
+                // 255 = 완전 불투명. per-pixel 알파가 살아남는지는 실측으로 확인한다.
+                if (!SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha))
+                {
+                    GD.PrintErr("[cursor] SetLayeredWindowAttributes 실패");
+                }
+
+                break;
+
+            case ClickThroughMode.HitTest:
+                HookWndProc(hwnd);
+                break;
+        }
+    }
+
+    private void ApplyExStyle(IntPtr hwnd, long bits, string label)
+    {
         long before = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent));
+        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | bits));
 
-        // 반드시 되읽어서 확인한다. 이 프로젝트에서 Window.Flags.MousePassthrough 가
-        // 조용히 아무것도 하지 않는 것을 이미 밟았다. "걸었다"와 "걸렸다"는 다르다.
+        // 반드시 되읽어서 확인한다. Window.Flags.MousePassthrough 가 조용히 아무것도
+        // 하지 않는 것을 이미 밟았다. 다만 "걸렸다"가 "동작한다"는 아니다 -
+        // WS_EX_TRANSPARENT 는 되읽기도 통과했는데 실제 클릭은 막지 못했다.
         long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        bool ok = (after & WsExTransparent) != 0;
+        bool ok = (after & bits) == bits;
 
-        ClickThroughState = ok ? "WS_EX_TRANSPARENT" : "실패";
-        if (!ok)
+        ClickThroughState = ok ? label : $"{label} 실패";
+        GD.Print($"[cursor] click-through {label} {(ok ? "적용" : "실패")}"
+            + $" (ex 0x{before:X} -> 0x{after:X})");
+    }
+
+    /// <summary>
+    /// 창의 WndProc 을 가로채서 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.
+    ///
+    /// exstyle 방식과 달리 이건 Windows 의 히트테스트 경로에 직접 답하는 것이라,
+    /// DirectComposition 창(Godot 은 투명 창에 WS_EX_NOREDIRECTIONBITMAP 을 쓴다)에서도
+    /// 렌더링을 건드리지 않는다.
+    /// </summary>
+    private void HookWndProc(IntPtr hwnd)
+    {
+        if (_originalWndProc != IntPtr.Zero)
         {
-            GD.PrintErr($"[cursor] WS_EX_TRANSPARENT 가 안 걸렸다 (ex 0x{after:X})");
+            return;
         }
-        else
+
+        _wndProcHook = HookProc;
+        IntPtr ptr = Marshal.GetFunctionPointerForDelegate(_wndProcHook);
+        _originalWndProc = SetWindowLongPtr(hwnd, GwlpWndProc, ptr);
+
+        bool ok = _originalWndProc != IntPtr.Zero;
+        ClickThroughState = ok ? "WM_NCHITTEST" : "WndProc 후킹 실패";
+        GD.Print($"[cursor] click-through WM_NCHITTEST {(ok ? "적용" : "실패")}");
+    }
+
+    private IntPtr HookProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == WmNcHitTest)
         {
-            GD.Print($"[cursor] click-through OK (ex 0x{before:X} -> 0x{after:X})");
+            return HtTransparent;
         }
+
+        return CallWindowProc(_originalWndProc, hWnd, msg, wParam, lParam);
     }
 
     // ------------------------------------------------------------------ 루프
@@ -486,6 +576,28 @@ public sealed class CursorLayer
     {
         _moves = 0;
         _skipped = 0;
+    }
+
+    /// <summary>
+    /// Godot 이 읽은 커서 좌표와 장식 창이 실제로 놓인 좌표를 같이 찍는다.
+    ///
+    /// 멀티모니터에서 이 둘이 어긋나면 장식이 커서가 아닌 엉뚱한 곳에 그려진다.
+    /// 창이 "안 보인다"의 원인이 될 수 있고, 밖에서 창 위치만 봐서는 못 가른다.
+    /// </summary>
+    public string PositionLine()
+    {
+        if (!_built)
+        {
+            return "cursor pos: n/a";
+        }
+
+        Vector2I mouse = DisplayServer.MouseGetPosition();
+        Vector2I win = _win.Position;
+        Vector2I center = win + new Vector2I(WindowSize / 2, WindowSize / 2);
+        Vector2I off = center - mouse;
+
+        return $"cursor pos: mouse {mouse.X},{mouse.Y}  deco-center {center.X},{center.Y}"
+            + $"  offset {off.X},{off.Y}  screen #{DisplayServer.WindowGetCurrentScreen(_win.GetWindowId())}";
     }
 
     /// <summary>HUD / 리포트용 한 줄. ASCII 전용 - 기본 테마 폰트에 한글 글리프가 없다.</summary>

@@ -15,7 +15,7 @@
 | 0 | **두 번째 OS 창이 뜨는가** (C안의 전제) | **☑ Go** |
 | — | 창이 화면에 실제로 보이는가 | **☑ Go** — §2 참고. 한동안 안 보였다 |
 | 1 | 이동 주기 vs CPU (목표 유휴 1% 이하) | **☑ Go** — 최악 조건에서도 0.42% |
-| 5 | 클릭 통과가 확실한가 | **☑ Go (API 레벨)** — `WS_EX_TRANSPARENT`. 손 검증 남음 |
+| 5 | 클릭 통과가 확실한가 | **☑ Go (실클릭 검증)** — `WM_NCHITTEST` 후킹. 드래그/우클릭/휠은 손 검증 남음 |
 | 2 | 고무줄 현상 / 매달린 느낌 | ☐ 사람이 봐야 한다 |
 | 3 | 멀티모니터 경계 | ☐ 이 PC 모니터 3대로 확인 가능 |
 | 4 | 전체화면 게임 / 브라우저 / 작업표시줄 위 | ☐ 미실시 |
@@ -46,10 +46,19 @@ OS 에 직접 물어본 결과(`tools/inspect-windows.ps1`):
 
 ---
 
-## 2. ★ 클릭 통과 — 두 번 틀렸다 ★
+## 2. ★ 클릭 통과 — 세 번 틀렸다 ★
 
-이 항목 하나에서 **연달아 두 번 잘못된 구현을 했고, 두 번 다 "성공"으로 오판했다.**
-둘 다 화면이나 로그로는 안 드러나는 종류라 기록해 둔다.
+이 항목 하나에서 **연달아 세 번 잘못된 구현을 했고, 세 번 다 "성공"으로 오판했다.**
+매번 원인이 달랐지만 **실패 방식은 같았다 — 간접 지표를 보고 판정했다.**
+
+| 회차 | 구현 | 무엇을 보고 성공이라 했나 | 실제 |
+|---|---|---|---|
+| 1차 | `Window.Flags.MousePassthrough` | (아무것도 안 봄) | 플래그가 무시됨 |
+| 2차 | 창 밖 축퇴 폴리곤 | `WindowFromPoint` 통과 | 창이 통째로 잘림 |
+| 3차 | `WS_EX_TRANSPARENT` | exstyle + `WindowFromPoint` | 클릭을 계속 먹음 |
+| 4차 | `WM_NCHITTEST` 후킹 | **실제 클릭을 쏴서 표적이 받음** | 동작 |
+
+세 번 다 화면이나 로그로는 안 드러나는 종류였다.
 
 ### 1차 실패 — `Window.Flags.MousePassthrough` 는 아무것도 하지 않는다
 
@@ -87,7 +96,7 @@ DisplayServer.WindowSetMousePassthrough(NoHitRegion, _win.GetWindowId());
 > 구현하므로 렌더링에는 영향이 없다"고 썼다. **근거 없는 추측이었고 사실이 아니다.**
 > 히트테스트 결과 하나만 보고 기전을 지어냈다.
 
-### 최종 — `WS_EX_TRANSPARENT` 를 직접 건다
+### 3차 실패 — `WS_EX_TRANSPARENT` 는 스타일만 붙고 클릭을 못 막는다
 
 히트테스트만 바꾸고 렌더링은 건드리지 않는 정공법이다. 갑 담당 영역(P/Invoke ·
 윈도우 핸들링)에 정확히 들어간다.
@@ -104,17 +113,48 @@ SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent));
 long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
 ```
 
-`ClickThroughState` 를 리포트에 박아서 조용한 실패를 막는다.
+`ClickThroughState` 를 리포트에 박고, `WindowFromPoint` 로 "통과" 를 확인했다.
+**그래도 틀렸다.** 유저가 실제로 써 보니 클릭이 안 먹었다.
 
-### 검증 결과
+`WS_EX_TRANSPARENT` 는 붙었고(0x8200018 → 0x8200038), 창이 움직이는 내내 유지되고,
+`WindowFromPoint` 도 뒤 창을 돌려준다. **그런데 실제 마우스 입력은 이 창이 먹는다.**
+`WindowFromPoint` 가 실제 마우스 라우팅과 다르다는 뜻이다.
 
-| 조건 | 화면에 보이는가 | 클릭 |
-|---|---|---|
-| `WS_EX_TRANSPARENT` 적용 | **보인다 (76%)** | **통과** |
-| 클릭 통과 생략 (대조군) | 보인다 (76%) | 이 창이 먹음 |
+> **교훈: `WindowFromPoint` 는 클릭 통과의 증거가 아니다.** 이 항목에서 세 번 속았고
+> 세 번 다 "간접 지표"를 보고 판정했기 때문이다. 실제 클릭을 쏴서 표적이 받는지
+> 봐야 한다.
 
-대조군이 "이 창이 먹음"으로 나오는 것이 중요하다 — 히트테스트가 실제로 차이를
-구분한다는 증거다. 대조군 없이 "통과"만 봤다면 2차 실패를 또 놓쳤을 것이다.
+### 최종 — 3방식을 실제 클릭으로 비교했다
+
+통제 실험을 짰다. **표적은 우리 셸 창이다** — 셸이 이미 `clicks on body` 를 세서
+리포트에 찍으므로 외부 앱 없이 A/B 가 성립한다. 마스코트 좌표에 커서를 놓고
+실제로 클릭한 뒤, 셸의 클릭 카운터가 올랐는지 본다.
+
+| 방식 | 클릭 통과 | 화면 표시 | per-pixel 투명 |
+|---|---|---|---|
+| 커서 레이어 OFF (대조군) | (해당 없음) | — | 정상 |
+| 클릭 통과 안 검 (대조군) | **X 먹힘** | O 보임 | 정상 |
+| `WS_EX_TRANSPARENT` 만 | **X 먹힘** | O 보임 | 정상 |
+| **`TRANSPARENT`+`LAYERED`** | **O 통과** | O 보임 | **정상** |
+| **`WM_NCHITTEST` 후킹** | **O 통과** | O 보임 | **정상** |
+
+대조군 두 줄이 이 표의 핵심이다. "클릭 통과 안 검" 이 **X 먹힘**으로 나와야
+실험이 실제로 차이를 잡아낸다는 증거가 되고, 그게 없으면 또 속는다.
+
+**채택: `WM_NCHITTEST` 후킹.** 둘 다 동작하지만 이쪽이 **창 스타일을 전혀 건드리지
+않는다.** Godot 은 투명 창에 `WS_EX_NOREDIRECTIONBITMAP` 를 쓰는데, 거기에
+`WS_EX_LAYERED` 를 얹는 건 문서화되지 않은 조합이다. 이 PC 에서는 됐지만 다른
+GPU/드라이버에서 보장이 없다. 상주 앱은 남의 PC 에서 도는 게 전부라 이 차이가 크다.
+
+```csharp
+// 창의 WndProc 을 가로채 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.
+_wndProcHook = HookProc;                 // ★ 필드로 잡아둔다. GC 되면 OS 가
+IntPtr ptr = Marshal.GetFunctionPointerForDelegate(_wndProcHook);  //   죽은 포인터를 부른다 = 크래시
+_originalWndProc = SetWindowLongPtr(hwnd, GwlpWndProc, ptr);
+```
+
+`--cursor-clickthru=<transparent|layered|hittest>` 로 언제든 다시 비교할 수 있다.
+`layered` 는 검증된 대안으로 남겨 둔다.
 
 ---
 
@@ -162,6 +202,12 @@ long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
    통과시키면 원소가 스칼라가 된다. 0개 샘플로 "렌더 안 함" 결론이 나올 뻔했다
 6. **PowerShell 은 한글도 변수명 문자로 취급한다.** `"$Seconds초"` 는 `$Seconds` 가
    아니라 존재하지 않는 `$Seconds초` 다
+7. **★ 측정 프로세스가 DPI 인식이 없으면 `SetCursorPos` 가 요청한 곳에 커서를 안 놓는다.**
+   요청 `(1000,500)` → 실제 `(975,599)`. Windows 가 모니터별로 좌표를 스케일링한다.
+   이것 때문에 클릭 실험 두 번이 통째로 무효였고, 그 사이 "장식 창이 안 따라온다"는
+   잘못된 의심까지 했다. 앱 자체는 `offset 0,0` 으로 정확했다.
+   측정 스크립트 첫 줄에 `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` 를 건다.
+   **멀티모니터 PC 에서 좌표를 다루는 도구는 이게 없으면 전부 거짓말을 한다**
 
 ---
 
@@ -322,10 +368,14 @@ API 레벨은 통과했다(§2). 하지만 **`WindowFromPoint` 가 통과한다�
 1. **`ICursorLayer.IsSupported` 는 창을 띄운 뒤에 판정해야 한다.** Godot 은 Window 노드가
    보이게 될 때 비로소 OS 창을 만든다. 숨긴 상태의 `GetWindowId()` 는 `-1` 이다.
    이 프로젝트에서 처음에 이걸 "메인 창 id 가 아니니 성공"으로 읽어 오판했다
-2. **클릭 통과는 `WS_EX_TRANSPARENT` 를 직접 걸고, 걸렸는지 되읽어 확인한다.**
-   `Window.Flags.MousePassthrough` 는 동작하지 않고,
-   `WindowSetMousePassthrough` 는 `SetWindowRgn` 이라 창을 잘라낸다 (§2).
-   창을 켤 때마다 다시 걸어야 한다 — 창이 없을 때 건 설정은 유지되지 않는다
+2. **클릭 통과는 `WM_NCHITTEST` 후킹으로 한다 (§2).** 나머지 셋은 전부 실패한다:
+   `Window.Flags.MousePassthrough` 는 무시되고, `WindowSetMousePassthrough` 는
+   `SetWindowRgn` 이라 창을 잘라내고, `WS_EX_TRANSPARENT` 만으로는 클릭을 못 막는다.
+   창을 켤 때마다 다시 걸어야 하고, **후킹 델리게이트는 반드시 필드로 잡아둔다**
+   (GC 되면 OS 가 죽은 함수 포인터를 불러 프로세스가 죽는다)
+2-1. **검증은 반드시 실제 클릭으로 한다.** exstyle 되읽기도, `WindowFromPoint` 도
+   통과라고 하면서 실제로는 클릭을 먹은 전례가 있다. 대조군을 같이 돌려서
+   실험이 차이를 잡아낸다는 것까지 확인한다
 3. **모드·주기는 옵션으로 노출할 값이다.** 부하가 제약이 아니므로 유저 취향에 맡길 수
    있고, 기획서 §7-4 의 "커서 장식 On-Off" 를 3단계로 넓힐 여지가 있다
 4. **`lazy` 폴백안은 이미 동작한다.** 커서 축이 흔들려도 즉시 내려갈 수 있는 자리가 있다
