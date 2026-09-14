@@ -431,6 +431,10 @@ public partial class OverlayShell : Node2D
                 GD.Print($"[cursor] {_cursor.ProbeRenderTarget()}");
                 break;
 
+            case Key.Key4:
+                _cursor.CycleClickThrough();
+                break;
+
             case Key.Escape:
                 GetTree().Quit();
                 break;

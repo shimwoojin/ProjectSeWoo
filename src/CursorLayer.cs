@@ -383,6 +383,61 @@ public sealed class CursorLayer
         GD.Print($"[cursor] click-through WM_NCHITTEST {(ok ? "적용" : "실패")}");
     }
 
+    /// <summary>
+    /// 걸어둔 클릭 통과를 되돌린다. 방식을 바꿔가며 비교하려면 이게 있어야 한다 -
+    /// 안 그러면 이전 방식이 남아서 무엇이 효과를 냈는지 알 수 없다.
+    /// </summary>
+    private void ClearClickThrough()
+    {
+        if (!IsSupported || OS.GetName() != "Windows")
+        {
+            return;
+        }
+
+        long handle = DisplayServer.WindowGetNativeHandle(
+            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
+        if (handle == 0)
+        {
+            return;
+        }
+
+        var hwnd = new IntPtr(handle);
+
+        if (_originalWndProc != IntPtr.Zero)
+        {
+            SetWindowLongPtr(hwnd, GwlpWndProc, _originalWndProc);
+            _originalWndProc = IntPtr.Zero;
+            _wndProcHook = null;
+        }
+
+        long ex = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
+        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(ex & ~(WsExTransparent | WsExLayered)));
+
+        ClickThroughState = "미적용";
+    }
+
+    /// <summary>
+    /// 클릭 통과 방식을 순환한다. 재시작 없이 비교하기 위한 것이다.
+    ///
+    /// 이 항목은 자동 계측으로 여러 번 오판했다. 특히 **같은 프로세스 창을 표적으로 쓴
+    /// 실험은 믿을 수 없다** - Godot 은 입력을 앱 단위로 처리해서, 장식 창에 떨어진
+    /// 클릭이 엔진 내부 경로로 셸 씬까지 도달할 수 있다. 상주 앱에서 중요한 것은
+    /// **다른 프로세스의 창**이 입력을 받는가이고, 그건 사람이 메모장을 클릭해 보는 게
+    /// 제일 빠르고 확실하다.
+    /// </summary>
+    public void CycleClickThrough()
+    {
+        ClearClickThrough();
+        ClickThrough = (ClickThroughMode)(((int)ClickThrough + 1) % 3);
+
+        if (Enabled && IsSupported)
+        {
+            ApplyClickThrough();
+        }
+
+        GD.Print($"[cursor] click-through 방식 -> {ClickThrough} ({ClickThroughState})");
+    }
+
     private IntPtr HookProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
         if (msg == WmNcHitTest)
