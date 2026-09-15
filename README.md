@@ -17,7 +17,9 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 | [docs/DAY1-2-SPIKE.md](docs/DAY1-2-SPIKE.md) | 오버레이 셸 스파이크 실행 · 측정 절차 · 기록표 |
 | [docs/A1-CONTRACTS.md](docs/A1-CONTRACTS.md) | 인터페이스 4종 + 세이브 스키마 v1 + 목 구현 |
 | [docs/A2-CURSOR-SPIKE.md](docs/A2-CURSOR-SPIKE.md) | 커서 추종 창 스파이크 (클릭 통과 시행착오 포함) |
+| [docs/A3-SHELL-MODULE.md](docs/A3-SHELL-MODULE.md) | 셸 모듈화, `IShell` 실물, 세이브 파일 I/O |
 | [docs/A4-GLOBAL-INPUT.md](docs/A4-GLOBAL-INPUT.md) | 글로벌 입력 (RawInput, 별도 헬퍼 프로세스) |
+| [docs/A5-CURSOR-COSMETICS.md](docs/A5-CURSOR-COSMETICS.md) | 커서 꾸미기 정식화, `ICursorLayer` 실물, 3슬롯 장착 |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | 개발 로그 · 결정 사항 · 밟은 함정 |
 
 ## 실행

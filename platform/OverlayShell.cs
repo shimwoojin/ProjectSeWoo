@@ -49,6 +49,11 @@ public partial class OverlayShell : Node2D, IShell
     private float _uiScale = 1.0f;
     private float _opacity = 1.0f;
 
+    // --- A5 커서 장착 debug 데모. B6(상점/장착 UI)가 나오기 전까지 Key2/3/4로
+    // 슬롯별 자리표시자 에셋을 순환한다. null 은 "빈 슬롯". ---
+    private static readonly string[] DemoAssetIds = { null, "demo_a", "demo_b", "demo_c" };
+    private readonly int[] _demoEquipIndex = new int[3];
+
     /// <summary>
     /// <c>--selftest</c> / <c>--report=</c> 같은 무인 실행에서는 세이브를 건드리지 않는다.
     /// 실제로 이걸 안 하니 헤드리스 selftest 가 헤드리스 환경의 엉뚱한 창 위치
@@ -76,9 +81,8 @@ public partial class OverlayShell : Node2D, IShell
     private bool _autoWarmedUp;
     private bool _autoCursor;
     private bool _autoCursorSim;
-    private bool _autoCursorFill;
     private bool _autoCursorNoPass;
-    private string _autoCursorClickThru;
+    private string _autoCursorEquip;
     private string _autoCursorIntervalMs;
     private string _autoCursorMode;
 
@@ -594,16 +598,18 @@ public partial class OverlayShell : Node2D, IShell
                 _perf.Reset();
                 break;
 
+            // A5 의 3슬롯 장착을 옵션/상점 UI(B6) 없이 시험하기 위한 debug 키.
+            // 을이 상점 화면을 만들면 이 자리를 그 UI가 대신 호출한다.
             case Key.Key2:
-                _cursor.ToggleDebugFill();
+                CycleDemoEquip(CursorSlot.Hang);
                 break;
 
             case Key.Key3:
-                GD.Print($"[cursor] {_cursor.ProbeRenderTarget()}");
+                CycleDemoEquip(CursorSlot.Trail);
                 break;
 
             case Key.Key4:
-                _cursor.CycleClickThrough();
+                CycleDemoEquip(CursorSlot.Base);
                 break;
 
             // IShell 실물을 옵션 UI(A6) 없이 시험하기 위한 debug 키.
@@ -642,6 +648,17 @@ public partial class OverlayShell : Node2D, IShell
         OS.LowProcessorUsageMode = _lowPower;
         OS.LowProcessorUsageModeSleepUsec = 6900;
         Engine.MaxFps = FpsCaps[_fpsCapIndex];
+    }
+
+    /// <summary>
+    /// A5 커서 장착 debug 데모. 슬롯 하나를 자리표시자 목록에서 순환시킨다.
+    /// B6이 상점/장착 UI를 만들면 이 자리를 그 UI가 대신 호출한다.
+    /// </summary>
+    private void CycleDemoEquip(CursorSlot slot)
+    {
+        int i = (int)slot;
+        _demoEquipIndex[i] = (_demoEquipIndex[i] + 1) % DemoAssetIds.Length;
+        _cursor.Equip(slot, DemoAssetIds[_demoEquipIndex[i]]);
     }
 
     /// <summary>지정한 모니터의 작업 영역 우하단에 창을 붙인다.</summary>
@@ -725,17 +742,9 @@ public partial class OverlayShell : Node2D, IShell
             {
                 _autoCursorSim = true;
             }
-            else if (arg == "--cursor-fill")
-            {
-                _autoCursorFill = true;
-            }
             else if (arg == "--cursor-nopass")
             {
                 _autoCursorNoPass = true;
-            }
-            else if (arg.StartsWith("--cursor-clickthru=", StringComparison.Ordinal))
-            {
-                _autoCursorClickThru = arg["--cursor-clickthru=".Length..];
             }
             else if (arg.StartsWith("--cursor-interval=", StringComparison.Ordinal))
             {
@@ -744,6 +753,13 @@ public partial class OverlayShell : Node2D, IShell
             else if (arg.StartsWith("--cursor-mode=", StringComparison.Ordinal))
             {
                 _autoCursorMode = arg["--cursor-mode=".Length..];
+            }
+            else if (arg.StartsWith("--cursor-equip=", StringComparison.Ordinal))
+            {
+                // A5. "hang,trail,base" 순서의 쉼표 구분, 빈 칸은 그 슬롯을 비워둔다.
+                // A7 이 "장식을 낀 채로" 저부하를 잴 때 이 인자를 쓴다 - 빈 슬롯과
+                // 채운 슬롯의 렌더 비용 차이를 보려면 필요하다.
+                _autoCursorEquip = arg["--cursor-equip=".Length..];
             }
         }
 
@@ -813,25 +829,20 @@ public partial class OverlayShell : Node2D, IShell
         _cursor.Simulate = _autoCursorSim;
         _cursor.SkipClickThrough = _autoCursorNoPass;
 
-        if (!string.IsNullOrEmpty(_autoCursorClickThru))
+        _cursor.SetEnabled(true);
+
+        // Equip 은 SetEnabled(true) 뒤에 불러야 한다 - CursorLayer.Equip 이
+        // 스프라이트 가시성을 지금의 Enabled 값으로 정하기 때문이다.
+        if (!string.IsNullOrEmpty(_autoCursorEquip))
         {
-            if (Enum.TryParse(_autoCursorClickThru, ignoreCase: true,
-                    out CursorLayer.ClickThroughMode ctMode))
+            string[] ids = _autoCursorEquip.Split(',');
+            CursorSlot[] order = { CursorSlot.Hang, CursorSlot.Trail, CursorSlot.Base };
+            for (int i = 0; i < order.Length && i < ids.Length; i++)
             {
-                _cursor.ClickThrough = ctMode;
+                _cursor.Equip(order[i], string.IsNullOrEmpty(ids[i]) ? null : ids[i]);
             }
-            else
-            {
-                GD.PrintErr($"[shell] --cursor-clickthru={_autoCursorClickThru} 를 모른다"
-                    + " (transparent|layered|hittest)");
-            }
-        }
-        if (_autoCursorFill)
-        {
-            _cursor.ToggleDebugFill();
         }
 
-        _cursor.SetEnabled(true);
         _cursor.ResetCounters();
     }
 
@@ -918,7 +929,6 @@ public partial class OverlayShell : Node2D, IShell
             _input.StatusLine(),
             _cursor.StatusLine(),
             _cursor.PositionLine(),
-            _cursor.ProbeRenderTarget(),
             "",
             // 자동 판정은 숫자로 확인되는 두 항목만 한다.
             // 플리커 / 드래그 / 멀티모니터는 사람이 눈으로 봐야 하므로 미정으로 남긴다.

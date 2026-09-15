@@ -1,42 +1,49 @@
 using System;
 using System.Runtime.InteropServices;
 using Godot;
+using ProjectSeWoo.Shared;
 
 namespace ProjectSeWoo.Platform;
 
 /// <summary>
-/// A2 커서 추종 창 스파이크 (기획확정-일감분배-260907.md §1.3).
+/// 커서 장식 레이어. <see cref="ICursorLayer"/> 실물이다
+/// (A5, 기획확정-일감분배-260907.md §3-1 / §8-2).
 ///
-/// 이 게임의 재화 소비처이자 차별화 훅이 "커서 꾸미기"인데, 그게 기술적으로
-/// 되는지가 아직 검증되지 않았다. 기획서가 셋 중 채택한 방식은 C안이다:
+/// A2 스파이크(창이 하나 더 뜨는가 / CPU / 클릭 통과)가 전부 Go로 끝났고
+/// (docs/A2-CURSOR-SPIKE.md), 이 클래스는 그 위에 3슬롯 장착을 얹은 정식 버전이다.
+/// 진단 전용이었던 것들(불투명 사각형 채우기, 렌더 타깃 픽셀 읽기, 클릭 통과
+/// 방식 순환)은 A5에서 걷어냈다 — A2가 이미 "Layered가 정답, 나머지 둘은 쓰면
+/// 안 된다"고 결론 낸 뒤라, 고를 수 있게 남겨두는 것 자체가 위험이었다.
 ///
-///   A. SetSystemCursor 로 시스템 커서 교체    -> 불가. 전역이라 크래시하면 유저 커서가 안 돌아온다
-///   B. ShowCursor(FALSE) + 직접 그리기        -> 불가. 다른 앱/전체화면 위에서 깨진다
-///   C. 커서 좌표를 따라다니는 클릭 통과 투명 창 -> 채택. 실패해도 유저 환경이 안 망가진다
-///
-/// C안의 전제는 **두 번째 OS 창**이 투명 + 클릭 통과 + 항상 위로 뜨는 것이다.
-/// 그 전제가 깨지면 설계를 "데스크톱 크기 창 하나에 나무와 커서 장식을 같이 그리기"로
-/// 갈아야 하고, 늦게 발견할수록 비싸다. 그래서 이 클래스가 가장 먼저 답하는 질문은
-/// **"창이 하나 더 떠지는가"** 이고, 나머지 계측은 그 다음이다.
-///
-/// 실측 대상 (§1.3):
-///   1. 이동 주기 vs CPU (16 / 33 / 50 / 100ms). 목표는 유휴 1% 이하
-///   2. 고무줄 현상 - 스프링 보간으로 오히려 "매달린" 느낌을 살릴 수 있는가
-///   3. 멀티모니터 경계를 넘어갈 때
-///   4. 전체화면 게임 / 브라우저 / 작업표시줄 위에서의 동작
-///   5. 클릭 통과가 확실한가 (드래그·선택·우클릭 전부)
-///
-/// 1번이 이 스파이크의 핵심 수치다. 커서를 따라가는 비용은 좌표를 읽는 데서
-/// 나오지 않는다(MouseGetPosition 은 싸다). **창을 실제로 옮기는 OS 호출**에서 나온다.
-/// 그래서 계측 변수는 폴링 주기가 아니라 <see cref="_moves"/>, 즉 창을 몇 번 옮겼는가다.
+/// 이 게임의 재화 소비처이자 차별화 훅이 "커서 꾸미기"다. 채택된 방식(§1.3 C안):
+/// 시스템 커서 본체는 그대로 두고, 커서 좌표를 따라다니는 클릭 통과 투명 창에
+/// 장식만 그린다.
 /// </summary>
-public sealed class CursorLayer
+public sealed class CursorLayer : ICursorLayer
 {
     /// <summary>장식 창 한 변. 커서 주변 장식이 들어갈 만큼만. 작을수록 컴포지팅이 싸다.</summary>
     private const int WindowSize = 128;
 
     /// <summary>이동 주기 후보(ms). 0 = 매 프레임.</summary>
     public static readonly int[] IntervalsMs = { 0, 16, 33, 50, 100 };
+
+    // --- 3슬롯 레이아웃 (§3-1). 배열 인덱스는 CursorSlot 의 선언 순서(Hang=0,
+    // Trail=1, Base=2)와 맞춘다. 실제 아트(을의 B9)가 나오기 전까지는 위치/크기/
+    // z-순서만으로 세 슬롯을 구분한다.
+    private static readonly Vector2[] SlotOffset =
+    {
+        new(0, -24),  // Hang: 커서 위로 매달린 것처럼
+        new(12, 16),  // Trail: 뒤쪽·아래로 처진 잔상
+        new(0, 4),    // Base: 커서 바로 아래 깔림
+    };
+
+    private static readonly float[] SlotScale = { 0.42f, 0.30f, 0.34f };
+
+    /// <summary>Trail은 잔상이라 반투명, 나머지는 불투명.</summary>
+    private static readonly float[] SlotAlpha = { 1.0f, 0.6f, 1.0f };
+
+    /// <summary>Hang이 맨 위, Trail이 맨 아래(잔상이 뒤에 깔린다), Base가 그 사이.</summary>
+    private static readonly int[] SlotZIndex = { 2, 0, 1 };
 
     // --- Win32 클릭 통과 ---------------------------------------------------
     //
@@ -46,18 +53,15 @@ public sealed class CursorLayer
     // 실제로 이 프로젝트에서 그렇게 만들었고, "클릭이 통과된다"는 측정 결과까지
     // 같이 나와서 성공으로 오판했다 — 거기 창이 아예 없었기 때문이다.
     //
-    // 올바른 방법은 WS_EX_TRANSPARENT 를 직접 거는 것이다. 이건 히트테스트만
-    // 바꾸고 렌더링은 건드리지 않는다.
+    // 올바른 방법은 WS_EX_TRANSPARENT + WS_EX_LAYERED 를 거는 것이다 (docs/A2-CURSOR-SPIKE.md
+    // §2). A2에서 세 가지(TRANSPARENT 단독 / TRANSPARENT+LAYERED / WM_NCHITTEST 후킹)를
+    // 실사용으로 비교했고 TRANSPARENT+LAYERED만 다른 프로세스의 클릭을 통과시켰다.
+    // 나머지 둘은 지웠다 — 고를 수 있게 남겨두면 언젠가 실수로 고른다.
 
     private const int GwlExStyle = -20;
-    private const int GwlpWndProc = -4;
     private const long WsExTransparent = 0x00000020L;
     private const long WsExLayered = 0x00080000L;
-    private const uint WmNcHitTest = 0x0084;
     private const uint LwaAlpha = 0x00000002;
-
-    /// <summary>WM_NCHITTEST 응답. "이 창은 마우스에 없는 셈 쳐라".</summary>
-    private static readonly IntPtr HtTransparent = new(-1);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
@@ -65,37 +69,14 @@ public sealed class CursorLayer
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
-    [DllImport("user32.dll", EntryPoint = "CallWindowProcW")]
-    private static extern IntPtr CallWindowProc(IntPtr prev, IntPtr hWnd, uint msg, IntPtr w, IntPtr l);
-
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
 
-    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    /// <summary>클릭 통과 구현 방식. 어느 것이 실제로 먹는지는 재 봐야 안다.</summary>
-    public enum ClickThroughMode
-    {
-        /// <summary>WS_EX_TRANSPARENT 만. **다른 프로세스의 클릭을 막는다. 쓰면 안 된다.**</summary>
-        Transparent,
-
-        /// <summary>
-        /// WS_EX_TRANSPARENT | WS_EX_LAYERED. **채택.** 오버레이의 교과서 조합이고,
-        /// 실사용에서 다른 앱의 클릭이 정상 통과하는 유일한 방식이었다.
-        /// </summary>
-        Layered,
-
-        /// <summary>
-        /// WndProc 을 가로채 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.
-        /// **같은 프로세스 창에는 통하지만 프로세스 경계를 못 넘는다.** 쓰면 안 된다.
-        /// 자동 계측에서 이것 때문에 오판했다 - 표적이 우리 셸 창이었다.
-        /// </summary>
-        HitTest,
-    }
-
     /// <summary>
     /// 추종 모드. Lazy 는 §1.3의 폴백안("고빈도 추종 없이 느슨하게 따라옴")을
-    /// 미리 만들어 둔 것이다. Direct 가 부하나 고무줄로 탈락해도 축을 접지 않아도 되게.
+    /// 미리 만들어 둔 것이다. A2에서 "고무줄 현상"을 옵션으로 노출하기로 했으므로
+    /// (2026-09-14 결정, docs/A2-CURSOR-SPIKE.md), 이 셋은 진단용이 아니라
+    /// **실제 유저 옵션 후보**다. A6이 옵션 UI를 만들면 이 자리를 대신 호출한다.
     /// </summary>
     public enum FollowMode
     {
@@ -112,8 +93,15 @@ public sealed class CursorLayer
     private readonly Node _host;
 
     private Window _win;
-    private Sprite2D _deco;
-    private ColorRect _debugFill;
+    private readonly SlotVisual[] _slots = new SlotVisual[3];
+    private Texture2D _placeholderTexture;
+
+    /// <summary>슬롯 하나의 화면 요소 + 장착 상태.</summary>
+    private sealed class SlotVisual
+    {
+        public Sprite2D Sprite;
+        public string AssetId;
+    }
 
     private Vector2 _pos;
     private double _sinceMove;
@@ -146,37 +134,19 @@ public sealed class CursorLayer
     /// 합성 경로는 그 반대로 **최악 조건**이다. 커서가 한순간도 쉬지 않는다.
     /// 실사용보다 비싼 값이 나오지만, 재현 가능하고 조건 간 비교가 성립한다.
     /// 체감·지연·멀티모니터는 이걸로 못 보므로 사람이 직접 봐야 한다.
+    ///
+    /// A7(저부하 실측, 커서 창 포함)이 이걸 계속 쓴다 - 지우지 않는다.
     /// </summary>
     public bool Simulate { get; set; }
 
     /// <summary>
-    /// 창을 불투명하게 띄운다. 진단 전용.
-    ///
-    /// "커서에 아무것도 안 보인다"는 증상은 원인이 둘인데 화면상으로는 똑같이 보인다:
-    ///   (a) 창은 그려지는데 스프라이트가 안 보인다 (알파/좌표/텍스처 문제)
-    ///   (b) 창 자체가 아무것도 렌더하지 않는다 (서브 윈도우 투명 미지원)
-    /// 불투명 사각형을 강제로 깔면 둘이 갈린다. 사각형이 보이면 (a), 안 보이면 (b)다.
+    /// 진단용. 클릭 통과를 걸지 않는다. 그것이 창을 안 보이게 만드는 범인인지 가른다.
+    /// A7의 부하 비교(클릭 통과 유/무)에도 쓸 수 있어 남겨둔다.
     /// </summary>
-    public bool DebugFill { get; private set; }
-
-    /// <summary>진단용. 클릭 통과를 걸지 않는다. 그것이 창을 안 보이게 만드는 범인인지 가른다.</summary>
     public bool SkipClickThrough { get; set; }
 
     /// <summary>클릭 통과가 실제로 걸렸는지. 리포트에 박아서 조용한 실패를 막는다.</summary>
     public string ClickThroughState { get; private set; } = "미적용";
-
-    /// <summary>
-    /// 어느 방식으로 클릭 통과를 걸 것인가.
-    ///
-    /// <see cref="ClickThroughMode.Layered"/> 가 정답이다. 실사용으로 확인했다 —
-    /// 나머지 둘은 메모장·브라우저 같은 **다른 프로세스**의 클릭을 막는다.
-    /// </summary>
-    public ClickThroughMode ClickThrough { get; set; } = ClickThroughMode.Layered;
-
-    // WndProc 후킹용. 델리게이트를 필드로 잡아두지 않으면 GC 가 수거해서
-    // OS 가 죽은 함수 포인터를 부른다 = 프로세스 크래시.
-    private WndProcDelegate _wndProcHook;
-    private IntPtr _originalWndProc;
 
     public int IntervalIndex { get; private set; } = 1;
 
@@ -195,16 +165,16 @@ public sealed class CursorLayer
     // ------------------------------------------------------------------ 생성
 
     /// <summary>
-    /// 두 번째 OS 창을 만든다. 이 스파이크의 성패가 여기서 갈린다.
+    /// 두 번째 OS 창을 만든다. A2 스파이크의 성패가 여기서 갈렸다(Go).
     ///
     /// <c>embed_subwindows=false</c> 가 project.godot 에 있어야 Window 노드가
     /// 게임 화면 안에 그려지는 가짜 창이 아니라 진짜 OS 창이 된다. 그게 없으면
     /// 창이 "떠 있는 것처럼" 보이지만 바탕화면 위로는 못 나간다.
     /// </summary>
     /// <param name="opaque">
-    /// 진단용. 창을 투명하지 않게 만든다. "서브 윈도우가 아무것도 렌더하지 않는다"는
-    /// 증상의 원인이 투명 설정인지 가르기 위한 것이다. 투명은 런타임에 못 바꾸므로
-    /// 생성 시점에 정해야 하고, 그래서 핫키가 아니라 인자다.
+    /// 진단용. 창을 투명하지 않게 만든다. A2에서 "서브 윈도우가 아무것도 렌더하지
+    /// 않는다"는 증상의 원인이 투명 설정인지 가르는 데 썼다. 투명은 런타임에 못
+    /// 바꾸므로 생성 시점에 정해야 하고, 그래서 핫키가 아니라 인자다.
     /// </param>
     public void Build(bool opaque = false)
     {
@@ -228,31 +198,27 @@ public sealed class CursorLayer
         };
         _host.AddChild(_win);
 
-        // 창 전체를 덮는 진단용 사각형. 스프라이트보다 먼저 넣어서 뒤에 깔리게 한다.
-        _debugFill = new ColorRect
-        {
-            Name = "DebugFill",
-            Color = new Color(1.0f, 0.0f, 0.8f, 1.0f),
-            Size = new Vector2(WindowSize, WindowSize),
-            Visible = false,
-        };
-        _win.AddChild(_debugFill);
-
-        var texture = GD.Load<Texture2D>("res://icon.svg");
-        if (texture == null)
+        _placeholderTexture = GD.Load<Texture2D>("res://icon.svg");
+        if (_placeholderTexture == null)
         {
             GD.PrintErr("[cursor] icon.svg 로드 실패");
         }
 
-        _deco = new Sprite2D
+        for (int i = 0; i < _slots.Length; i++)
         {
-            Name = "Deco",
-            Texture = texture,
-            Centered = true,
-            Scale = Vector2.One * 0.5f,
-            Position = new Vector2(WindowSize / 2f, WindowSize / 2f),
-        };
-        _win.AddChild(_deco);
+            var sprite = new Sprite2D
+            {
+                Name = $"Slot_{(CursorSlot)i}",
+                Texture = _placeholderTexture,
+                Centered = true,
+                Scale = Vector2.One * SlotScale[i],
+                Position = new Vector2(WindowSize / 2f, WindowSize / 2f) + SlotOffset[i],
+                ZIndex = SlotZIndex[i],
+                Visible = false,
+            };
+            _win.AddChild(sprite);
+            _slots[i] = new SlotVisual { Sprite = sprite };
+        }
 
         _pos = DisplayServer.MouseGetPosition();
 
@@ -268,8 +234,8 @@ public sealed class CursorLayer
     ///
     /// **Build() 시점에는 판정할 수 없다.** Godot 은 Window 노드가 보이게 될 때
     /// 비로소 OS 창을 만들기 때문에, 숨긴 상태에서 GetWindowId() 를 부르면 -1
-    /// (INVALID_WINDOW_ID) 이 돌아온다. 처음에 이걸 "메인 창 id 가 아니니 성공"으로
-    /// 읽어서 검증이 통과해 버렸다. 그래서 판정은 창을 켠 뒤로 옮긴다.
+    /// (INVALID_WINDOW_ID) 이 돌아온다. A2에서 이걸 "메인 창 id 가 아니니 성공"으로
+    /// 읽어서 검증이 통과해 버렸었다. 그래서 판정은 창을 켠 뒤로 옮긴다.
     /// </summary>
     private void VerifyWindow()
     {
@@ -291,21 +257,14 @@ public sealed class CursorLayer
         }
 
         IsSupported = true;
-        GD.Print($"[cursor] window id={id} size={WindowSize} -> OS window OK"
-            + $" (tex {_deco.Texture?.GetSize()}, transparent {_win.Transparent},"
-            + $" bg {_win.TransparentBg})");
+        GD.Print($"[cursor] window id={id} size={WindowSize}x{WindowSize} -> OS window OK"
+            + $" (transparent {_win.Transparent}, bg {_win.TransparentBg})");
     }
 
     /// <summary>
     /// 창 전체를 클릭 통과로 만든다. OS 창이 생긴 뒤에 불러야 한다.
     ///
-    /// **여기서 <c>Window.Flags.MousePassthrough</c> 를 쓰면 안 된다.** 이 프로젝트에서
-    /// 실측한 결과, 그 플래그는 조용히 아무것도 하지 않았다(exstyle 에 WS_EX_TRANSPARENT 가
-    /// 안 붙고, WindowFromPoint 가 이 창을 계속 집었다). 화면상으로는 멀쩡해 보여서
-    /// 눈으로는 절대 안 잡히는 종류의 실패다 — 유저가 장식 위를 클릭해 봐야 드러난다.
-    /// tools/inspect-windows.ps1 로 히트테스트해서 잡았다.
-    ///
-    /// 셸 창이 이미 쓰고 있는 폴리곤 API 는 동작하는 것이 확인됐으므로 그쪽을 쓴다.
+    /// TRANSPARENT|LAYERED만 쓴다 - A2가 실사용으로 확인한 유일한 조합이다.
     /// </summary>
     private void ApplyClickThrough()
     {
@@ -333,133 +292,90 @@ public sealed class CursorLayer
 
         var hwnd = new IntPtr(handle);
 
-        switch (ClickThrough)
-        {
-            case ClickThroughMode.Transparent:
-                ApplyExStyle(hwnd, WsExTransparent, "WS_EX_TRANSPARENT");
-                break;
-
-            case ClickThroughMode.Layered:
-                ApplyExStyle(hwnd, WsExTransparent | WsExLayered, "TRANSPARENT|LAYERED");
-
-                // LAYERED 를 붙이면 알파를 정해주기 전까지 창이 아예 안 보인다.
-                // 255 = 완전 불투명이지만, Godot 이 DWM 합성으로 그리는 per-pixel 알파는
-                // 그대로 살아남는다(실측: 장식 주변 모서리에 뒤 배경이 비쳤다).
-                if (!SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha))
-                {
-                    GD.PrintErr("[cursor] SetLayeredWindowAttributes 실패");
-                }
-
-                break;
-
-            case ClickThroughMode.HitTest:
-                HookWndProc(hwnd);
-                break;
-        }
-    }
-
-    private void ApplyExStyle(IntPtr hwnd, long bits, string label)
-    {
         long before = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | bits));
+        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent | WsExLayered));
 
-        // 반드시 되읽어서 확인한다. Window.Flags.MousePassthrough 가 조용히 아무것도
-        // 하지 않는 것을 이미 밟았다. 다만 "걸렸다"가 "동작한다"는 아니다 -
-        // WS_EX_TRANSPARENT 는 되읽기도 통과했는데 실제 클릭은 막지 못했다.
+        // 반드시 되읽어서 확인한다. "걸었다"와 "걸렸다"는 다르다 - A2의 1차 실패가 그것이었다.
         long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        bool ok = (after & bits) == bits;
+        bool ok = (after & (WsExTransparent | WsExLayered)) == (WsExTransparent | WsExLayered);
+        ClickThroughState = ok ? "TRANSPARENT|LAYERED" : "적용 실패";
 
-        ClickThroughState = ok ? label : $"{label} 실패";
-        GD.Print($"[cursor] click-through {label} {(ok ? "적용" : "실패")}"
-            + $" (ex 0x{before:X} -> 0x{after:X})");
+        // LAYERED 를 붙이면 알파를 정해주기 전까지 창이 아예 안 보인다.
+        // 255 = 완전 불투명이지만, Godot 이 DWM 합성으로 그리는 per-pixel 알파는
+        // 그대로 살아남는다(A2 실측: 장식 주변 모서리에 뒤 배경이 비쳤다).
+        if (ok && !SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha))
+        {
+            GD.PrintErr("[cursor] SetLayeredWindowAttributes 실패");
+        }
+
+        GD.Print($"[cursor] click-through {ClickThroughState} (ex 0x{before:X} -> 0x{after:X})");
     }
 
+    // ------------------------------------------------------------------ 장착 (ICursorLayer)
+
     /// <summary>
-    /// 창의 WndProc 을 가로채서 WM_NCHITTEST 에 HTTRANSPARENT 를 돌려준다.
+    /// 슬롯에 에셋을 끼운다. <paramref name="assetId"/> 가 null 이면 슬롯을 비운다.
     ///
-    /// exstyle 방식과 달리 이건 Windows 의 히트테스트 경로에 직접 답하는 것이라,
-    /// DirectComposition 창(Godot 은 투명 창에 WS_EX_NOREDIRECTIONBITMAP 을 쓴다)에서도
-    /// 렌더링을 건드리지 않는다.
+    /// 실제 아트(을의 B9, "1차 에셋: 커서 장식 16종")는 아직 없다. 그때까지는
+    /// <see cref="ResolveTexture"/> 가 자리표시자(icon.svg + assetId 해시 색상)를
+    /// 돌려준다. B9가 <c>res://assets/cursor/&lt;slot&gt;/&lt;assetId&gt;.png</c> 를
+    /// 채우면 그 경로를 먼저 찾으므로, **여기 호출부는 바뀔 필요가 없다.**
     /// </summary>
-    private void HookWndProc(IntPtr hwnd)
+    public void Equip(CursorSlot slot, string assetId)
     {
-        if (_originalWndProc != IntPtr.Zero)
+        if (!_built)
         {
             return;
         }
 
-        _wndProcHook = HookProc;
-        IntPtr ptr = Marshal.GetFunctionPointerForDelegate(_wndProcHook);
-        _originalWndProc = SetWindowLongPtr(hwnd, GwlpWndProc, ptr);
+        SlotVisual visual = _slots[(int)slot];
+        visual.AssetId = assetId;
 
-        bool ok = _originalWndProc != IntPtr.Zero;
-        ClickThroughState = ok ? "WM_NCHITTEST" : "WndProc 후킹 실패";
-        GD.Print($"[cursor] click-through WM_NCHITTEST {(ok ? "적용" : "실패")}");
+        if (assetId == null)
+        {
+            visual.Sprite.Visible = false;
+            return;
+        }
+
+        visual.Sprite.Texture = ResolveTexture(slot, assetId);
+        visual.Sprite.Modulate = TintFor(assetId, SlotAlpha[(int)slot]);
+        visual.Sprite.Visible = Enabled;
+
+        GD.Print($"[cursor] {slot} = {assetId}");
     }
 
     /// <summary>
-    /// 걸어둔 클릭 통과를 되돌린다. 방식을 바꿔가며 비교하려면 이게 있어야 한다 -
-    /// 안 그러면 이전 방식이 남아서 무엇이 효과를 냈는지 알 수 없다.
+    /// 슬롯+에셋id 를 텍스처로 바꾼다. 실제 파일이 있으면 그걸, 없으면 자리표시자를 쓴다.
     /// </summary>
-    private void ClearClickThrough()
+    private Texture2D ResolveTexture(CursorSlot slot, string assetId)
     {
-        if (!IsSupported || OS.GetName() != "Windows")
+        string realPath = $"res://assets/cursor/{slot.ToString().ToLowerInvariant()}/{assetId}.png";
+        if (ResourceLoader.Exists(realPath))
         {
-            return;
+            return GD.Load<Texture2D>(realPath);
         }
 
-        long handle = DisplayServer.WindowGetNativeHandle(
-            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
-        if (handle == 0)
-        {
-            return;
-        }
-
-        var hwnd = new IntPtr(handle);
-
-        if (_originalWndProc != IntPtr.Zero)
-        {
-            SetWindowLongPtr(hwnd, GwlpWndProc, _originalWndProc);
-            _originalWndProc = IntPtr.Zero;
-            _wndProcHook = null;
-        }
-
-        long ex = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(ex & ~(WsExTransparent | WsExLayered)));
-
-        ClickThroughState = "미적용";
+        return _placeholderTexture;
     }
 
     /// <summary>
-    /// 클릭 통과 방식을 순환한다. 재시작 없이 비교하기 위한 것이다.
-    ///
-    /// 이 항목은 자동 계측으로 여러 번 오판했다. 특히 **같은 프로세스 창을 표적으로 쓴
-    /// 실험은 믿을 수 없다** - Godot 은 입력을 앱 단위로 처리해서, 장식 창에 떨어진
-    /// 클릭이 엔진 내부 경로로 셸 씬까지 도달할 수 있다. 상주 앱에서 중요한 것은
-    /// **다른 프로세스의 창**이 입력을 받는가이고, 그건 사람이 메모장을 클릭해 보는 게
-    /// 제일 빠르고 확실하다.
+    /// assetId 로부터 안정적인 색을 만든다. **`string.GetHashCode()`는 안 쓴다** -
+    /// .NET 은 보안을 위해 프로세스마다 다른 해시를 낸다. 같은 아이템이 실행할 때마다
+    /// 다른 색으로 보이면 자리표시자로도 못 쓴다. FNV-1a 로 직접 고정한다.
     /// </summary>
-    public void CycleClickThrough()
+    private static Color TintFor(string assetId, float alpha)
     {
-        ClearClickThrough();
-        ClickThrough = (ClickThroughMode)(((int)ClickThrough + 1) % 3);
-
-        if (Enabled && IsSupported)
+        uint hash = 2166136261u;
+        foreach (char c in assetId)
         {
-            ApplyClickThrough();
+            hash ^= c;
+            hash *= 16777619u;
         }
 
-        GD.Print($"[cursor] click-through 방식 -> {ClickThrough} ({ClickThroughState})");
-    }
-
-    private IntPtr HookProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        if (msg == WmNcHitTest)
-        {
-            return HtTransparent;
-        }
-
-        return CallWindowProc(_originalWndProc, hWnd, msg, wParam, lParam);
+        float hue = (hash % 360u) / 360f;
+        Color c2 = Color.FromHsv(hue, 0.55f, 1.0f);
+        c2.A = alpha;
+        return c2;
     }
 
     // ------------------------------------------------------------------ 루프
@@ -542,7 +458,9 @@ public sealed class CursorLayer
 
         if (Mode == FollowMode.Spring)
         {
-            _deco.Rotation = Mathf.Sin((float)_phase) * 0.18f;
+            // "매달려 흔들리는" 연출은 Hang 슬롯 담당이다 (§3-1). 슬롯이 비어 있어도
+            // 숨겨진 스프라이트에 회전값을 넣는 것뿐이라 해가 없다.
+            _slots[(int)CursorSlot.Hang].Sprite.Rotation = Mathf.Sin((float)_phase) * 0.18f;
         }
     }
 
@@ -571,6 +489,11 @@ public sealed class CursorLayer
 
             ApplyClickThrough();
 
+            foreach (SlotVisual slot in _slots)
+            {
+                slot.Sprite.Visible = slot.AssetId != null;
+            }
+
             _pos = DisplayServer.MouseGetPosition();
             MoveWindow();
         }
@@ -584,60 +507,10 @@ public sealed class CursorLayer
         ResetCounters();
     }
 
-    /// <summary>
-    /// Godot 이 이 창의 렌더 타깃에 실제로 무엇을 그렸는지 읽는다.
-    ///
-    /// "화면에 아무것도 안 보인다"의 원인이 둘인데 밖에서는 구분이 안 된다:
-    ///   (a) Godot 이 애초에 안 그렸다        -> 렌더 타깃이 비어 있다
-    ///   (b) 그렸는데 화면에 못 올렸다        -> 렌더 타깃에는 내용이 있다 (합성/표시 문제)
-    /// 엔진 안에서 읽으면 이게 갈린다. 밖에서 화면을 캡처하는 것만으로는 못 가른다.
-    /// </summary>
-    public string ProbeRenderTarget()
-    {
-        if (!_built || !IsSupported)
-        {
-            return "render target: n/a";
-        }
-
-        try
-        {
-            Image img = _win.GetTexture()?.GetImage();
-            if (img == null)
-            {
-                return "render target: null (텍스처 없음)";
-            }
-
-            int w = img.GetWidth();
-            int h = img.GetHeight();
-            Color mid = img.GetPixel(w / 2, h / 2);
-            Color corner = img.GetPixel(2, 2);
-
-            return $"render target: {w}x{h} center=({mid.R:F2},{mid.G:F2},{mid.B:F2},{mid.A:F2})"
-                + $" corner=({corner.R:F2},{corner.G:F2},{corner.B:F2},{corner.A:F2})";
-        }
-        catch (Exception e)
-        {
-            return $"render target: 읽기 실패 ({e.GetType().Name}: {e.Message})";
-        }
-    }
-
-    /// <summary>진단용 불투명 사각형 토글. 자세한 이유는 <see cref="DebugFill"/>.</summary>
-    public void ToggleDebugFill()
-    {
-        if (!_built)
-        {
-            return;
-        }
-
-        DebugFill = !DebugFill;
-        _debugFill.Visible = DebugFill;
-        GD.Print($"[cursor] debug fill {(DebugFill ? "ON (분홍 사각형이 보여야 한다)" : "off")}");
-    }
-
     public void CycleMode()
     {
         Mode = (FollowMode)(((int)Mode + 1) % 3);
-        _deco.Rotation = 0.0f;
+        _slots[(int)CursorSlot.Hang].Sprite.Rotation = 0.0f;
         ResetCounters();
     }
 
@@ -683,8 +556,12 @@ public sealed class CursorLayer
         }
 
         string interval = IntervalMs == 0 ? "frame" : $"{IntervalMs}ms";
-        return $"cursor {(Enabled ? "on" : "off")}{(Simulate ? " SIM" : "")}{(DebugFill ? " FILL" : "")},"
+        string equip = $"H:{_slots[(int)CursorSlot.Hang].AssetId ?? "-"}"
+            + $" T:{_slots[(int)CursorSlot.Trail].AssetId ?? "-"}"
+            + $" B:{_slots[(int)CursorSlot.Base].AssetId ?? "-"}";
+
+        return $"cursor {(Enabled ? "on" : "off")}{(Simulate ? " SIM" : "")},"
             + $" {Mode.ToString().ToLowerInvariant()}, every {interval},"
-            + $" moves {_moves}, skip {_skipped}, clickthru {ClickThroughState}";
+            + $" moves {_moves}, skip {_skipped}, clickthru {ClickThroughState}, equip {equip}";
     }
 }

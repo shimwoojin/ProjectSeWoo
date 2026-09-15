@@ -6,9 +6,8 @@ namespace ProjectSeWoo.Platform.Mocks;
 /// <summary>
 /// <see cref="ICursorLayer"/> 목 구현. 장착 상태만 들고 있고 아무것도 그리지 않는다.
 ///
-/// 실물은 A5 에서 <c>platform/CursorLayer.cs</c> 의 스파이크 코드를 정리해 만든다
-/// (A3 에서 <c>src/</c> → <c>platform/</c> 로 옮겨졌을 뿐, 내용 정리는 아직 A5 몫이다).
-/// A2 에서 이 방식이 성립하는 것은 이미 확인했다 — docs/A2-CURSOR-SPIKE.md.
+/// 실물은 <c>platform/CursorLayer.cs</c>다 (A5 완료, 2026-09-15). A2 스파이크 코드
+/// (불투명 채우기, 렌더 타깃 읽기, 클릭 통과 방식 순환)는 A5에서 걷어냈다.
 /// </summary>
 public sealed class MockCursorLayer : ICursorLayer
 {

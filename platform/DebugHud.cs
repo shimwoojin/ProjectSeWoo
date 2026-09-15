@@ -57,7 +57,8 @@ public partial class DebugHud : CanvasLayer
             "F4 on-top F5 fps cap       F6 low power",
             "F7 next screen             F8 hit outline",
             "F9 copy report  F10 reset  ESC quit",
-            "F11 cursor on/off  F12 cursor interval  1-4 cursor mode/debug",
+            "F11 cursor on/off  F12 cursor interval  1 cursor follow mode",
+            "2/3/4 cycle equip hang/trail/base (demo)",
             "[ ] shell scale   - = shell opacity",
         });
         rows.AddChild(_keys);

@@ -160,8 +160,13 @@ IntPtr ptr = Marshal.GetFunctionPointerForDelegate(_wndProcHook);  //   죽은 �
 _originalWndProc = SetWindowLongPtr(hwnd, GwlpWndProc, ptr);
 ```
 
-`--cursor-clickthru=<transparent|layered|hittest>` 로 언제든 다시 비교할 수 있다.
-`layered` 는 검증된 대안으로 남겨 둔다.
+`--cursor-clickthru=<transparent|layered|hittest>` 로 언제든 다시 비교할 수 있었다.
+
+> **2026-09-15 (A5) 갱신 — 이 플래그는 이제 없다.** `layered`만 실사용을 통과했고
+> 나머지 둘은 "쓰면 안 된다"로 이미 결론 났으므로, A5에서 `ClickThroughMode`
+> 선택지 자체를 지웠다(`platform/CursorLayer.cs`는 TRANSPARENT|LAYERED만 건다).
+> 고를 수 있게 남겨두는 것 자체가 실수를 부르는 위험이라고 판단했다. 아래
+> 코드/표는 **그 시점의 조사 기록**으로 남긴다.
 
 ### ★ 위 표는 틀린 표적으로 잰 것이다 ★
 
@@ -446,12 +451,15 @@ A5 정식 구현에서 회귀가 의심되면 `4` 키로 세 방식을 재시작
 진단 전용 인자 (§2-1 의 방법들을 재현할 때 쓴다):
 
 ```
---cursor-fill      창을 분홍으로 가득 채운다. 화면 캡처로 "렌더되는가"를 세기 위한 것
 --cursor-opaque    투명을 끄고 띄운다. 투명이 범인인지 가른다 (생성 시점에 정해지므로 인자다)
 --cursor-nopass    클릭 통과를 걸지 않는다. 그것이 범인인지 가른다
 ```
 
-런타임 키 `2` 는 분홍 채움 토글, `3` 은 렌더 타깃 내용을 로그로 찍는다.
+> **2026-09-15 (A5) 갱신 — `--cursor-fill`과 런타임 키 `2`/`3`(분홍 채움 토글 /
+> 렌더 타깃 로그)은 지워졌다.** "이 창이 뭔가 그리기는 하는가"라는 A2의 질문에
+> 이미 답이 나왔고, 지금은 실제 스프라이트를 equip/unequip 하므로 그걸로 충분하다.
+> `2`/`3`/`4`는 이제 A5의 3슬롯 데모(Hang/Trail/Base 순환)에 쓴다 — docs/A3-SHELL-MODULE.md
+> 옆에 있을 A5 문서 참고.
 
 `--cursor-interval` 에 후보 밖 값을 주면 조용히 무시하지 않고 경고한다.
 측정 스크립트가 잘못된 조건으로 도는 것이 틀린 숫자보다 나쁘다.
