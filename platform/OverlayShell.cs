@@ -1,23 +1,28 @@
 using System;
 using Godot;
+using ProjectSeWoo.Shared;
 
-namespace ProjectSeWoo;
+namespace ProjectSeWoo.Platform;
 
 /// <summary>
-/// Day 1-2 오버레이 셸 스파이크.
+/// 오버레이 셸. <see cref="IShell"/> 실물이다 (A3, 기획확정-일감분배-260907.md §8-2/§7-1).
 ///
-/// 검증 대상 (docs/WEEK0-GODOT-VALIDATION.md §2):
+/// Day 1-2 스파이크(투명/무테/항상위/클릭통과/플리커)와 A2 커서 스파이크가 여기서
+/// 시작됐고, 둘 다 Go 판정이 났다 — docs/DAY1-2-SPIKE.md, docs/A2-CURSOR-SPIKE.md.
+/// A3 이전에는 <c>src/</c>에 있던 스파이크 코드였고, 지금 이 클래스로 모듈화됐다.
+///
+/// 검증했던 것 (docs/WEEK0-GODOT-VALIDATION.md §2):
 ///   1. 투명 + 무테 + 항상 위 + 클릭 통과가 동시에 되는가
 ///   2. 몸통 드래그로 창이 따라오는가
 ///   3. 멀티모니터 / DPI 스케일링에서 좌표가 어긋나지 않는가
 ///   4. 유휴 CPU &lt; 1%, 메모리 &lt; 150MB 를 만족하는가
 ///   5. godot#80098 흰색 깜빡임이 우리 환경에서 재현되는가, 회피책이 통하는가
 ///
-/// 5번이 이 스파이크의 설계 이유다. passthrough 폴리곤을 매 프레임 갱신하는 모드와
+/// 5번이 스파이크 설계 이유였다. passthrough 폴리곤을 매 프레임 갱신하는 모드와
 /// 상태가 바뀔 때만 갱신하는 모드를 F3로 즉시 전환할 수 있게 해서, 플리커가
-/// "Godot이 못 하는 것"인지 "우리가 잘못 부른 것"인지를 눈으로 가른다.
+/// "Godot이 못 하는 것"인지 "우리가 잘못 부른 것"인지를 눈으로 갈랐다 (Go 판정).
 /// </summary>
-public partial class OverlayShell : Node2D
+public partial class OverlayShell : Node2D, IShell
 {
     /// <summary>클릭 영역을 스프라이트보다 조금 넓게 잡는다. 가장자리 클릭이 새는 걸 막는다.</summary>
     private const int HitPadding = 8;
@@ -29,15 +34,27 @@ public partial class OverlayShell : Node2D
 
     private readonly PerfProbe _perf = new();
     private CursorLayer _cursor;
-
-    // A4 실물. A3 에서 셸을 모듈화할 때 제대로 된 자리로 옮긴다.
-    // 지금 여기 붙이는 이유는 스파이크 리포트로 검증하기 위해서다.
-    private Platform.HelperInputSource _input;
+    private HelperInputSource _input;
 
     private Window _win;
     private Sprite2D _mascot;
     private Line2D _outline;
     private DebugHud _hud;
+
+    /// <summary>스케일 적용 전 원본 창 크기. project.godot 의 viewport 크기다.</summary>
+    private Vector2I _baseWindowSize;
+
+    // --- IShell 상태. 옵션 화면(A6)이 아직 없어서 지금은 디버그 키(아래 _UnhandledKeyInput)로
+    // 시험한다. 값은 SaveIO 를 거쳐 재실행 시 복원된다 (RestoreWindowState). ---
+    private float _uiScale = 1.0f;
+    private float _opacity = 1.0f;
+
+    /// <summary>
+    /// <c>--selftest</c> / <c>--report=</c> 같은 무인 실행에서는 세이브를 건드리지 않는다.
+    /// 실제로 이걸 안 하니 헤드리스 selftest 가 헤드리스 환경의 엉뚱한 창 위치
+    /// (예: -88,-88)를 유저의 진짜 세이브 파일에 덮어썼다 - 이 파일 개발 중 실측.
+    /// </summary>
+    private bool _skipSavePersist;
 
     // --- 토글 상태 ---
     private bool _passthroughOn = true;
@@ -78,6 +95,7 @@ public partial class OverlayShell : Node2D
     public override void _Ready()
     {
         _win = GetWindow();
+        _baseWindowSize = _win.Size;
 
         // per_pixel_transparency/allowed 는 project.godot 에서 이미 켰다.
         // 여기서 켜려고 하면 조용히 무시된다.
@@ -89,16 +107,19 @@ public partial class OverlayShell : Node2D
         ApplyPowerSettings();
         BuildScene();
 
-        // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
-        // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
-        _input = new Platform.HelperInputSource();
+        // A4 실물. 별도 헬퍼 프로세스로 전역 타건 수를 받는다 (docs/A4-GLOBAL-INPUT.md).
+        _input = new HelperInputSource();
         _input.Start();
 
+        // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
+        // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
         _cursor = new CursorLayer(this);
         // 투명은 창 생성 시점에 정해지므로 이 인자만 다른 것들보다 먼저 읽는다.
         _cursor.Build(opaque: Array.IndexOf(OS.GetCmdlineUserArgs(), "--cursor-opaque") >= 0);
-        MoveToScreen(DisplayServer.WindowGetCurrentScreen());
-        ApplyPassthrough(force: true);
+
+        // 창 배율/투명도/위치 복원 (§7-1). SetScale 이 안에서 ApplyPassthrough 까지
+        // 걸어주므로 별도로 부를 필요가 없다.
+        RestoreWindowState();
 
         var tick = new Timer { WaitTime = 0.5, Autostart = true };
         tick.Timeout += OnTick;
@@ -109,8 +130,9 @@ public partial class OverlayShell : Node2D
             // 세이브 스키마가 기획서 §7-5 의 JSON 과 맞는지 확인하고 끝낸다.
             // 계약 문서와 코드가 갈라지는 것은 눈으로 안 잡히고, 을이 구현을
             // 끝낸 뒤에야 드러난다.
-            GD.Print(Shared.SaveSchema.Describe());
-            GetTree().Quit(Shared.SaveSchema.SelfTest() == null ? 0 : 1);
+            _skipSavePersist = true;
+            GD.Print(SaveSchema.Describe());
+            GetTree().Quit(SaveSchema.SelfTest() == null ? 0 : 1);
             return;
         }
 
@@ -153,6 +175,126 @@ public partial class OverlayShell : Node2D
         AddChild(_hud);
     }
 
+    // ------------------------------------------------------------------ IShell 실물
+
+    /// <summary>
+    /// 창 배율. 옵션 화면(§7-4, A6)이 아직 없어서 지금은 debug 키(<c>[</c>/<c>]</c>)로
+    /// 시험한다. 실물 소비자는 A6 옵션 창의 "크기" 슬라이더가 될 것이다.
+    ///
+    /// 루트 <see cref="Node2D.Scale"/>을 바꿔서 마스코트/외곽선을 같이 키운다.
+    /// <see cref="DebugHud"/>는 <c>CanvasLayer</c>라 이 노드의 Transform/Modulate를
+    /// 물려받지 않는다 - 배율/투명도를 바꿔도 HUD 글자는 항상 또렷하게 남는다.
+    /// 창 크기도 같이 키우는 이유는, 안 키우면 커진 마스코트가 창 밖으로 잘려서
+    /// 클릭 영역(passthrough 폴리곤)도 창 밖으로 나가 못 먹는 부분이 생기기 때문이다.
+    /// </summary>
+    public void SetScale(float s)
+    {
+        // 상한/하한은 A6 이 옵션 UI를 만들 때 실제 체감으로 다시 정한다. 지금은
+        // "창이 사라지거나 화면을 뒤덮는" 극단만 막아 두는 자리 표시자다.
+        _uiScale = Mathf.Clamp(s, 0.5f, 2.0f);
+        Scale = Vector2.One * _uiScale;
+        _win.Size = new Vector2I(
+            Mathf.RoundToInt(_baseWindowSize.X * _uiScale),
+            Mathf.RoundToInt(_baseWindowSize.Y * _uiScale));
+
+        // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다.
+        ApplyPassthrough(force: true);
+    }
+
+    /// <summary>
+    /// 창 투명도. 옵션의 "투명도" (§7-4), debug 키 <c>-</c>/<c>=</c>로 시험한다.
+    ///
+    /// 하한을 0 이 아니라 0.1로 잡은 이유: 옵션 화면(A6)이 아직 없는 상태에서
+    /// 완전 투명(0)까지 허용하면 유저가 창을 되찾을 UI 자체가 사라진다. 상주 앱에서
+    /// "설정으로 자기 자신을 못 보이게 만들고 되돌릴 방법이 없다"는 실제로 발생하는
+    /// 사고 패턴이다.
+    /// </summary>
+    public void SetOpacity(float a)
+    {
+        _opacity = Mathf.Clamp(a, 0.1f, 1.0f);
+        Modulate = new Color(1f, 1f, 1f, _opacity);
+    }
+
+    /// <summary>클릭 통과 On/Off (§7-1). 옵션의 "위치 잠금"이 이것과 연결된다.</summary>
+    public void SetClickThrough(bool on)
+    {
+        _passthroughOn = on;
+        ApplyPassthrough(force: true);
+    }
+
+    /// <summary>
+    /// 창을 놓을 수 있는 영역. 멀티모니터·작업표시줄을 고려한 현재 화면의 작업 영역이다.
+    ///
+    /// 개발 PC는 모니터가 3대고 하나는 X 좌표가 음수다(shared/Contracts/IShell.cs 문서
+    /// 참고). <c>ScreenGetUsableRect</c>는 절대 데스크톱 좌표를 그대로 돌려주므로
+    /// 음수 원점도 별도 처리 없이 맞는다 - 게임 레이어가 (0,0)을 원점으로 가정하지만
+    /// 않으면 된다.
+    /// </summary>
+    public Rect2I GetSafeArea() =>
+        DisplayServer.ScreenGetUsableRect(DisplayServer.WindowGetCurrentScreen());
+
+    /// <summary>
+    /// 창 배율/투명도/위치를 세이브에서 복원한다 (§7-1 "위치·크기 저장, 재실행 시 복원").
+    ///
+    /// 첫 실행(세이브 없음)이거나, 저장된 위치가 지금 모니터 구성 어디에도 없으면
+    /// (모니터가 빠졌거나 해상도가 바뀌었거나) 기본 배치로 폴백한다. <see cref="GetSafeArea"/>
+    /// 문서가 약속한 "모니터가 사라진 경우의 폴백은 플랫폼 레이어가 책임진다"가 이것이다 -
+    /// 게임 레이어는 이 판단을 몰라도 된다.
+    /// </summary>
+    private void RestoreWindowState()
+    {
+        bool hasSave = SaveIO.Exists();
+        SaveData save = SaveIO.Load();
+
+        SetScale(save.Settings.Scale);
+        SetOpacity(save.Settings.Opacity);
+
+        var savedPos = new Vector2I(save.Settings.Pos[0], save.Settings.Pos[1]);
+
+        if (hasSave && IsWithinAnyScreen(savedPos))
+        {
+            _win.Position = savedPos;
+        }
+        else
+        {
+            MoveToScreen(DisplayServer.WindowGetCurrentScreen());
+        }
+    }
+
+    private static bool IsWithinAnyScreen(Vector2I pos)
+    {
+        for (int i = 0; i < DisplayServer.GetScreenCount(); i++)
+        {
+            if (DisplayServer.ScreenGetUsableRect(i).HasPoint(pos))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 지금 배율/투명도/위치를 세이브 파일에 반영한다.
+    ///
+    /// 전체 <see cref="SaveData"/>를 새로 만들지 않고 매번 <see cref="SaveIO.Load"/>로
+    /// 읽어서 <c>Settings</c>만 고쳐 쓴다 - 을의 B5가 나무/인벤토리를 채운 뒤에는
+    /// 이 파일에 게임 상태도 같이 들어있을 것이고, 셸이 그걸 기본값으로 덮어쓰면 안 된다.
+    /// </summary>
+    private void PersistWindowState()
+    {
+        if (_skipSavePersist)
+        {
+            return;
+        }
+
+        SaveData save = SaveIO.Load();
+        save.Settings.Scale = _uiScale;
+        save.Settings.Opacity = _opacity;
+        save.Settings.Pos = new[] { _win.Position.X, _win.Position.Y };
+        SaveIO.Save(save);
+    }
+
     // ------------------------------------------------------------------ 클릭 통과
 
     /// <summary>
@@ -176,10 +318,20 @@ public partial class OverlayShell : Node2D
         };
     }
 
+    /// <summary>
+    /// 마스코트의 창-픽셀 좌표 기준 사각형.
+    ///
+    /// <see cref="_mascot"/>의 Position/Scale은 이 노드(루트 Node2D)의 로컬 좌표계다.
+    /// <see cref="SetScale"/>이 루트에 <see cref="Node2D.Scale"/>을 걸어 두므로,
+    /// passthrough 에 넘길 **창 픽셀** 좌표를 얻으려면 <see cref="_uiScale"/>을
+    /// 직접 곱해야 한다 - Godot 렌더링은 이 배율을 자동으로 반영하지만, Win32
+    /// <c>SetWindowRgn</c>에 넘기는 이 좌표는 그 파이프라인을 안 거친다.
+    /// </summary>
     private Rect2 MascotRect()
     {
-        Vector2 size = _mascot.Texture.GetSize() * _mascot.Scale;
-        Vector2 topLeft = _mascot.Position - (_mascot.Centered ? size * 0.5f : Vector2.Zero);
+        Vector2 size = _mascot.Texture.GetSize() * _mascot.Scale * _uiScale;
+        Vector2 topLeft = (_mascot.Position * _uiScale)
+            - (_mascot.Centered ? size * 0.5f : Vector2.Zero);
         return new Rect2(topLeft, size);
     }
 
@@ -357,6 +509,7 @@ public partial class OverlayShell : Node2D
         if (_win.Position != _dragStart)
         {
             _drags++;
+            PersistWindowState();
         }
 
         ApplyPassthrough(force: true);
@@ -453,6 +606,24 @@ public partial class OverlayShell : Node2D
                 _cursor.CycleClickThrough();
                 break;
 
+            // IShell 실물을 옵션 UI(A6) 없이 시험하기 위한 debug 키.
+            // 을이 옵션 화면을 만들면 이 자리를 그 UI가 대신 호출한다.
+            case Key.Bracketleft:
+                SetScale(_uiScale - 0.1f);
+                break;
+
+            case Key.Bracketright:
+                SetScale(_uiScale + 0.1f);
+                break;
+
+            case Key.Minus:
+                SetOpacity(_opacity - 0.1f);
+                break;
+
+            case Key.Equal:
+                SetOpacity(_opacity + 0.1f);
+                break;
+
             case Key.Escape:
                 GetTree().Quit();
                 break;
@@ -506,7 +677,8 @@ public partial class OverlayShell : Node2D
                 + $"   in L{_clicks} R{_rclicks} W{_wheels} D{_drags}",
             _cursor.StatusLine(),
             "",
-            $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}",
+            $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
+                + $"  uiscale {_uiScale:F2}  opacity {_opacity:F2}  save {OnOff(SaveIO.Exists())}",
             $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}",
             $"scr   #{screen} of {DisplayServer.GetScreenCount()}  {usable.Size.X}x{usable.Size.Y}"
                 + $"  dpi {DisplayServer.ScreenGetDpi(screen)}  scale {DisplayServer.ScreenGetScale(screen):F2}"
@@ -581,6 +753,11 @@ public partial class OverlayShell : Node2D
         {
             return;
         }
+
+        // 무인 측정 세션이다. 스윕 스크립트가 --cursor-* 조건을 바꿔가며 여러 번
+        // 재시작하는데, 매번 실제 세이브 파일에 이 세션의 창 위치/배율을 남기면
+        // 다음 정상 실행이 그 값을 주워서 시작한다. 측정용 상태는 측정 세션 안에만 있어야 한다.
+        _skipSavePersist = true;
 
         if (_autoDurationSec <= 0.0)
         {
@@ -734,7 +911,8 @@ public partial class OverlayShell : Node2D
                 + $" dpi {DisplayServer.ScreenGetDpi(screen)},"
                 + $" scale {DisplayServer.ScreenGetScale(screen):F2},"
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
-            $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y}",
+            $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y},"
+                + $" uiscale {_uiScale:F2}, opacity {_opacity:F2}, save {OnOff(SaveIO.Exists())}",
             $"input on body: left {_clicks}, right {_rclicks},"
                 + $" wheel {_wheels}, drag-moved {_drags}",
             _input.StatusLine(),
@@ -755,6 +933,10 @@ public partial class OverlayShell : Node2D
 
     public override void _ExitTree()
     {
+        // 창 배율/투명도/위치를 여기서 한 번 더 남긴다. 드래그 없이 바로 끈 세션도
+        // 다음 실행에서 지금 상태(예: F5 로 바꾼 스케일)를 복원하려면 필요하다.
+        PersistWindowState();
+
         // RawInput 등록과 WndProc 후킹을 되돌린다. 상주 앱이라 프로세스가
         // 오래 살고, 남겨두면 다음 실행에서 무엇이 원인인지 알기 어려워진다.
         _input?.Dispose();

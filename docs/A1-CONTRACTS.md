@@ -29,9 +29,10 @@ game/        을 담당. 게임 안에서 도는 전부
 src/         Day 1-2 / A2 스파이크 코드. A3 에서 platform/ 으로 정리된다
 ```
 
-`src/` 가 아직 남아 있는 것은 의도된 상태다. 스파이크 코드를 지금 옮기면 A2 의
-측정 절차(`tools/*.ps1` 의 경로, `docs/DAY1-2-SPIKE.md` 의 실행법)가 같이 깨진다.
-**A3(셸 모듈화)에서 한 번에 옮긴다.**
+> **2026-09-15 갱신.** A3가 끝나서 `src/`는 더 이상 없다. 스파이크 코드
+> (`OverlayShell.cs`/`CursorLayer.cs`/`PerfProbe.cs`/`DebugHud.cs`)는 전부
+> `platform/`으로 옮겨졌고, `docs/DAY1-2-SPIKE.md`의 실행법은 그대로 유효하다
+> (`tools/*.ps1`은 프로젝트 경로로 Godot을 띄울 뿐 개별 파일 경로에 의존하지 않는다).
 
 ---
 
@@ -183,7 +184,7 @@ Godot_..._console.exe --headless --path . -- --selftest
 
 | 일감 | 담당 | 이 문서와의 관계 |
 |---|---|---|
-| A3 셸 모듈화 | 갑 | `src/` → `platform/`, `IShell` 실물 |
-| A4 글로벌 입력 | 갑 | `IInputSource` 실물 (RawInput, 카운트만) |
-| A5 커서 꾸미기 정식화 | 갑 | `ICursorLayer` 실물. A2 스파이크 코드 정리 |
+| ~~A3 셸 모듈화~~ | 갑 | ✅ 완료 (2026-09-15). `src/`→`platform/`, `IShell` 실물(`platform/OverlayShell.cs`), 위치/배율/투명도 저장·복원(`platform/SaveIO.cs`) |
+| A4 글로벌 입력 | 갑 | ✅ 완료 (2026-09-14). `IInputSource` 실물 (RawInput, 카운트만) — docs/A4-GLOBAL-INPUT.md |
+| A5 커서 꾸미기 정식화 | 갑 | `ICursorLayer` 실물. A2 스파이크 코드 정리 (아직 미착수 — `platform/CursorLayer.cs`는 A3에서 위치만 옮겨졌다) |
 | B1~B5 | 을 | **지금 바로 시작 가능.** 목 4종으로 끝까지 돈다 |

@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Godot;
 
-namespace ProjectSeWoo;
+namespace ProjectSeWoo.Platform;
 
 /// <summary>
 /// A2 커서 추종 창 스파이크 (기획확정-일감분배-260907.md §1.3).

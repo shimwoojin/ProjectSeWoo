@@ -1,6 +1,6 @@
 using Godot;
 
-namespace ProjectSeWoo;
+namespace ProjectSeWoo.Platform;
 
 /// <summary>
 /// 측정값과 조작 키를 창 안에 띄우는 HUD.
@@ -57,6 +57,8 @@ public partial class DebugHud : CanvasLayer
             "F4 on-top F5 fps cap       F6 low power",
             "F7 next screen             F8 hit outline",
             "F9 copy report  F10 reset  ESC quit",
+            "F11 cursor on/off  F12 cursor interval  1-4 cursor mode/debug",
+            "[ ] shell scale   - = shell opacity",
         });
         rows.AddChild(_keys);
     }

@@ -340,9 +340,10 @@ debug 템플릿보다 무조건 가볍다는 통념은 이 프로젝트에서 �
 project.godot              투명/무테/항상위/per-pixel 투명 + 스트레치 1:1 고정
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
 scenes/Shell.tscn          루트 노드 하나. 나머지는 코드로 구성
-src/OverlayShell.cs        창 설정, passthrough, 드래그, 핫키, 리포트
-src/PerfProbe.cs           CPU%/메모리 샘플링 (priv = 판정 기준, ws = 참고)
-src/DebugHud.cs            HUD (ASCII 전용)
+platform/OverlayShell.cs   창 설정, passthrough, 드래그, 핫키, 리포트. IShell 실물 (A3)
+platform/PerfProbe.cs      CPU%/메모리 샘플링 (priv = 판정 기준, ws = 참고)
+platform/DebugHud.cs       HUD (ASCII 전용)
+platform/SaveIO.cs         세이브 파일 I/O, 원자적 쓰기 (A3)
 tools/VsLauncher/          Visual Studio F5 디버깅용 런처 (게임 아님, 배포 제외)
 tools/measure-renderers.ps1  렌더러 A/B 무인 측정 스윕 (§4). -Exe 로 릴리스 빌드도 잰다
 export_presets.cfg         Windows Desktop 릴리스 익스포트 프리셋

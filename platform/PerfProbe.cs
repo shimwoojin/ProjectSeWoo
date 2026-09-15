@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using Godot;
 
-namespace ProjectSeWoo;
+namespace ProjectSeWoo.Platform;
 
 /// <summary>
 /// 프로세스 CPU 점유율과 메모리를 직접 샘플링한다.

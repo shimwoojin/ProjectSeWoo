@@ -433,7 +433,7 @@ A5 정식 구현에서 회귀가 의심되면 `4` 키로 세 방식을 재시작
 
 | 파일 | 역할 |
 |---|---|
-| `src/CursorLayer.cs` | 추종 창 본체. Direct / Spring / Lazy 3모드, 합성 경로, Win32 클릭 통과 |
+| `platform/CursorLayer.cs` | 추종 창 본체. Direct / Spring / Lazy 3모드, 합성 경로, Win32 클릭 통과 (A3에서 `src/`→`platform/` 이동, 2026-09-15) |
 | `tools/measure-cursor.ps1` | 이동 주기 × 모드 스윕 (§3) |
 | `tools/inspect-windows.ps1` | OS 에 창 목록·스타일·히트테스트를 직접 묻는다 (§1, §2) |
 

@@ -5,14 +5,19 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 바탕화면 위에 떠 있는 투명 창에서 캐릭터가 살고, 사용자의 PC 활동에 반응해 자란다.
 
 - **팀** 2인 · **기간** 1개월 · **엔진** Godot 4.7.2 (.NET / C#)
-- 현재 단계: **Week 0 — 기술 검증**. 기획 확정 전에 "이 껍데기가 Godot에서 서는가"를 먼저 판정한다.
+- 현재 단계: **Week 2 — 메타 완성 + 에셋 파이프라인** (기획확정-일감분배-260907.md §9). Week 0/1의
+  기술 검증(오버레이 셸, 커서 추종 창, 글로벌 입력)은 전부 Go 판정이 났다.
 
 ## 문서
 
 | | |
 |---|---|
+| [docs/기획확정-일감분배-260907.md](docs/기획확정-일감분배-260907.md) | 확정 기획서 + 2인(갑/을) 일감 분배, 주차별 계획 |
 | [docs/WEEK0-GODOT-VALIDATION.md](docs/WEEK0-GODOT-VALIDATION.md) | Week 0 검증 계획 · 일자별 스파이크 · Go/No-Go 매트릭스 |
 | [docs/DAY1-2-SPIKE.md](docs/DAY1-2-SPIKE.md) | 오버레이 셸 스파이크 실행 · 측정 절차 · 기록표 |
+| [docs/A1-CONTRACTS.md](docs/A1-CONTRACTS.md) | 인터페이스 4종 + 세이브 스키마 v1 + 목 구현 |
+| [docs/A2-CURSOR-SPIKE.md](docs/A2-CURSOR-SPIKE.md) | 커서 추종 창 스파이크 (클릭 통과 시행착오 포함) |
+| [docs/A4-GLOBAL-INPUT.md](docs/A4-GLOBAL-INPUT.md) | 글로벌 입력 (RawInput, 별도 헬퍼 프로세스) |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | 개발 로그 · 결정 사항 · 밟은 함정 |
 
 ## 실행
@@ -37,9 +42,18 @@ dotnet build ProjectSeWoo.csproj
 project.godot              투명/무테/항상위/per-pixel 투명 + 스트레치 1:1 고정
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
 scenes/Shell.tscn          루트 노드 하나. 나머지는 코드로 구성
-src/OverlayShell.cs        창 설정, 클릭 통과, 드래그, 핫키, 리포트
-src/PerfProbe.cs           CPU%/메모리 샘플링
-src/DebugHud.cs            HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
+shared/Contracts/          갑/을 인터페이스 4종 (IInputSource, ICursorLayer, INetSession, IShell)
+shared/Save/               세이브 스키마 v1 + 마이그레이션 훅
+platform/                  갑 담당. OS와 붙는 전부
+  OverlayShell.cs            창 설정, 클릭 통과, 드래그, 핫키, 리포트. IShell 실물
+  CursorLayer.cs             A2 커서 추종 창
+  HelperInputSource.cs       IInputSource 실물 (별도 헬퍼 프로세스 IPC)
+  InputHelper/               별도 exe. RawInput 으로 타건 수만 센다
+  SaveIO.cs                  세이브 파일 I/O (원자적 쓰기)
+  PerfProbe.cs               CPU%/메모리 샘플링
+  DebugHud.cs                HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
+  Mocks/                     4개 인터페이스의 목 구현 (을이 갑을 안 기다리고 쓴다)
+game/                      을 담당. 게임 안에서 도는 전부 (아직 착수 전)
 tools/VsLauncher/          Visual Studio F5 디버깅용 런처 (게임 아님, 배포 제외)
 ```
 

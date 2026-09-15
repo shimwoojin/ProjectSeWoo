@@ -6,7 +6,7 @@ namespace ProjectSeWoo.Platform.Mocks;
 /// <summary>
 /// <see cref="IShell"/> 목 구현. 값을 기억만 하고 창은 건드리지 않는다.
 ///
-/// 실물은 A3 에서 <c>src/OverlayShell.cs</c> 의 스파이크 코드를 모듈화해 만든다.
+/// 실물은 <c>platform/OverlayShell.cs</c>다 (A3 완료, 2026-09-15).
 /// </summary>
 public sealed class MockShell : IShell
 {
