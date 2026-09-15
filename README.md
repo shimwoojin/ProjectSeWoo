@@ -23,6 +23,7 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 | [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2 |
 | [docs/A7-PERF.md](docs/A7-PERF.md) | 저부하 최종 실측(커서 창 포함), .NET 런타임 튜닝 한계, 메모리 게이트 판단 |
 | [docs/SCENE-ARCHITECTURE.md](docs/SCENE-ARCHITECTURE.md) | `IInteractiveArea` 계약, 씬/폴더 배치 (B1 착수 전 필독) |
+| [docs/B-TRACK-START.md](docs/B-TRACK-START.md) | **을 시작 가이드.** 목 4종 쓰는 법, B1 착수 순서, `GameRoot` 스캐폴딩 예시 |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | 개발 로그 · 결정 사항 · 밟은 함정 |
 
 ## 실행
