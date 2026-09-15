@@ -358,7 +358,7 @@ debug 템플릿보다 무조건 가볍다는 통념은 이 프로젝트에서 �
 ```
 project.godot              투명/무테/항상위/per-pixel 투명 + 스트레치 1:1 고정
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
-scenes/Shell.tscn          루트 노드 하나. 나머지는 코드로 구성
+platform/Shell.tscn        루트 노드 하나. 나머지는 코드로 구성 (2026-09-16, scenes/ 에서 이동)
 platform/OverlayShell.cs   창 설정, passthrough, 드래그, 핫키, 리포트. IShell 실물 (A3)
 platform/PerfProbe.cs      CPU%/메모리 샘플링 (priv = 판정 기준, ws = 참고)
 platform/DebugHud.cs       HUD (ASCII 전용)

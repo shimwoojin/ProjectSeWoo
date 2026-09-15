@@ -19,6 +19,21 @@ public enum CursorSlot
 }
 
 /// <summary>
+/// 플랫폼(갑)과 게임(을) 씬이 타입 의존 없이 서로를 찾을 때 쓰는 Godot 그룹 이름.
+/// 문자열을 양쪽에 따로 박아 두면 언젠가 한쪽만 바뀌므로 여기 한 곳에 둔다.
+/// </summary>
+public static class SceneGroups
+{
+    /// <summary>
+    /// `game/GameRoot`가 <c>_Ready()</c>에서 <c>AddToGroup(SceneGroups.GameRoot)</c>로
+    /// 자기 자신을 등록한다. <c>OverlayShell</c>이 <c>GetFirstNodeInGroup</c>으로
+    /// 찾아서 <see cref="IInteractiveArea"/>로 캐스팅해 쓴다 - platform/이 game/의
+    /// 구체 타입을 컴파일 타임에 참조하지 않는다.
+    /// </summary>
+    public const string GameRoot = "game_root";
+}
+
+/// <summary>
 /// 멀티 룸의 상대 식별자. Steam ID 를 그대로 담는다.
 ///
 /// <c>ulong</c> 을 그냥 쓰지 않고 감싸는 이유는, 누적 타수도 <c>long</c> 이고

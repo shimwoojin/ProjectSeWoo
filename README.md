@@ -22,6 +22,7 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 | [docs/A5-CURSOR-COSMETICS.md](docs/A5-CURSOR-COSMETICS.md) | 커서 꾸미기 정식화, `ICursorLayer` 실물, 3슬롯 장착 |
 | [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2 |
 | [docs/A7-PERF.md](docs/A7-PERF.md) | 저부하 최종 실측(커서 창 포함), .NET 런타임 튜닝 한계, 메모리 게이트 판단 |
+| [docs/SCENE-ARCHITECTURE.md](docs/SCENE-ARCHITECTURE.md) | `IInteractiveArea` 계약, 씬/폴더 배치 (B1 착수 전 필독) |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | 개발 로그 · 결정 사항 · 밟은 함정 |
 
 ## 실행
@@ -45,11 +46,12 @@ dotnet build ProjectSeWoo.csproj
 ```
 project.godot              투명/무테/항상위/per-pixel 투명 + 스트레치 1:1 고정
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
-scenes/Shell.tscn          루트 노드 하나. 나머지는 코드로 구성
-shared/Contracts/          갑/을 인터페이스 4종 (IInputSource, ICursorLayer, INetSession, IShell)
+shared/Contracts/          갑/을 인터페이스 5종 (IInputSource, ICursorLayer, INetSession, IShell, IInteractiveArea)
 shared/Save/               세이브 스키마 v2 + 마이그레이션 훅
 platform/                  갑 담당. OS와 붙는 전부
+  Shell.tscn                 씬 루트 (scenes/ 에서 이동). 나머지는 코드로 구성
   OverlayShell.cs            창 설정, 클릭 통과, 드래그, 핫키, 리포트. IShell 실물
+  PlaceholderMascot.cs       IInteractiveArea 자리표시자 - game/GameRoot 나오면 대체됨
   CursorLayer.cs             A2 커서 추종 창. ICursorLayer 실물, 3슬롯 장착
   HelperInputSource.cs       IInputSource 실물 (별도 헬퍼 프로세스 IPC)
   InputHelper/               별도 exe. RawInput 으로 타건 수만 센다
@@ -62,6 +64,7 @@ platform/                  갑 담당. OS와 붙는 전부
   DebugHud.cs                HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
   Mocks/                     4개 인터페이스의 목 구현 (을이 갑을 안 기다리고 쓴다)
 game/                      을 담당. 게임 안에서 도는 전부 (아직 착수 전)
+  entities/ ui/ effects/ multiplayer/   골격만 잡아 둔 빈 폴더 (docs/SCENE-ARCHITECTURE.md §2)
 tools/VsLauncher/          Visual Studio F5 디버깅용 런처 (게임 아님, 배포 제외)
 ```
 

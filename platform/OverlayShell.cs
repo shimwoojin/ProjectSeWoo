@@ -37,9 +37,18 @@ public partial class OverlayShell : Node2D, IShell
     private HelperInputSource _input;
 
     private Window _win;
+
+    /// <summary>game/GameRoot 가 없을 때만 만든다. 있으면 null로 남는다 - <see cref="_content"/> 참고.</summary>
     private Sprite2D _mascot;
+
     private Line2D _outline;
     private DebugHud _hud;
+
+    /// <summary>
+    /// 클릭 영역의 출처. <see cref="PlaceholderMascot"/>(자리표시자) 또는
+    /// game/GameRoot(실물) 둘 중 하나가 항상 들어있다 - shared/Contracts/IInteractiveArea.cs.
+    /// </summary>
+    private IInteractiveArea _content;
 
     /// <summary>스케일 적용 전 원본 창 크기. project.godot 의 viewport 크기다.</summary>
     private Vector2I _baseWindowSize;
@@ -201,17 +210,31 @@ public partial class OverlayShell : Node2D, IShell
     /// </summary>
     private void BuildScene()
     {
-        var texture = GD.Load<Texture2D>("res://icon.svg");
-
-        _mascot = new Sprite2D
+        // game/GameRoot 가 자기 자신을 이 그룹에 등록해 두면 그걸 쓰고, 없으면
+        // 자리표시자 마스코트로 채운다. 타입 이름이 아니라 그룹으로 찾는 이유는
+        // platform/이 game/의 구체 타입을 컴파일 타임에 알면 안 되기 때문이다
+        // (shared/Contracts/IInteractiveArea.cs 문서 참고).
+        Node gameRootNode = GetTree().GetFirstNodeInGroup(SceneGroups.GameRoot);
+        if (gameRootNode is IInteractiveArea area)
         {
-            Name = "Mascot",
-            Texture = texture,
-            Centered = true,
-            Scale = Vector2.One * MascotScale,
-            Position = new Vector2(_win.Size.X / 2f, 160f),
-        };
-        AddChild(_mascot);
+            _content = area;
+            GD.Print("[shell] game/GameRoot 발견 - 자리표시자 마스코트를 안 만든다");
+        }
+        else
+        {
+            var texture = GD.Load<Texture2D>("res://icon.svg");
+
+            _mascot = new Sprite2D
+            {
+                Name = "Mascot",
+                Texture = texture,
+                Centered = true,
+                Scale = Vector2.One * MascotScale,
+                Position = new Vector2(_win.Size.X / 2f, 160f),
+            };
+            AddChild(_mascot);
+            _content = new PlaceholderMascot(_mascot);
+        }
 
         _outline = new Line2D
         {
@@ -505,7 +528,7 @@ public partial class OverlayShell : Node2D, IShell
             return Array.Empty<Vector2>();
         }
 
-        Rect2 r = MascotRect().Grow(HitPadding);
+        Rect2 r = CurrentHitRect();
         return new[]
         {
             r.Position,
@@ -516,20 +539,22 @@ public partial class OverlayShell : Node2D, IShell
     }
 
     /// <summary>
-    /// 마스코트의 창-픽셀 좌표 기준 사각형.
+    /// 클릭을 받을 창-픽셀 좌표 기준 사각형. 값의 출처는 <see cref="_content"/>
+    /// (게임 레이어가 신고한 것, shared/Contracts/IInteractiveArea.cs) 이고,
+    /// 여기서는 플랫폼 몫(배율 적용, 클릭 여백)만 더한다.
     ///
-    /// <see cref="_mascot"/>의 Position/Scale은 이 노드(루트 Node2D)의 로컬 좌표계다.
-    /// <see cref="SetScale"/>이 루트에 <see cref="Node2D.Scale"/>을 걸어 두므로,
-    /// passthrough 에 넘길 **창 픽셀** 좌표를 얻으려면 <see cref="SaveData.SettingsState.Scale"/>을
-    /// 직접 곱해야 한다 - Godot 렌더링은 이 배율을 자동으로 반영하지만, Win32
-    /// <c>SetWindowRgn</c>에 넘기는 이 좌표는 그 파이프라인을 안 거친다.
+    /// <see cref="IInteractiveArea.GetClickableBounds"/>는 셸 루트의 로컬 좌표계
+    /// 값을 돌려준다. <see cref="SetScale"/>이 루트에 <see cref="Node2D.Scale"/>을
+    /// 걸어 두므로, passthrough 에 넘길 **창 픽셀** 좌표를 얻으려면
+    /// <see cref="SaveData.SettingsState.Scale"/>을 직접 곱해야 한다 - Godot 렌더링은
+    /// 이 배율을 자동으로 반영하지만, Win32 <c>SetWindowRgn</c>에 넘기는 이 좌표는
+    /// 그 파이프라인을 안 거친다.
     /// </summary>
-    private Rect2 MascotRect()
+    private Rect2 CurrentHitRect()
     {
-        Vector2 size = _mascot.Texture.GetSize() * _mascot.Scale * _settings.Scale;
-        Vector2 topLeft = (_mascot.Position * _settings.Scale)
-            - (_mascot.Centered ? size * 0.5f : Vector2.Zero);
-        return new Rect2(topLeft, size);
+        Rect2 local = _content.GetClickableBounds();
+        var scaled = new Rect2(local.Position * _settings.Scale, local.Size * _settings.Scale);
+        return scaled.Grow(HitPadding);
     }
 
     /// <summary>
@@ -607,10 +632,15 @@ public partial class OverlayShell : Node2D, IShell
             }
         }
 
+        // 클릭 시 살짝 튀는 연출. 자리표시자 전용이다 - 실제 펀치 애니메이션은
+        // 게임 레이어(B2 마이크로 피드백)가 GameRoot 안에서 직접 맡는다.
         if (_punch > 0.0)
         {
             _punch = Math.Max(0.0, _punch - delta * 4.0);
-            _mascot.Scale = Vector2.One * (MascotScale * (1.0f + (float)_punch * 0.18f));
+            if (_mascot != null)
+            {
+                _mascot.Scale = Vector2.One * (MascotScale * (1.0f + (float)_punch * 0.18f));
+            }
         }
 
         ApplyPassthrough(force: _updateEveryFrame);
@@ -888,7 +918,7 @@ public partial class OverlayShell : Node2D, IShell
     {
         int screen = DisplayServer.WindowGetCurrentScreen();
         Rect2I usable = DisplayServer.ScreenGetUsableRect(screen);
-        Rect2 hit = MascotRect().Grow(HitPadding);
+        Rect2 hit = CurrentHitRect();
 
         return string.Join("\n", new[]
         {

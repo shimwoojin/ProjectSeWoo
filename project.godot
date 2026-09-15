@@ -11,12 +11,12 @@ config_version=5
 [application]
 
 config/name="ProjectSeWoo"
-run/main_scene="res://scenes/Shell.tscn"
+run/main_scene="res://platform/Shell.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="PunchMonkey"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 run/low_processor_mode=true
 config/icon="res://icon.svg"
-config/use_custom_user_dir=true
-config/custom_user_dir_name="PunchMonkey"
 
 [display]
 
@@ -25,8 +25,8 @@ window/size/viewport_height=560
 window/size/borderless=true
 window/size/always_on_top=true
 window/size/transparent=true
-window/per_pixel_transparency/allowed=true
 window/subwindows/embed_subwindows=false
+window/per_pixel_transparency/allowed=true
 
 [dotnet]
 
