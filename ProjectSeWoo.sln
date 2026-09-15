@@ -1,7 +1,12 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.10.12120.281 insiders
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectSeWoo", "ProjectSeWoo.csproj", "{9A1B7C42-5E30-4C11-B0D8-3F7A61C2D904}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VsLauncher", "tools\VsLauncher\VsLauncher.csproj", "{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InputHelper", "platform\InputHelper\InputHelper.csproj", "{F14787CA-7788-5A64-1E57-1E6919AE5939}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,5 +25,17 @@ Global
 		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7B3E5A21-9C44-4D8E-AF10-2C6B8D5E4F31}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{F14787CA-7788-5A64-1E57-1E6919AE5939}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F14787CA-7788-5A64-1E57-1E6919AE5939}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F14787CA-7788-5A64-1E57-1E6919AE5939}.ExportDebug|Any CPU.ActiveCfg = Release|Any CPU
+		{F14787CA-7788-5A64-1E57-1E6919AE5939}.ExportDebug|Any CPU.Build.0 = Release|Any CPU
+		{F14787CA-7788-5A64-1E57-1E6919AE5939}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{F14787CA-7788-5A64-1E57-1E6919AE5939}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9A3F99E2-2784-4EF1-B2BE-B5F90976E7A9}
 	EndGlobalSection
 EndGlobal

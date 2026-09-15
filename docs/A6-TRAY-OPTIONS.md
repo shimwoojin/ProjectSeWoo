@@ -159,4 +159,4 @@ _cursor.Enabled = visible && CursorEnabled
 | A7 저부하 재측정 | `FullscreenWatcher` 폴링 비용을 포함해서 재야 한다 |
 | A12 빌드 파이프라인 | 익스포트 빌드에서 `Autostart`가 정확히 게임 exe를 등록하는지 재확인 |
 | B6 상점/장착 UI | `2`/`3`/`4` debug 키를 대신한다 (A5) |
-| 게임명 확정 (§12) | 세이브 경로를 `user://`에서 `%APPDATA%/<게임명>/`로 (A3-SHELL-MODULE.md §2) |
+| ~~세이브 경로~~ | ✅ 완료 (2026-09-16). `%APPDATA%/PunchMonkey/` — A3-SHELL-MODULE.md §2 |

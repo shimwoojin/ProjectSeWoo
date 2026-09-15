@@ -169,4 +169,4 @@ git mv  src/DebugHud.cs     → platform/DebugHud.cs       (namespace ProjectSeW
 | A6 옵션 창 | `[`/`]`/`-`/`=` debug 키를 실제 UI로 교체. `SetClickThrough`(위치 잠금)도 아직 UI가 없다 |
 | A7 저부하 최적화 | `Scale`/`Modulate` 적용이 렌더 비용에 미치는 영향은 별도로 안 쟀다 — A7에서 커서 창 포함 재측정할 때 같이 본다 |
 | DPI 실측 (DAY1-2-SPIKE.md §3-3) | `F7`/`F8`로 다른 배율 모니터에서 클릭 영역 육안 확인 — 미실시 |
-| §7-5 세이브 경로 정식화 | 게임명 확정(§12) 후 `user://` → `%APPDATA%/<게임명>/` |
+| ~~§7-5 세이브 경로 정식화~~ | ✅ 완료 (2026-09-16). `project.godot`의 `custom_user_dir_name="PunchMonkey"` → `%APPDATA%/PunchMonkey/`. §12의 게임명 최종 확정(스팀 검색 중복 확인)은 별개로 남음 |

@@ -19,10 +19,13 @@ namespace ProjectSeWoo.Platform;
 /// 담는 임시 포맷을 만들지 않고 <see cref="SaveData"/> 전체를 왕복시키는 이유는,
 /// 임시 포맷을 만들면 B5 때 다시 합쳐야 하기 때문이다.
 ///
-/// 경로는 임시로 Godot 기본 <c>user://</c>를 쓴다. §7-5가 명시한
-/// <c>%APPDATA%/&lt;게임명&gt;/save.json</c>은 게임명이 확정(§12)된 뒤
-/// <c>OS.SetEnvironmentVar</c> 나 <c>ProjectSettings</c>의 애플리케이션 이름으로
-/// 바꿔 끼운다 — 지금 하드코딩하면 이름이 바뀔 때 세이브 경로가 또 바뀐다.
+/// 경로는 여전히 Godot 기본 <c>user://</c> 그대로 쓴다 — 실제 디스크 경로는
+/// 이 클래스가 아니라 <c>project.godot</c>의 <c>application/config/use_custom_user_dir</c>
+/// + <c>custom_user_dir_name="PunchMonkey"</c>가 결정한다 (2026-09-16, §7-5).
+/// 그 결과 <c>user://save.json</c>이 <c>%APPDATA%/PunchMonkey/save.json</c>으로
+/// 그대로 풀린다. §12의 게임명 최종 확정(스팀 검색 중복 확인 등)은 아직 별개로
+/// 남아 있다 — "PunchMonkey"는 지금은 세이브 경로를 정하는 작업명이다. 이름이
+/// 또 바뀌면 <c>custom_user_dir_name</c> 한 줄만 고치면 되고, 이 파일은 안 바뀐다.
 /// </summary>
 public static class SaveIO
 {
