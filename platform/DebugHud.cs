@@ -53,12 +53,12 @@ public partial class DebugHud : CanvasLayer
         _keys.Text = string.Join("\n", new[]
         {
             "drag body = move window",
-            "F1 hud    F2 passthrough   F3 update mode",
+            "F1 hud    F2 position lock  F3 update mode",
             "F4 on-top F5 fps cap       F6 low power",
             "F7 next screen             F8 hit outline",
-            "F9 copy report  F10 reset  ESC quit",
+            "F9 copy report  F10 reset  ESC quit/close options",
             "F11 cursor on/off  F12 cursor interval  1 cursor follow mode",
-            "2/3/4 cycle equip hang/trail/base (demo)",
+            "2/3/4 cycle equip hang/trail/base (demo)  O options window",
             "[ ] shell scale   - = shell opacity",
         });
         rows.AddChild(_keys);

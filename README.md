@@ -20,6 +20,7 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 | [docs/A3-SHELL-MODULE.md](docs/A3-SHELL-MODULE.md) | 셸 모듈화, `IShell` 실물, 세이브 파일 I/O |
 | [docs/A4-GLOBAL-INPUT.md](docs/A4-GLOBAL-INPUT.md) | 글로벌 입력 (RawInput, 별도 헬퍼 프로세스) |
 | [docs/A5-CURSOR-COSMETICS.md](docs/A5-CURSOR-COSMETICS.md) | 커서 꾸미기 정식화, `ICursorLayer` 실물, 3슬롯 장착 |
+| [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2 |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | 개발 로그 · 결정 사항 · 밟은 함정 |
 
 ## 실행
@@ -45,13 +46,17 @@ project.godot              투명/무테/항상위/per-pixel 투명 + 스트레�
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
 scenes/Shell.tscn          루트 노드 하나. 나머지는 코드로 구성
 shared/Contracts/          갑/을 인터페이스 4종 (IInputSource, ICursorLayer, INetSession, IShell)
-shared/Save/               세이브 스키마 v1 + 마이그레이션 훅
+shared/Save/               세이브 스키마 v2 + 마이그레이션 훅
 platform/                  갑 담당. OS와 붙는 전부
   OverlayShell.cs            창 설정, 클릭 통과, 드래그, 핫키, 리포트. IShell 실물
-  CursorLayer.cs             A2 커서 추종 창
+  CursorLayer.cs             A2 커서 추종 창. ICursorLayer 실물, 3슬롯 장착
   HelperInputSource.cs       IInputSource 실물 (별도 헬퍼 프로세스 IPC)
   InputHelper/               별도 exe. RawInput 으로 타건 수만 센다
   SaveIO.cs                  세이브 파일 I/O (원자적 쓰기)
+  OptionsWindow.cs           옵션 창 UI (§7-4 전 항목)
+  TrayIcon.cs                트레이 아이콘 + 우클릭 메뉴
+  Autostart.cs               시작 프로그램 등록 (HKCU Run 키)
+  FullscreenWatcher.cs       전체화면 앱 위 자동 숨김 휴리스틱
   PerfProbe.cs               CPU%/메모리 샘플링
   DebugHud.cs                HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
   Mocks/                     4개 인터페이스의 목 구현 (을이 갑을 안 기다리고 쓴다)

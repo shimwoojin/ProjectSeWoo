@@ -44,25 +44,34 @@ public partial class OverlayShell : Node2D, IShell
     /// <summary>스케일 적용 전 원본 창 크기. project.godot 의 viewport 크기다.</summary>
     private Vector2I _baseWindowSize;
 
-    // --- IShell 상태. 옵션 화면(A6)이 아직 없어서 지금은 디버그 키(아래 _UnhandledKeyInput)로
-    // 시험한다. 값은 SaveIO 를 거쳐 재실행 시 복원된다 (RestoreWindowState). ---
-    private float _uiScale = 1.0f;
-    private float _opacity = 1.0f;
+    /// <summary>
+    /// 지금 세션의 옵션 값 (§7-4). 세이브에서 읽어와 이 객체 하나로 유지한다 -
+    /// Scale/Opacity/PositionLocked 뿐 아니라 A6이 추가한 옵션(§7-4) 전부 여기 있다.
+    /// 값이 바뀔 때마다 <see cref="PersistSettings"/>가 이 객체를 그대로 디스크에 쓴다.
+    /// 옵션 UI(A6)가 아직 시험용 debug 키(아래 _UnhandledKeyInput)와 같이 쓰인다.
+    /// </summary>
+    private SaveData.SettingsState _settings = new();
+
+    // --- A6: 표시 여부는 "유저가 원하는가"와 "전체화면 앱이 떠서 자동으로 숨겼는가"
+    // 둘의 조합이다 (ApplyVisibility). 커서 장식도 같은 조합을 따르되 옵션
+    // (CursorEnabled)까지 하나 더 곱해진다. ---
+    private bool _userWantsVisible = true;
+    private bool _autoHiddenForFullscreen;
+
+    private TrayIcon _tray;
+    private OptionsWindow _options;
+    private FullscreenWatcher _fullscreenWatcher;
+
+    /// <summary>무인 실행(--selftest, --report=, headless)인가. 레지스트리·세이브
+    /// 파일·트레이 아이콘처럼 "우리 프로세스 밖으로 새어나가는" 부작용은 전부 이걸로 막는다.</summary>
+    private bool _unattended;
 
     // --- A5 커서 장착 debug 데모. B6(상점/장착 UI)가 나오기 전까지 Key2/3/4로
     // 슬롯별 자리표시자 에셋을 순환한다. null 은 "빈 슬롯". ---
     private static readonly string[] DemoAssetIds = { null, "demo_a", "demo_b", "demo_c" };
     private readonly int[] _demoEquipIndex = new int[3];
 
-    /// <summary>
-    /// <c>--selftest</c> / <c>--report=</c> 같은 무인 실행에서는 세이브를 건드리지 않는다.
-    /// 실제로 이걸 안 하니 헤드리스 selftest 가 헤드리스 환경의 엉뚱한 창 위치
-    /// (예: -88,-88)를 유저의 진짜 세이브 파일에 덮어썼다 - 이 파일 개발 중 실측.
-    /// </summary>
-    private bool _skipSavePersist;
-
     // --- 토글 상태 ---
-    private bool _passthroughOn = true;
     private bool _updateEveryFrame;
     private bool _showOutline;
     private bool _lowPower = true;
@@ -100,6 +109,7 @@ public partial class OverlayShell : Node2D, IShell
     {
         _win = GetWindow();
         _baseWindowSize = _win.Size;
+        _unattended = IsUnattendedRun();
 
         // per_pixel_transparency/allowed 는 project.godot 에서 이미 켰다.
         // 여기서 켜려고 하면 조용히 무시된다.
@@ -108,8 +118,16 @@ public partial class OverlayShell : Node2D, IShell
         _win.Transparent = true;
         GetTree().Root.TransparentBg = true;
 
+        // WEEK0-GODOT-VALIDATION.md §4 "창 닫기 = 종료가 아니라 트레이로". 이 창엔
+        // OS 닫기 버튼이 없지만(Borderless), Alt+F4 등으로 OS 가 요청을 보낼 수 있다.
+        _win.CloseRequested += OnCloseRequested;
+
         ApplyPowerSettings();
         BuildScene();
+
+        _options = new OptionsWindow { Name = "Options" };
+        AddChild(_options);
+        WireOptionsEvents();
 
         // A4 실물. 별도 헬퍼 프로세스로 전역 타건 수를 받는다 (docs/A4-GLOBAL-INPUT.md).
         _input = new HelperInputSource();
@@ -121,9 +139,18 @@ public partial class OverlayShell : Node2D, IShell
         // 투명은 창 생성 시점에 정해지므로 이 인자만 다른 것들보다 먼저 읽는다.
         _cursor.Build(opaque: Array.IndexOf(OS.GetCmdlineUserArgs(), "--cursor-opaque") >= 0);
 
-        // 창 배율/투명도/위치 복원 (§7-1). SetScale 이 안에서 ApplyPassthrough 까지
-        // 걸어주므로 별도로 부를 필요가 없다.
+        // 창 배율/투명도/위치/옵션 전부 복원 (§7-1, §7-4). SetScale 이 안에서
+        // ApplyPassthrough 까지 걸어주므로 별도로 부를 필요가 없다.
         RestoreWindowState();
+
+        // A6 트레이 아이콘. 무인 실행에서는 안 만든다 - measure-renderers.ps1 이
+        // 렌더러 A/B 를 네 번 돌리는 동안 시스템 트레이에 아이콘이 네 번 깜빡이면 안 된다.
+        if (!_unattended)
+        {
+            SetupTray();
+        }
+
+        _fullscreenWatcher = new FullscreenWatcher();
 
         var tick = new Timer { WaitTime = 0.5, Autostart = true };
         tick.Timeout += OnTick;
@@ -134,7 +161,6 @@ public partial class OverlayShell : Node2D, IShell
             // 세이브 스키마가 기획서 §7-5 의 JSON 과 맞는지 확인하고 끝낸다.
             // 계약 문서와 코드가 갈라지는 것은 눈으로 안 잡히고, 을이 구현을
             // 끝낸 뒤에야 드러난다.
-            _skipSavePersist = true;
             GD.Print(SaveSchema.Describe());
             GetTree().Quit(SaveSchema.SelfTest() == null ? 0 : 1);
             return;
@@ -143,6 +169,27 @@ public partial class OverlayShell : Node2D, IShell
         ParseAutoReportArgs();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
+    }
+
+    /// <summary>
+    /// 무인 실행인가. 헤드리스(--selftest 는 보통 --headless 와 같이 온다) 뿐 아니라
+    /// --report= 무인 측정도 포함한다 - 이 값이 true 인 동안은 세이브 파일, 레지스트리,
+    /// 트레이 아이콘처럼 **프로세스 밖으로 새어나가는 부작용**을 전부 막는다.
+    ///
+    /// A3 실측에서 이걸 안 하니 헤드리스 selftest 가 헤드리스 환경의 엉뚱한 창 위치
+    /// (예: -88,-88)를 유저의 진짜 세이브 파일에 덮어썼다 - 같은 실수를 레지스트리로
+    /// 반복하지 않으려고 이번엔 처음부터 하나의 플래그로 묶었다.
+    /// </summary>
+    private static bool IsUnattendedRun()
+    {
+        if (DisplayServer.GetName() == "headless")
+        {
+            return true;
+        }
+
+        string[] args = OS.GetCmdlineUserArgs();
+        return Array.IndexOf(args, "--selftest") >= 0
+            || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal));
     }
 
     // ------------------------------------------------------------------ 씬 구성
@@ -182,47 +229,54 @@ public partial class OverlayShell : Node2D, IShell
     // ------------------------------------------------------------------ IShell 실물
 
     /// <summary>
-    /// 창 배율. 옵션 화면(§7-4, A6)이 아직 없어서 지금은 debug 키(<c>[</c>/<c>]</c>)로
-    /// 시험한다. 실물 소비자는 A6 옵션 창의 "크기" 슬라이더가 될 것이다.
+    /// 창 배율. 옵션 창(A6) "크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
     ///
     /// 루트 <see cref="Node2D.Scale"/>을 바꿔서 마스코트/외곽선을 같이 키운다.
-    /// <see cref="DebugHud"/>는 <c>CanvasLayer</c>라 이 노드의 Transform/Modulate를
-    /// 물려받지 않는다 - 배율/투명도를 바꿔도 HUD 글자는 항상 또렷하게 남는다.
-    /// 창 크기도 같이 키우는 이유는, 안 키우면 커진 마스코트가 창 밖으로 잘려서
-    /// 클릭 영역(passthrough 폴리곤)도 창 밖으로 나가 못 먹는 부분이 생기기 때문이다.
+    /// <see cref="DebugHud"/>/<see cref="OptionsWindow"/>는 <c>CanvasLayer</c>라 이
+    /// 노드의 Transform/Modulate를 물려받지 않는다 - 배율/투명도를 바꿔도 HUD와
+    /// 옵션 UI는 항상 또렷하게 남는다 (docs/A3-SHELL-MODULE.md §1). 창 크기도 같이
+    /// 키우는 이유는, 안 키우면 커진 마스코트가 창 밖으로 잘려서 클릭 영역
+    /// (passthrough 폴리곤)도 창 밖으로 나가 못 먹는 부분이 생기기 때문이다.
     /// </summary>
     public void SetScale(float s)
     {
-        // 상한/하한은 A6 이 옵션 UI를 만들 때 실제 체감으로 다시 정한다. 지금은
-        // "창이 사라지거나 화면을 뒤덮는" 극단만 막아 두는 자리 표시자다.
-        _uiScale = Mathf.Clamp(s, 0.5f, 2.0f);
-        Scale = Vector2.One * _uiScale;
+        // 상한/하한은 실제 체감으로 잡은 자리 표시자다 - "창이 사라지거나 화면을
+        // 뒤덮는" 극단만 막는다. A6 옵션 슬라이더도 이 범위로 맞췄다(OptionsWindow).
+        _settings.Scale = Mathf.Clamp(s, 0.5f, 2.0f);
+        Scale = Vector2.One * _settings.Scale;
         _win.Size = new Vector2I(
-            Mathf.RoundToInt(_baseWindowSize.X * _uiScale),
-            Mathf.RoundToInt(_baseWindowSize.Y * _uiScale));
+            Mathf.RoundToInt(_baseWindowSize.X * _settings.Scale),
+            Mathf.RoundToInt(_baseWindowSize.Y * _settings.Scale));
 
         // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다.
         ApplyPassthrough(force: true);
     }
 
     /// <summary>
-    /// 창 투명도. 옵션의 "투명도" (§7-4), debug 키 <c>-</c>/<c>=</c>로 시험한다.
+    /// 창 투명도. 옵션 창 "투명도" 슬라이더, debug 키 <c>-</c>/<c>=</c>로 시험한다.
     ///
-    /// 하한을 0 이 아니라 0.1로 잡은 이유: 옵션 화면(A6)이 아직 없는 상태에서
-    /// 완전 투명(0)까지 허용하면 유저가 창을 되찾을 UI 자체가 사라진다. 상주 앱에서
+    /// 하한을 0 이 아니라 0.1로 잡은 이유: 완전 투명(0)까지 허용하면 유저가 옵션
+    /// 창조차 못 찾을 만큼 자기 자신을 안 보이게 만들 수 있다. 상주 앱에서
     /// "설정으로 자기 자신을 못 보이게 만들고 되돌릴 방법이 없다"는 실제로 발생하는
     /// 사고 패턴이다.
     /// </summary>
     public void SetOpacity(float a)
     {
-        _opacity = Mathf.Clamp(a, 0.1f, 1.0f);
-        Modulate = new Color(1f, 1f, 1f, _opacity);
+        _settings.Opacity = Mathf.Clamp(a, 0.1f, 1.0f);
+        Modulate = new Color(1f, 1f, 1f, _settings.Opacity);
     }
 
-    /// <summary>클릭 통과 On/Off (§7-1). 옵션의 "위치 잠금"이 이것과 연결된다.</summary>
+    /// <summary>
+    /// 클릭 통과 On/Off. 옵션의 "위치 잠금"이 이것이다 (§7-1, §7-4).
+    ///
+    /// on(잠금) = 마스코트 영역만 클릭을 받고 나머지는 통과 - 실수로 안 끌리고,
+    /// 뒤에 있는 다른 창 작업도 안 막는다. off(잠금 해제) = 창 전체가 클릭을 받아서
+    /// 마스코트의 작은 히트박스를 정확히 안 눌러도 어디서든 끌 수 있다 - 처음
+    /// 위치를 잡을 때 편하라고 두는 탈출구다.
+    /// </summary>
     public void SetClickThrough(bool on)
     {
-        _passthroughOn = on;
+        _settings.PositionLocked = on;
         ApplyPassthrough(force: true);
     }
 
@@ -238,7 +292,7 @@ public partial class OverlayShell : Node2D, IShell
         DisplayServer.ScreenGetUsableRect(DisplayServer.WindowGetCurrentScreen());
 
     /// <summary>
-    /// 창 배율/투명도/위치를 세이브에서 복원한다 (§7-1 "위치·크기 저장, 재실행 시 복원").
+    /// 세이브에서 옵션 전부를 복원한다 (§7-1 "위치·크기 저장, 재실행 시 복원", §7-4).
     ///
     /// 첫 실행(세이브 없음)이거나, 저장된 위치가 지금 모니터 구성 어디에도 없으면
     /// (모니터가 빠졌거나 해상도가 바뀌었거나) 기본 배치로 폴백한다. <see cref="GetSafeArea"/>
@@ -249,9 +303,19 @@ public partial class OverlayShell : Node2D, IShell
     {
         bool hasSave = SaveIO.Exists();
         SaveData save = SaveIO.Load();
+        _settings = save.Settings;
 
-        SetScale(save.Settings.Scale);
-        SetOpacity(save.Settings.Opacity);
+        SetScale(_settings.Scale);
+        SetOpacity(_settings.Opacity);
+        SetClickThrough(_settings.PositionLocked);
+        ApplyVisibility();
+
+        // 레지스트리를 세이브 값과 맞춘다. 무인 실행에서는 절대 안 한다 - 유저의
+        // 실제 Windows 시작 프로그램 목록을 자동 측정/셀프테스트가 건드리면 안 된다.
+        if (!_unattended)
+        {
+            Autostart.SetEnabled(_settings.Autostart);
+        }
 
         var savedPos = new Vector2I(save.Settings.Pos[0], save.Settings.Pos[1]);
 
@@ -279,24 +343,153 @@ public partial class OverlayShell : Node2D, IShell
     }
 
     /// <summary>
-    /// 지금 배율/투명도/위치를 세이브 파일에 반영한다.
+    /// 지금 옵션 전부와 창 위치를 세이브 파일에 반영한다.
     ///
     /// 전체 <see cref="SaveData"/>를 새로 만들지 않고 매번 <see cref="SaveIO.Load"/>로
     /// 읽어서 <c>Settings</c>만 고쳐 쓴다 - 을의 B5가 나무/인벤토리를 채운 뒤에는
     /// 이 파일에 게임 상태도 같이 들어있을 것이고, 셸이 그걸 기본값으로 덮어쓰면 안 된다.
     /// </summary>
-    private void PersistWindowState()
+    private void PersistSettings()
     {
-        if (_skipSavePersist)
+        if (_unattended)
         {
             return;
         }
 
         SaveData save = SaveIO.Load();
-        save.Settings.Scale = _uiScale;
-        save.Settings.Opacity = _opacity;
-        save.Settings.Pos = new[] { _win.Position.X, _win.Position.Y };
+        _settings.Pos = new[] { _win.Position.X, _win.Position.Y };
+        save.Settings = _settings;
         SaveIO.Save(save);
+    }
+
+    /// <summary>
+    /// 실제 표시 여부를 계산해서 창/커서에 적용하는 유일한 지점.
+    ///
+    /// "보이는가"는 서로 독립적인 두 이유의 조합이다 - 유저가 트레이에서 숨겼는가
+    /// (<see cref="_userWantsVisible"/>), 전체화면 앱이 떠서 자동으로 숨겼는가
+    /// (<see cref="_autoHiddenForFullscreen"/>). 둘 중 하나라도 "숨겨라"면 숨긴다.
+    /// 커서 장식은 그 위에 옵션(<see cref="SaveData.SettingsState.CursorEnabled"/>)까지
+    /// 한 번 더 곱한다. 이 메서드 하나로만 <c>_win.Visible</c>/<c>_cursor</c> 표시를
+    /// 바꾸면, "트레이로 숨겼는데 전체화면이 끝나자 다시 나타났다" 같은 상태 꼬임이
+    /// 구조적으로 안 생긴다.
+    /// </summary>
+    private void ApplyVisibility()
+    {
+        bool visible = _userWantsVisible && !_autoHiddenForFullscreen;
+        _win.Visible = visible;
+        _cursor.SetEnabled(visible && _settings.CursorEnabled);
+    }
+
+    // ------------------------------------------------------------------ A6: 트레이 / 옵션 창 / 자동 숨김
+
+    /// <summary>
+    /// WEEK0-GODOT-VALIDATION.md §4 "트레이 아이콘 + 메뉴(보이기/숨기기/설정/종료)".
+    /// Godot 4.3+ 내장 API만 쓴다(<see cref="TrayIcon"/>). macOS/Windows만 지원한다.
+    /// </summary>
+    private void SetupTray()
+    {
+        _tray = new TrayIcon();
+        _tray.OnToggleVisibility += () =>
+        {
+            _userWantsVisible = !_userWantsVisible;
+            ApplyVisibility();
+        };
+        _tray.OnOpenSettings += OpenOptionsWindow;
+        _tray.OnQuit += () => GetTree().Quit();
+
+        var icon = GD.Load<Texture2D>("res://icon.svg");
+        _tray.Build(icon, "ProjectSeWoo");
+
+        if (!_tray.IsSupported)
+        {
+            GD.Print("[shell] 트레이 아이콘 미지원 - 창을 닫으면 트레이로 숨는 대신 그대로 숨는다");
+        }
+    }
+
+    /// <summary>
+    /// 창 닫기 요청(Alt+F4 등)을 종료가 아니라 숨기기로 바꾼다
+    /// (WEEK0-GODOT-VALIDATION.md §4). 트레이가 없는 환경(미지원 플랫폼)에서는
+    /// 되찾을 방법이 없어지므로, 그때는 그냥 종료한다.
+    /// </summary>
+    private void OnCloseRequested()
+    {
+        if (_tray is { IsSupported: true })
+        {
+            _userWantsVisible = false;
+            ApplyVisibility();
+        }
+        else
+        {
+            GetTree().Quit();
+        }
+    }
+
+    /// <summary>
+    /// OptionsWindow는 값이 바뀌면 이벤트만 쏜다 - 실제로 적용하고 저장하는 건 여기서 한다
+    /// (docs/A6-TRAY-OPTIONS.md §1 "옵션 UI는 저장을 모른다").
+    /// </summary>
+    private void WireOptionsEvents()
+    {
+        _options.ScaleChanged += v => { SetScale(v); PersistSettings(); };
+        _options.OpacityChanged += v => { SetOpacity(v); PersistSettings(); };
+        _options.PositionLockedChanged += v => { SetClickThrough(v); PersistSettings(); };
+        _options.SoundChanged += v => { _settings.Sound = v; PersistSettings(); };
+        _options.NotificationsChanged += v => { _settings.Notifications = v; PersistSettings(); };
+        _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
+        _options.HideOnFullscreenChanged += v => { _settings.HideOnFullscreen = v; PersistSettings(); };
+        _options.KeystrokeCountingChanged += v => { _settings.KeystrokeCounting = v; PersistSettings(); };
+        _options.AutostartChanged += v =>
+        {
+            _settings.Autostart = v;
+            if (!_unattended)
+            {
+                Autostart.SetEnabled(v);
+            }
+
+            PersistSettings();
+        };
+
+        // 옵션 창이 열린 동안은 창 전체가 클릭을 받아야 한다 - 안 그러면 패널이
+        // 마스코트 클릭 영역 밖으로 나가는 순간 슬라이더/체크박스를 못 누른다.
+        // 닫히면 위치 잠금 값대로 되돌린다.
+        _options.Closed += () => ApplyPassthrough(force: true);
+    }
+
+    private void OpenOptionsWindow()
+    {
+        _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
+        _options.Open();
+        DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());
+    }
+
+    private void ToggleOptionsWindow()
+    {
+        if (_options.IsOpen)
+        {
+            _options.Close();
+        }
+        else
+        {
+            OpenOptionsWindow();
+        }
+    }
+
+    /// <summary>
+    /// 전체화면으로 실행 중인 다른 앱 위에서 자동으로 숨긴다 (§7-1, §7-4).
+    /// 0.5초 틱(<see cref="OnTick"/>)마다 확인한다 - 매 프레임 P/Invoke 를 부를
+    /// 이유가 없다. 휴리스틱의 한계는 docs/A6-TRAY-OPTIONS.md §3 참고 - 아직
+    /// 실제 전체화면 게임으로는 검증하지 못했다.
+    /// </summary>
+    private void CheckFullscreen()
+    {
+        bool shouldHide = _settings.HideOnFullscreen && _fullscreenWatcher.IsOtherAppFullscreen();
+        if (shouldHide == _autoHiddenForFullscreen)
+        {
+            return;
+        }
+
+        _autoHiddenForFullscreen = shouldHide;
+        ApplyVisibility();
     }
 
     // ------------------------------------------------------------------ 클릭 통과
@@ -307,7 +500,7 @@ public partial class OverlayShell : Node2D, IShell
     /// </summary>
     private Vector2[] BuildRegion()
     {
-        if (!_passthroughOn)
+        if (!_settings.PositionLocked)
         {
             return Array.Empty<Vector2>();
         }
@@ -327,14 +520,14 @@ public partial class OverlayShell : Node2D, IShell
     ///
     /// <see cref="_mascot"/>의 Position/Scale은 이 노드(루트 Node2D)의 로컬 좌표계다.
     /// <see cref="SetScale"/>이 루트에 <see cref="Node2D.Scale"/>을 걸어 두므로,
-    /// passthrough 에 넘길 **창 픽셀** 좌표를 얻으려면 <see cref="_uiScale"/>을
+    /// passthrough 에 넘길 **창 픽셀** 좌표를 얻으려면 <see cref="SaveData.SettingsState.Scale"/>을
     /// 직접 곱해야 한다 - Godot 렌더링은 이 배율을 자동으로 반영하지만, Win32
     /// <c>SetWindowRgn</c>에 넘기는 이 좌표는 그 파이프라인을 안 거친다.
     /// </summary>
     private Rect2 MascotRect()
     {
-        Vector2 size = _mascot.Texture.GetSize() * _mascot.Scale * _uiScale;
-        Vector2 topLeft = (_mascot.Position * _uiScale)
+        Vector2 size = _mascot.Texture.GetSize() * _mascot.Scale * _settings.Scale;
+        Vector2 topLeft = (_mascot.Position * _settings.Scale)
             - (_mascot.Centered ? size * 0.5f : Vector2.Zero);
         return new Rect2(topLeft, size);
     }
@@ -434,6 +627,7 @@ public partial class OverlayShell : Node2D, IShell
     {
         _perf.Sample();
         _hud.SetStats(BuildStats());
+        CheckFullscreen();
     }
 
     // ------------------------------------------------------------------ 입력
@@ -513,7 +707,7 @@ public partial class OverlayShell : Node2D, IShell
         if (_win.Position != _dragStart)
         {
             _drags++;
-            PersistWindowState();
+            PersistSettings();
         }
 
         ApplyPassthrough(force: true);
@@ -533,8 +727,10 @@ public partial class OverlayShell : Node2D, IShell
                 break;
 
             case Key.F2:
-                _passthroughOn = !_passthroughOn;
-                ApplyPassthrough(force: true);
+                // A6부터는 진짜 옵션이다 - 옵션 창의 "위치 잠금" 체크박스와 정확히
+                // 같은 경로(SetClickThrough)를 부른다.
+                SetClickThrough(!_settings.PositionLocked);
+                PersistSettings();
                 break;
 
             case Key.F3:
@@ -584,7 +780,10 @@ public partial class OverlayShell : Node2D, IShell
                 break;
 
             case Key.F11:
-                _cursor.SetEnabled(!_cursor.Enabled);
+                // 옵션 창의 "커서 장식" 체크박스와 같은 경로.
+                _settings.CursorEnabled = !_settings.CursorEnabled;
+                ApplyVisibility();
+                PersistSettings();
                 _perf.Reset();
                 break;
 
@@ -612,26 +811,39 @@ public partial class OverlayShell : Node2D, IShell
                 CycleDemoEquip(CursorSlot.Base);
                 break;
 
-            // IShell 실물을 옵션 UI(A6) 없이 시험하기 위한 debug 키.
-            // 을이 옵션 화면을 만들면 이 자리를 그 UI가 대신 호출한다.
+            // IShell 실물을 옵션 창 없이 빠르게 시험하기 위한 debug 키.
+            // 옵션 창의 슬라이더와 정확히 같은 SetScale/SetOpacity를 부른다.
             case Key.Bracketleft:
-                SetScale(_uiScale - 0.1f);
+                SetScale(_settings.Scale - 0.1f);
                 break;
 
             case Key.Bracketright:
-                SetScale(_uiScale + 0.1f);
+                SetScale(_settings.Scale + 0.1f);
                 break;
 
             case Key.Minus:
-                SetOpacity(_opacity - 0.1f);
+                SetOpacity(_settings.Opacity - 0.1f);
                 break;
 
             case Key.Equal:
-                SetOpacity(_opacity + 0.1f);
+                SetOpacity(_settings.Opacity + 0.1f);
+                break;
+
+            case Key.O:
+                // A6 옵션 창을 트레이 없이/트레이 지원이 없는 환경에서도 열 수 있게.
+                ToggleOptionsWindow();
                 break;
 
             case Key.Escape:
-                GetTree().Quit();
+                if (_options.IsOpen)
+                {
+                    _options.Close();
+                }
+                else
+                {
+                    GetTree().Quit();
+                }
+
                 break;
 
             default:
@@ -686,7 +898,7 @@ public partial class OverlayShell : Node2D, IShell
             $"fps   {Engine.GetFramesPerSecond(),5:F0}  cap {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}  lowpower {OnOff(_lowPower)}",
             $"rend  {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             "",
-            $"pass  {OnOff(_passthroughOn)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
+            $"pass  {OnOff(_settings.PositionLocked)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
             $"in    total {_input.TotalCount}  cap-drop {_input.DroppedByCap}"
                 + $"  decay-drop {_input.DroppedByDecay}  [{_input.Status}]",
             $"      available {OnOff(_input.IsAvailable)}  restarts {_input.Restarts}",
@@ -695,7 +907,11 @@ public partial class OverlayShell : Node2D, IShell
             _cursor.StatusLine(),
             "",
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
-                + $"  uiscale {_uiScale:F2}  opacity {_opacity:F2}  save {OnOff(SaveIO.Exists())}",
+                + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
+            $"opts  cursor {OnOff(_settings.CursorEnabled)}  sound {OnOff(_settings.Sound)}"
+                + $"  notify {OnOff(_settings.Notifications)}  hideFs {OnOff(_settings.HideOnFullscreen)}"
+                + $"  keys {OnOff(_settings.KeystrokeCounting)}  autostart {OnOff(_settings.Autostart)}"
+                + $"  visible {OnOff(_userWantsVisible)}  autoHidden {OnOff(_autoHiddenForFullscreen)}",
             $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}",
             $"scr   #{screen} of {DisplayServer.GetScreenCount()}  {usable.Size.X}x{usable.Size.Y}"
                 + $"  dpi {DisplayServer.ScreenGetDpi(screen)}  scale {DisplayServer.ScreenGetScale(screen):F2}"
@@ -770,10 +986,8 @@ public partial class OverlayShell : Node2D, IShell
             return;
         }
 
-        // 무인 측정 세션이다. 스윕 스크립트가 --cursor-* 조건을 바꿔가며 여러 번
-        // 재시작하는데, 매번 실제 세이브 파일에 이 세션의 창 위치/배율을 남기면
-        // 다음 정상 실행이 그 값을 주워서 시작한다. 측정용 상태는 측정 세션 안에만 있어야 한다.
-        _skipSavePersist = true;
+        // 세이브/레지스트리를 안 건드리는 건 _unattended(IsUnattendedRun)가 이미
+        // --report= 를 감지해서 _Ready() 맨 앞에서 처리했다. 여기서 더 할 일은 없다.
 
         if (_autoDurationSec <= 0.0)
         {
@@ -915,7 +1129,7 @@ public partial class OverlayShell : Node2D, IShell
                 + $" (godot {_perf.GodotStaticMb} MB, clr heap {_perf.ManagedHeapMb} MB)",
             $"renderer       {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
-            $"passthrough    {OnOff(_passthroughOn)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
+            $"passthrough    {OnOff(_settings.PositionLocked)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
                 + $" writes {_regionWrites}",
             $"always on top  {OnOff(_win.AlwaysOnTop)}",
             $"screen         #{screen} of {DisplayServer.GetScreenCount()},"
@@ -923,7 +1137,9 @@ public partial class OverlayShell : Node2D, IShell
                 + $" scale {DisplayServer.ScreenGetScale(screen):F2},"
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y},"
-                + $" uiscale {_uiScale:F2}, opacity {_opacity:F2}, save {OnOff(SaveIO.Exists())}",
+                + $" uiscale {_settings.Scale:F2}, opacity {_settings.Opacity:F2}, save {OnOff(SaveIO.Exists())}",
+            $"visibility     userWants {OnOff(_userWantsVisible)}, autoHiddenForFullscreen {OnOff(_autoHiddenForFullscreen)},"
+                + $" winVisible {OnOff(_win.Visible)}",
             $"input on body: left {_clicks}, right {_rclicks},"
                 + $" wheel {_wheels}, drag-moved {_drags}",
             _input.StatusLine(),
@@ -943,13 +1159,17 @@ public partial class OverlayShell : Node2D, IShell
 
     public override void _ExitTree()
     {
-        // 창 배율/투명도/위치를 여기서 한 번 더 남긴다. 드래그 없이 바로 끈 세션도
-        // 다음 실행에서 지금 상태(예: F5 로 바꾼 스케일)를 복원하려면 필요하다.
-        PersistWindowState();
+        // 옵션 전부와 창 위치를 여기서 한 번 더 남긴다. 드래그 없이 바로 끈 세션도
+        // 다음 실행에서 지금 상태(예: [ 로 바꾼 스케일)를 복원하려면 필요하다.
+        PersistSettings();
 
         // RawInput 등록과 WndProc 후킹을 되돌린다. 상주 앱이라 프로세스가
         // 오래 살고, 남겨두면 다음 실행에서 무엇이 원인인지 알기 어려워진다.
         _input?.Dispose();
+
+        // 트레이 아이콘을 지운다 - 안 지우면 프로세스가 죽어도 재부팅 전까지
+        // "죽은" 아이콘이 트레이에 남아 있다가 클릭할 때야 사라지는 흔한 버그가 난다.
+        _tray?.Dispose();
     }
 
     private static string OnOff(bool value) => value ? "on" : "off";

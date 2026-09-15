@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -46,7 +46,11 @@ public static class SaveSchema
         {
             switch (version)
             {
-                // case 1: MigrateV1ToV2(root); version = 2; break;
+                case 1:
+                    MigrateV1ToV2(root);
+                    version = 2;
+                    break;
+
                 default:
                     // 모르는 버전은 조용히 통과시키지 않는다. 세이브가 깨진 채로
                     // 게임이 돌면 유저는 나중에야 알아차린다.
@@ -56,6 +60,20 @@ public static class SaveSchema
         }
 
         return root;
+    }
+
+    /// <summary>
+    /// v1 -> v2 (A6, 2026-09-16): <c>settings</c>에 §7-4 옵션 5개(위치 잠금/알림/
+    /// 커서 장식/전체화면 위 숨김/타건 카운트)를 추가했다.
+    ///
+    /// 전부 additive라 필드가 없어도 <see cref="SaveData.SettingsState"/>의 C# 기본값이
+    /// 자동으로 채워진다 - 이 메서드가 실제로 하는 일은 <c>version</c> 태그를 올리는
+    /// 것뿐이다. 그래도 이 메서드가 필요한 이유는, 안 올리면 이 세이브가 다음에도
+    /// 계속 "구버전"으로 보여서 매번 이 switch 를 다시 타기 때문이다.
+    /// </summary>
+    private static void MigrateV1ToV2(JsonNode root)
+    {
+        root["version"] = 2;
     }
 
     /// <summary>
@@ -85,6 +103,7 @@ public static class SaveSchema
             "upgrades", "power", "cycle",
             "inventory", "owned", "equipped", "hang", "trail", "base",
             "settings", "scale", "opacity", "pos", "sound", "autostart",
+            "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen", "keystrokeCounting",
             "lastQuitUtc",
         };
 

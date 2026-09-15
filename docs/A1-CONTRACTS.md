@@ -187,4 +187,5 @@ Godot_..._console.exe --headless --path . -- --selftest
 | ~~A3 셸 모듈화~~ | 갑 | ✅ 완료 (2026-09-15). `src/`→`platform/`, `IShell` 실물(`platform/OverlayShell.cs`), 위치/배율/투명도 저장·복원(`platform/SaveIO.cs`) |
 | A4 글로벌 입력 | 갑 | ✅ 완료 (2026-09-14). `IInputSource` 실물 (RawInput, 카운트만) — docs/A4-GLOBAL-INPUT.md |
 | ~~A5 커서 꾸미기 정식화~~ | 갑 | ✅ 완료 (2026-09-15). `ICursorLayer` 실물(`platform/CursorLayer.cs`), 3슬롯 장착 + A2 스파이크 코드 정리 — docs/A5-CURSOR-COSMETICS.md |
+| ~~A6 트레이/자동시작/옵션 창~~ | 갑 | ✅ 완료 (2026-09-16). 세이브 스키마 v2(§7-4 옵션 5개 추가), 옵션 창, 트레이 아이콘, 자동 시작, 전체화면 위 자동 숨김 — docs/A6-TRAY-OPTIONS.md |
 | B1~B5 | 을 | **지금 바로 시작 가능.** 목 4종으로 끝까지 돈다 |

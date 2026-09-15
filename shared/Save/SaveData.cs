@@ -110,7 +110,14 @@ public sealed class SaveData
         public string Base { get; set; }
     }
 
-    /// <summary>옵션 화면의 저장 대상 (§7-4).</summary>
+    /// <summary>
+    /// 옵션 화면의 저장 대상 (§7-4).
+    ///
+    /// v2(A6, 2026-09-16)에서 5개 필드를 추가했다 - v1에는 §7-4가 요구하는 옵션 중
+    /// 위치 잠금/알림/커서 장식/전체화면 위 숨김/타수 카운트가 빠져 있었다.
+    /// 전부 additive라 기본값이 자동으로 채워지지만, 버전 태그는 올려야 한다
+    /// (<see cref="SaveSchema.Migrate"/> 참고).
+    /// </summary>
     public sealed class SettingsState
     {
         [JsonPropertyName("scale")]
@@ -128,5 +135,32 @@ public sealed class SaveData
 
         [JsonPropertyName("autostart")]
         public bool Autostart { get; set; }
+
+        /// <summary>
+        /// 몸통 드래그로 창을 옮길 수 있는가를 반대로 뒤집은 값이다.
+        /// 켜져 있으면(기본값) 클릭 통과가 걸려 실수로 안 끌린다 (§7-1).
+        /// </summary>
+        [JsonPropertyName("positionLocked")]
+        public bool PositionLocked { get; set; } = true;
+
+        /// <summary>알림 On/Off. 소비할 알림 기능은 아직 없다 - 옵션만 먼저 자리를 잡아둔다.</summary>
+        [JsonPropertyName("notifications")]
+        public bool Notifications { get; set; } = true;
+
+        /// <summary>커서 장식(§3-1) On/Off. 끄면 재화 소비처를 다른 것으로 안내해야 한다 (§1.3).</summary>
+        [JsonPropertyName("cursorEnabled")]
+        public bool CursorEnabled { get; set; } = true;
+
+        /// <summary>전체화면으로 실행 중인 다른 앱 위에서 셸을 자동으로 숨긴다 (§7-1).</summary>
+        [JsonPropertyName("hideOnFullscreen")]
+        public bool HideOnFullscreen { get; set; } = true;
+
+        /// <summary>
+        /// 타건 수 집계 On/Off. 끄면 <see cref="IInputSource"/>가 사용 가능해도
+        /// 게임 레이어는 시간 기반 폴백만 쓴다 - 유저가 원하면 타건 카운트 자체를
+        /// 거부할 수 있어야 한다 (§7-2, §7-6 개인정보 문구와 짝을 이룬다).
+        /// </summary>
+        [JsonPropertyName("keystrokeCounting")]
+        public bool KeystrokeCounting { get; set; } = true;
     }
 }
