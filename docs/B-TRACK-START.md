@@ -12,10 +12,10 @@
 
 | 것 | 위치 | 을이 알아야 할 것 |
 |---|---|---|
-| 인터페이스 5종 | `shared/Contracts/` | 시그니처만 보면 된다. 구현은 몰라도 됨 |
-| 목(Mock) 4종 | `platform/Mocks/` | **지금 당장 쓸 것.** §1 참고 |
+| 인터페이스 6종 | `shared/Contracts/` | 시그니처만 보면 된다. 구현은 몰라도 됨 |
+| 목(Mock) 5종 | `platform/Mocks/` | **지금 당장 쓸 것.** §1 참고 |
 | 세이브 스키마 v2 | `shared/Save/SaveData.cs` | 이 클래스가 직렬화 대상. §7-5 JSON과 1:1 대응 |
-| 실물 4종(A3~A6) | `platform/` | **안 봐도 된다.** 목과 똑같이 동작하는 걸로 취급 |
+| 실물 5종(A3~A6, A8) | `platform/` | **안 봐도 된다.** 목과 똑같이 동작하는 걸로 취급 |
 | `game/` 폴더 골격 | `game/{entities,ui,effects,multiplayer}/` | 여기가 을 작업 공간. 지금은 전부 빈 폴더 |
 | `Shell.tscn` | `platform/Shell.tscn` | 손대지 않는다. `GameRoot`를 자식으로 넣는 것만 예외 |
 
@@ -45,9 +45,12 @@
 
 ---
 
-## 3. 목(Mock) 4종 — 지금 이걸로 시작한다
+## 3. 목(Mock) 5종 — 지금 이걸로 시작한다
 
 `platform/Mocks/`에 있다. `GameRoot`가 생성자나 `_Ready()`에서 직접 `new` 해서 쓰면 된다.
+
+> **2026-09-15 갱신 (A8).** 목이 5종으로 늘었다 — `MockAchievements` 가 추가됐다.
+> 계약은 `shared/Contracts/IAchievements.cs`, 배경은 docs/A8-STEAM.md §2-4.
 
 | 목 | 시험용 API | 예시 |
 |---|---|---|
@@ -55,6 +58,7 @@
 | `MockCursorLayer` | `Equip(slot, id)`, `SetEnabled`, `IsSupported` 세터, `GetEquipped(slot)` | 상점에서 산 아이템을 장착했을 때 `_cursor.Equip(CursorSlot.Hang, "monkey_02")` |
 | `MockShell` | `SetScale/SetOpacity/SetClickThrough`, `SafeArea` 세터 | 게임 레이어가 창 크기를 직접 묻지 않고 `_shell.GetSafeArea()`로 배치 |
 | `MockNetSession` | `SimulateJoin/Leave/State`, `LastBroadcast` | 룸 화면(B10~B12)을 혼자서도 4명까지 채워서 레이아웃 테스트 |
+| `MockAchievements` | `IsAvailable` 세터, `Reset()` | 해금 조건(도감 100% / 타수 마일스톤)을 `AchievementIds` 표로 돌려서 시험. **실물은 A15 전까지 해금이 안 되므로 조건 로직 검증은 목으로만 가능하다** |
 
 `MockShell.SafeArea`에 **음수 원점**을 넣어서 꼭 한 번 시험해 볼 것 — 개발 PC가
 모니터 3대에 하나는 X가 음수다. 게임 레이어가 (0,0)을 원점으로 가정하면

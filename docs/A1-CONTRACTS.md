@@ -18,6 +18,14 @@
 | 목 구현 4종 | `platform/Mocks/` | ☑ 커밋 |
 | 스키마 self-test | `--selftest` 인자 | ☑ PASS |
 
+### 변경 이력 (§8-2 규칙 — 인터페이스를 바꾸거나 늘리면 여기 한 줄)
+
+| 날짜 | 무엇 | 사유 |
+|---|---|---|
+| 2026-09-16 | `IInteractiveArea` 추가 (5번째) | 클릭 영역을 을이 신고하고 갑이 읽는, 방향이 반대인 계약. docs/SCENE-ARCHITECTURE.md §1 |
+| 2026-09-15 | `IAchievements` + `AchievementIds` 추가 (6번째) | A8. 해금 조건은 을이 알고 스팀 기록은 갑이 한다. 을이 `SteamUserStats` 를 직접 부르면 A15 이름 변경이 game/ 을 흔들고, 스팀 없는 개발 실행에서 game/ 이 죽는다. docs/A8-STEAM.md §2-4 |
+| 2026-09-15 | A8 구현을 GodotSteam → **Steamworks.NET** 으로 변경 | 기획서 §9 문구에서 벗어남. 코드가 100% C# 이라 GDExtension 의 문자열 호출은 A9~A11 전체의 컴파일 타임 검증을 없앤다. **인터페이스 시그니처는 안 바뀌므로 을 쪽 영향 없음.** docs/A8-STEAM.md §1 |
+
 ---
 
 ## 1. 폴더 분할 (§8-3)
@@ -40,6 +48,11 @@ src/         Day 1-2 / A2 스파이크 코드. A3 에서 platform/ 으로 정리
 
 시그니처는 기획서 §8-2 와 같다. 기획서가 정의하지 않은 **타입**을 채운 것이 A1 의 실제 작업이다.
 
+> **2026-09-15 추가 — `IAchievements`.** 6번째 계약이다 (A8). 도전과제 해금을
+> 을이 조건으로 알고 갑이 스팀에 쓴다 — 방향은 나머지 4종과 같은 "갑 제공 → 을 소비"다.
+> 목은 `platform/Mocks/MockAchievements.cs`, 실물은 `platform/SteamService.cs`.
+> **API Name 은 아직 스팀에 등록되지 않았다** (A15). 자세한 것은 docs/A8-STEAM.md.
+>
 > **2026-09-16 추가 — `IInteractiveArea`.** 기획서 §8-2 에 없던 5번째 계약이다.
 > 클릭 영역을 을이 신고하고 갑이 읽는, **방향이 반대인** 계약이라 이 문서의
 > 나머지 4개와 성격이 다르다. 자세한 내용은 docs/SCENE-ARCHITECTURE.md §1.

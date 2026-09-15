@@ -71,6 +71,17 @@ public partial class OverlayShell : Node2D, IShell
     private OptionsWindow _options;
     private FullscreenWatcher _fullscreenWatcher;
 
+    /// <summary>
+    /// A8 스팀. 스팀이 없어도 null 이 아니다 - 붙었는지는 <see cref="SteamService.IsAvailable"/>
+    /// 가 답한다. 무인 실행에서만 null 이다 (아래 _Ready 참고).
+    /// </summary>
+    private SteamService _steam;
+
+    /// <summary>--steam-selftest 로 떴는가. 스팀 연결만 확인하고 바로 종료한다.</summary>
+    private bool _steamSelftest;
+
+    private double _steamSelftestElapsed;
+
     /// <summary>무인 실행(--selftest, --report=, headless)인가. 레지스트리·세이브
     /// 파일·트레이 아이콘처럼 "우리 프로세스 밖으로 새어나가는" 부작용은 전부 이걸로 막는다.</summary>
     private bool _unattended;
@@ -161,6 +172,20 @@ public partial class OverlayShell : Node2D, IShell
 
         _fullscreenWatcher = new FullscreenWatcher();
 
+        // A8 스팀 (docs/A8-STEAM.md). 무인 실행에서는 안 붙인다 - measure-renderers.ps1 이
+        // 렌더러 A/B 를 네 번 돌리는 동안 스팀 친구 목록에 "게임 중"이 네 번 뜨면 안 되고,
+        // 그 자체가 측정에 잡히는 부하다. --steam-selftest 만 예외로 연결을 확인한다.
+        // --steam 은 무인 측정에서 스팀을 일부러 켜는 스위치다. A7 메모리 게이트가
+        // 조건부 Go 인 상태라(docs/A7-PERF.md §4) "스팀이 얼마를 더 먹는가"를
+        // 같은 조건에서 비교할 수 있어야 한다.
+        _steamSelftest = Array.IndexOf(OS.GetCmdlineUserArgs(), "--steam-selftest") >= 0;
+        bool forceSteam = Array.IndexOf(OS.GetCmdlineUserArgs(), "--steam") >= 0;
+        if (!_unattended || _steamSelftest || forceSteam)
+        {
+            _steam = new SteamService();
+            _steam.Start();
+        }
+
         var tick = new Timer { WaitTime = 0.5, Autostart = true };
         tick.Timeout += OnTick;
         AddChild(tick);
@@ -199,6 +224,52 @@ public partial class OverlayShell : Node2D, IShell
         string[] args = OS.GetCmdlineUserArgs();
         return Array.IndexOf(args, "--selftest") >= 0
             || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// <c>--steam-selftest</c> 진행. A8 이 실제로 붙는지 사람 눈 없이 확인하는 경로다.
+    ///
+    /// 초기화는 동기지만 **도전과제 통계는 콜백으로 비동기로 온다** - 그래서 바로
+    /// 판정하지 못하고 몇 프레임 펌프를 돌려야 한다. 스키마 <c>--selftest</c> 가
+    /// 한 줄로 끝나는 것과 다른 이유가 이것이다.
+    ///
+    /// 종료 코드: 0 = 초기화 성공, 1 = 실패(사유는 Status 에 찍힌다).
+    /// **스팀이 안 떠 있는 것도 1 이다** - 이 자체 검사는 "붙을 수 있는 환경인가" 를
+    /// 묻는 것이고, 앱의 정상 동작 여부와는 별개다 (스팀 없이도 앱은 돈다).
+    /// </summary>
+    private void TickSteamSelftest(double delta)
+    {
+        const double TimeoutSec = 10.0;
+
+        _steamSelftestElapsed += delta;
+
+        bool done = _steam != null && _steam.IsAvailable;
+        if (!done && _steamSelftestElapsed < TimeoutSec)
+        {
+            return;
+        }
+
+        GD.Print("--- steam selftest ---");
+        GD.Print($"status      : {_steam?.Status ?? "(서비스 없음)"}");
+        GD.Print($"initialized : {Verdict(_steam?.IsInitialized == true)}");
+        GD.Print($"stats/ach   : {Verdict(_steam?.IsAvailable == true)}");
+        GD.Print($"appid       : {_steam?.AppId}");
+        GD.Print($"steam id    : {_steam?.SelfId}");
+        GD.Print($"persona     : {_steam?.PersonaName}");
+        GD.Print($"elapsed     : {_steamSelftestElapsed:F1}s");
+
+        // 도전과제 스텁 배선 확인. **읽기만 한다** - Unlock 을 여기서 부르면 나중에
+        // 진짜 앱 ID 로 이 검사를 돌렸을 때 실제 도전과제가 해금돼 버린다.
+        // appid=480 에서는 우리 이름이 등록돼 있지 않으므로 전부 false 가 정상이다.
+        GD.Print($"ach ids     : {AchievementIds.KeystrokeMilestones.Length + 1}개 정의됨");
+        GD.Print($"  {AchievementIds.Collection100} = {_steam?.IsUnlocked(AchievementIds.Collection100)}");
+        foreach ((string id, int threshold) in AchievementIds.KeystrokeMilestones)
+        {
+            GD.Print($"  {id} ({threshold:N0}타) = {_steam?.IsUnlocked(id)}");
+        }
+
+        _steamSelftest = false;
+        GetTree().Quit(_steam?.IsInitialized == true ? 0 : 1);
     }
 
     // ------------------------------------------------------------------ 씬 구성
@@ -646,6 +717,14 @@ public partial class OverlayShell : Node2D, IShell
         ApplyPassthrough(force: _updateEveryFrame);
         _cursor.Tick(delta);
         _input.Tick(delta);
+
+        // 스팀 콜백은 우리가 펌프를 돌려야 도착한다. 못 붙은 상태면 여기서 재시도까지 한다.
+        _steam?.Tick(delta);
+
+        if (_steamSelftest)
+        {
+            TickSteamSelftest(delta);
+        }
 
         if (_autoReportPath != null)
         {
@@ -1200,6 +1279,9 @@ public partial class OverlayShell : Node2D, IShell
         // 트레이 아이콘을 지운다 - 안 지우면 프로세스가 죽어도 재부팅 전까지
         // "죽은" 아이콘이 트레이에 남아 있다가 클릭할 때야 사라지는 흔한 버그가 난다.
         _tray?.Dispose();
+
+        // 스팀을 안 놓으면 친구 목록에 죽은 프로세스가 한동안 "게임 중"으로 남는다.
+        _steam?.Dispose();
     }
 
     private static string OnOff(bool value) => value ? "on" : "off";

@@ -21,4 +21,13 @@
     -->
     <Compile Remove="platform/InputHelper/**" />
   </ItemGroup>
+
+  <!--
+    A8 - Steam 연동. 기획서 §9는 GodotSteam(GDExtension)으로 적었지만 이 프로젝트는
+    코드가 100% C# 이라 Steamworks.NET(순수 C# 바인딩)으로 간다. 사유는 docs/A8-STEAM.md §1.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Steamworks.NET" Version="2024.8.0" />
+  </ItemGroup>
+
 </Project>
