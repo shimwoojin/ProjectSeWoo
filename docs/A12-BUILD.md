@@ -212,6 +212,22 @@ steamcmd 는 `C:\Tools\steamcmd\` 에 받아 뒀다(2026-09-16). Godot 과 같�
   빌드 목록에서 "이 빌드가 어느 커밋이냐" 를 바로 볼 수 있다. 빌드가 쌓이면
   이게 유일한 역추적 수단이라 자동으로 박는다
 
+업로드가 끝나면 **`build/steampipe_output/` 에 서버측 로그가 남는다.** 파트너
+사이트를 못 여는 상황에서 업로드 성공 여부를 가릴 수 있는 근거다.
+
+```
+[13:11:51]: Building depot 5281131, no baseline manifest
+[13:11:53]: Found 339 new chunks ( 0 used previously )
+[13:11:54]: Uploading new manifest to depot-ingest.discovery.steamserver.net
+[13:12:06]: Success! New manifestID 8261081502455363855 created and 339 new chunks uploaded.
+```
+
+`Success!` 와 manifestID 는 **밸브 서버가 돌려준 값**이지 로컬 판정이 아니다.
+`( N used previously )` 를 보면 §6-2 의 차등 업로드도 확인된다 — 첫 빌드라
+`0` 이고, 다음 빌드부터는 재사용된 청크 수가 올라간다.
+
+파트너 사이트 빌드 목록: `https://partner.steamgames.com/apps/builds/5281130`
+
 ### 5-3. `setlive` 는 비워 둔다
 
 채워 넣으면 업로드가 **곧바로 그 브랜치에 공개된다.** 검수 전 빌드가 유저에게
