@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/entities/TreeSlot.cs" id="1_treeslot"]
+
+[node name="TreeSlot" type="Node2D"]
+script = ExtResource("1_treeslot")
+
+[node name="Fruit" type="Polygon2D" parent="."]
+color = Color(0.3, 0.52, 0.22, 1)
+polygon = PackedVector2Array(14, 0, 9.9, 9.9, 0, 14, -9.9, 9.9, -14, 0, -9.9, -9.9, 0, -14, 9.9, -9.9)

@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/entities/Monkey.cs" id="1_monkey"]
+
+[node name="Monkey" type="Node2D"]
+script = ExtResource("1_monkey")
+
+[node name="Arm" type="Polygon2D" parent="."]
+position = Vector2(0, -22)
+rotation = -0.25
+color = Color(0.45, 0.34, 0.26, 1)
+polygon = PackedVector2Array(-9, 6, 9, 6, 9, -70, -9, -70)
+
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.55, 0.42, 0.32, 1)
+polygon = PackedVector2Array(40, 0, 32.4, 23.5, 12.4, 38, -12.4, 38, -32.4, 23.5, -40, 0, -32.4, -23.5, -12.4, -38, 12.4, -38, 32.4, -23.5)
