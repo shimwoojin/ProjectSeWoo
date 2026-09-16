@@ -10,7 +10,7 @@ namespace ProjectSeWoo.Platform.Mocks;
 /// 실물은 <c>platform/SteamService.cs</c>다 (A8 완료, 2026-09-15).
 /// **을이 이걸 써야 하는 이유가 다른 목들보다 하나 더 있다** — 도전과제 API Name 은
 /// A15 에서 스팀 파트너 사이트에 등록되기 전까지 실물에서도 해금이 안 된다
-/// (<see cref="SteamService.SpacewarAppId"/> 주석). 목은 이름과 무관하게 해금되므로
+/// (<see cref="SteamService.DefaultAppId"/> 주석). 목은 이름과 무관하게 해금되므로
 /// 해금 조건 로직(도감 100%, 타수 마일스톤)을 지금 끝까지 시험할 수 있다.
 /// </summary>
 public sealed class MockAchievements : IAchievements

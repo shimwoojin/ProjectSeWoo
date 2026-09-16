@@ -27,14 +27,24 @@ namespace ProjectSeWoo.Platform;
 public sealed class SteamService : IAchievements, IDisposable
 {
     /// <summary>
-    /// Spacewar. 밸브가 SDK 예제용으로 공개한 앱 ID 이고, 개발 중 아무 계정에서나
-    /// 초기화가 된다. **우리 앱 ID 가 나오기 전까지의 임시값이다** — 스팀 수수료
-    /// 결제 후 앱이 생성되면 <c>--steam-appid=</c> 로 덮거나 이 상수를 바꾼다
-    /// (기획서 §11, 아직 미결제 상태라 A8 시점에 진짜 ID 가 없다).
+    /// PunchMonkey 의 스팀 앱 ID. 2026-09-16 에 Direct 수수료를 결제하고 발급받았다
+    /// (기획서 §11). <c>--steam-appid=</c> 로 덮을 수 있다.
     ///
-    /// 480 으로는 도전과제가 "성공적으로 호출은 되지만 우리 것이 아니다" — Spacewar 에
-    /// 우리 API Name 이 등록돼 있지 않아 <see cref="Unlock"/> 이 false 를 돌려준다.
-    /// 그게 정상이고, 실제 해금 검증은 A15 에서 진짜 앱 ID 로 한다.
+    /// **A15 전까지 도전과제 통계는 안 온다.** 파트너 사이트에 통계/도전과제 스키마가
+    /// 아직 없어서 <c>UserStatsReceived</c> 가 <c>k_EResultFail</c> 로 온다(2026-09-16
+    /// 실측). 따라서 <see cref="IsAvailable"/> 는 false 이고 <see cref="Unlock"/> 은
+    /// 조용히 버려진다 — 계약대로다. 역설적으로 <see cref="SpacewarAppId"/> 일 때는
+    /// Spacewar 의 도전과제 5개가 잡혀서 통계 수신이 PASS 였다. **"480 에서 되던 게
+    /// 진짜 ID 에서 안 된다"는 퇴행이 아니라 예정된 상태다.**
+    /// </summary>
+    public const uint DefaultAppId = 5281130;
+
+    /// <summary>
+    /// Spacewar. 밸브가 SDK 예제용으로 공개한 앱 ID 이고 아무 계정에서나 초기화가 된다.
+    /// A8~A15 의 기본값이었고 지금은 **진단용으로만 남긴다** — <c>--steam-appid=480</c>
+    /// 으로 되돌려 보면 "우리 앱 설정 문제인가, SDK/로컬 환경 문제인가"를 가를 수 있다.
+    /// 로비(A9)를 480 으로 시험하면 전 세계 SDK 예제 사용자와 같은 공간을 쓰게 되므로
+    /// 그쪽으로는 쓰지 않는다.
     /// </summary>
     public const uint SpacewarAppId = 480;
 
@@ -53,7 +63,7 @@ public sealed class SteamService : IAchievements, IDisposable
     private bool _statsReady;
     private bool _gaveUp;
     private double _retryTimer;
-    private uint _appId = SpacewarAppId;
+    private uint _appId = DefaultAppId;
 
     /// <summary>스팀에 붙었고 통계까지 받아왔는가 (<see cref="IAchievements.IsAvailable"/>).</summary>
     public bool IsAvailable => _initialized && _statsReady;
@@ -70,7 +80,7 @@ public sealed class SteamService : IAchievements, IDisposable
     /// <summary>내 스팀 닉네임. 멀티 룸 표시용 (§4-2). 초기화 전에는 빈 문자열.</summary>
     public string PersonaName { get; private set; } = string.Empty;
 
-    /// <summary>실제로 쓰는 앱 ID. 480 이면 아직 임시값이다.</summary>
+    /// <summary>실제로 쓰는 앱 ID. <see cref="SpacewarAppId"/>(480) 이면 진단 실행이다.</summary>
     public uint AppId => _appId;
 
     /// <summary>
@@ -238,7 +248,7 @@ public sealed class SteamService : IAchievements, IDisposable
             SteamUserStats.RequestCurrentStats();
 
             Status = $"연결됨 appid={_appId} user={PersonaName} id={SelfId}"
-                + (_appId == SpacewarAppId ? " (Spacewar 임시 ID)" : string.Empty);
+                + (_appId == SpacewarAppId ? " (Spacewar 진단 ID)" : string.Empty);
             GD.Print($"[steam] {Status}");
             return true;
         }
@@ -277,7 +287,7 @@ public sealed class SteamService : IAchievements, IDisposable
 
     /// <summary>
     /// <c>--steam-appid=N</c> 으로 앱 ID 를 덮어쓴다. 진짜 앱 ID 가 나오면 이 인자로
-    /// 먼저 검증하고, 확인되면 <see cref="SpacewarAppId"/> 자리를 바꾼다.
+    /// 진단용으로 <see cref="SpacewarAppId"/>(480) 로 되돌려 볼 때도 쓴다.
     /// </summary>
     private static uint ResolveAppId()
     {
@@ -292,7 +302,7 @@ public sealed class SteamService : IAchievements, IDisposable
             }
         }
 
-        return SpacewarAppId;
+        return DefaultAppId;
     }
 
     private static bool IsSteamProcessRunning()
