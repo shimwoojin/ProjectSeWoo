@@ -9,7 +9,13 @@ public partial class GameRoot : Node2D, IInteractiveArea
     /// <summary>디버그 키가 한 번에 앞당기는 성장 시간.</summary>
     private const long DebugGrowMs = 60_000;
 
+    // 목 4종. 지금 읽는 곳은 _input 뿐이지만, 나머지도 부를 자리가 정해져 있어
+    // 같이 들고 간다 - _cursor 는 B6(상점/장착), _shell 은 B4(안전 영역 배치),
+    // _net 은 B10~B12(룸 화면)에서 쓴다. A1-CONTRACTS.md §3 의 목록과 같다.
     private MockInputSource _input;
+    private MockCursorLayer _cursor;
+    private MockShell _shell;
+    private MockNetSession _net;
 
     private Tree _tree;
     private Monkey _monkey;
@@ -27,6 +33,10 @@ public partial class GameRoot : Node2D, IInteractiveArea
         _bananas = GetNode<Label>("Bananas");
 
         _input = new MockInputSource();
+        _cursor = new MockCursorLayer();
+        _shell = new MockShell();
+        _net = new MockNetSession();
+
         _input.OnKeystrokes += OnKeystrokes;
 
         _tree.Configure(_save.Tree);
