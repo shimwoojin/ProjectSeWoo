@@ -117,6 +117,9 @@ public sealed class SaveData
     /// 위치 잠금/알림/커서 장식/전체화면 위 숨김/타수 카운트가 빠져 있었다.
     /// 전부 additive라 기본값이 자동으로 채워지지만, 버전 태그는 올려야 한다
     /// (<see cref="SaveSchema.Migrate"/> 참고).
+    ///
+    /// v3(2026-09-16)에서 <see cref="CursorIndependent"/> 하나를 더 추가했다.
+    /// 역시 additive다.
     /// </summary>
     public sealed class SettingsState
     {
@@ -154,6 +157,21 @@ public sealed class SaveData
         /// <summary>전체화면으로 실행 중인 다른 앱 위에서 셸을 자동으로 숨긴다 (§7-1).</summary>
         [JsonPropertyName("hideOnFullscreen")]
         public bool HideOnFullscreen { get; set; } = true;
+
+        /// <summary>
+        /// 셸 몸통이 숨겨져도 커서 장식(§3-1)은 남긴다.
+        ///
+        /// 기본값은 false — 지금까지의 동작("숨기면 커서도 같이 사라진다")이 그대로
+        /// 기본이어야 한다. 켜면 트레이 숨기기와 전체화면 자동 숨김 **둘 다**에서
+        /// 커서만 살아남는다. 숨김 이유를 둘로 갈라 옵션을 두 개 만들지 않은 것은
+        /// 의도적이다 — 표시 여부를 한 줄(<c>visible = userWantsVisible &amp;&amp;
+        /// !autoHiddenForFullscreen</c>)로 합쳐 둔 것이 A6의 상태 꼬임 방지책이고,
+        /// 이유별 예외를 만들면 그게 깨진다.
+        ///
+        /// <see cref="CursorEnabled"/>가 꺼져 있으면 이 값과 무관하게 커서는 안 나온다.
+        /// </summary>
+        [JsonPropertyName("cursorIndependent")]
+        public bool CursorIndependent { get; set; }
 
         /// <summary>
         /// 타건 수 집계 On/Off. 끄면 <see cref="IInputSource"/>가 사용 가능해도

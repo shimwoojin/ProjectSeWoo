@@ -17,6 +17,8 @@
 | 창 닫기 → 트레이 | `OverlayShell.OnCloseRequested` | ☑ |
 | 자동 시작 (레지스트리) | `platform/Autostart.cs` | ☑ (아래 §4) |
 | 전체화면 앱 위 자동 숨김 | `platform/FullscreenWatcher.cs` | ☑ 구현, **실제 검증은 미완료** (§5) |
+| ~~창 숨김이 아예 안 먹던 버그~~ | `OverlayShell.ApplyVisibility` | ☑ 고침 (2026-09-16, §6-1) |
+| 세이브 스키마 v3 (`cursorIndependent`) | `shared/Save/SaveData.cs`, `SaveSchema.cs` | ☑ (§6-2) |
 
 ---
 
@@ -51,8 +53,9 @@ Autostart에 실제로 적용하는 것은 전부 `OverlayShell.WireOptionsEvent
 한다.** 옵션 UI가 다른 서브시스템을 몰라도 되게 하려는 것 - `IShell`이
 게임 레이어를 위해 존재하는 것과 같은 분리 원칙이다.
 
-슬라이더 2개(크기/투명도) + 체크박스 7개(위치 잠금/사운드/알림/커서 장식/
-전체화면 숨김/타건 카운트/자동 시작) + 닫기 버튼. 자동 시작 체크박스만 예외로,
+슬라이더 2개(크기/투명도) + 체크박스 8개(위치 잠금/사운드/알림/커서 장식/
+숨겨도 커서 장식은 유지/전체화면 숨김/타건 카운트/자동 시작) + 닫기 버튼.
+"숨겨도 커서 장식은 유지"는 나중에 추가됐다(§6-2). 자동 시작 체크박스만 예외로,
 세이브 값이 아니라 **레지스트리의 실제 값**(`Autostart.IsEnabled()`)으로
 초기화한다 - 유저가 Windows "시작 앱" 설정에서 수동으로 꺼버렸을 수 있어서다.
 
@@ -136,18 +139,100 @@ A7이 "장식을 낀 채" 뿐 아니라 "이 감시까지 포함한" 실제 상�
 
 "보이는가"를 결정하는 지점을 하나로 모았다. 서로 독립적인 두 이유가 있다 -
 유저가 트레이에서 숨겼는가(`_userWantsVisible`), 전체화면 앱이 떠서 자동으로
-숨겼는가(`_autoHiddenForFullscreen`). 커서 장식은 그 위에 옵션
-(`CursorEnabled`)까지 한 번 더 곱한다.
+숨겼는가(`_autoHiddenForFullscreen`).
 
 ```
 visible = userWantsVisible && !autoHiddenForFullscreen
-_win.Visible = visible
-_cursor.Enabled = visible && CursorEnabled
+SetShellWindowVisible(visible)
+_cursor.Enabled = CursorEnabled && (visible || CursorIndependent)
 ```
 
 이렇게 묶지 않았으면 "트레이로 숨겼는데 전체화면 앱이 끝나자 다시 나타났다"
-같은 상태 꼬임이 났을 것이다 - 두 개의 숨김 사유가 각자 `_win.Visible`을
-직접 건드렸다면 나중 것이 먼저 것을 덮어썼을 것이기 때문이다.
+같은 상태 꼬임이 났을 것이다 - 두 개의 숨김 사유가 각자 창 표시를 직접
+건드렸다면 나중 것이 먼저 것을 덮어썼을 것이기 때문이다.
+
+### 6-1. Godot 은 메인 창을 숨길 수 없다 — A6(2026-09-15)이 놓친 버그
+
+**위 상태 기계는 맞았는데, 마지막 한 줄이 아무 일도 하지 않았다.**
+
+A6 은 `_win.Visible = visible` 로 썼다. 커서 레이어에서 똑같이 쓴 코드가
+멀쩡히 동작했으니 당연해 보였다. 그런데 Godot 은 **메인 창의 `Visible` 만
+막는다** — `scene/main/window.cpp:1017` 의 `set_visible` 이 그렇다.
+
+```
+ERROR: Can't change visibility of main window.
+   at: set_visible (scene/main/window.cpp:1017)
+   [3] OverlayShell.ApplyVisibility()  platform/OverlayShell.cs:478
+   [4] OverlayShell.CheckFullscreen()  platform/OverlayShell.cs:591
+```
+
+커서 창은 **서브 창**이라 통과했고 메인 셸 창만 막혔다. 결과는 §1-1 류의
+조용한 실패다 — 트레이 "숨기기"도, 전체화면 자동 숨김도, 에러 한 줄만 찍고
+**창은 그대로 떠 있었다.** 2026-09-16 실행 로그에서 발견했다.
+
+**왜 안 잡혔나.** 셋 다 겹쳤다.
+
+1. 숨김을 부르는 경로가 트레이 클릭과 전체화면 감지뿐이었다. 둘 다 자동
+   테스트로 밟기 어렵다 (§5 가 이미 같은 이유로 미검증이다)
+2. 적용 결과를 **아무도 되읽지 않았다.** A2 에서 "걸었다와 걸렸다는 다르다"
+   는 교훈을 뽑아 놓고 (`ApplyClickThrough` 는 ex-style 을 되읽어 확인한다),
+   정작 여기엔 적용하지 않았다
+3. HUD 가 `_userWantsVisible` 같은 **의도**만 보여주고 실제 상태를 안 보여줬다
+
+**고친 방법 — `ShowWindow` 를 직접 부른다.**
+
+```csharp
+ShowWindow(hwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+bool actual = IsWindowVisible(hwnd);   // 되읽어서 확인한다
+```
+
+| 방법 | 판단 |
+|---|---|
+| `Window.Visible` | ✗ 메인 창은 Godot 이 막는다. 이 버그의 원인 |
+| `WindowSetMode(Minimized)` | ✗ 작업 표시줄 항목이 깜빡이고 복원 애니메이션이 붙는다 |
+| 화면 밖으로 이동 | ✗ 계속 합성되고, 저장된 창 위치를 오염시킬 위험이 있다 |
+| **`ShowWindow`** | ✓ **채택.** ex-style(클릭 통과)도 passthrough 영역도 안 건드려서 복원 뒤 다시 걸 것이 없다 |
+
+`SW_SHOWNOACTIVATE`(4)를 쓴다 — 오버레이가 남의 창에서 포커스를 뺏으면 안 된다.
+
+재발 방지로 셋을 같이 넣었다.
+
+- **되읽기.** `IsWindowVisible` 로 확인하고 어긋나면 `[shell] 창 숨김 실패` 를 찍는다
+- **HUD 에 실제 상태.** `want / autoHidden / winShown` 세 칸이다. 앞의 둘은
+  "원하는 것", `winShown` 은 OS 에 물어본 "된 것" 이다. 셋이 어긋나면 눈에 띈다
+- **`H` debug 키.** 트레이 없이 숨김을 시험한다. 다만 **숨은 창은 키를 못 받아서**
+  그냥 숨기면 트레이로만 돌아올 수 있다. 그래서 3초 뒤 스스로 돌아온다
+
+실측 (2026-09-16): `IsWindowVisible` 이 `True → False → True`, 창 위치 유지,
+에러 없음. 미지원 플랫폼에서는 한 번만 경고하고 계속 보인다 — 트레이도
+`FullscreenWatcher` 도 Windows 전용이라 여기 올 일은 거의 없다.
+
+### 6-2. 세이브 스키마 v3 — "숨겨도 커서 장식은 유지"
+
+숨김이 실제로 먹기 시작하면서 생긴 요구다. 전체화면 게임 위에서 몸통은
+치우고 싶은데 커서 장식까지 같이 사라지는 게 항상 옳지는 않다.
+
+```csharp
+[JsonPropertyName("cursorIndependent")] public bool CursorIndependent { get; set; }
+```
+
+**기본값 `false`** — v2 의 동작(숨기면 커서도 같이 사라진다)이 그대로 기본이라,
+구버전 세이브를 들고 온 유저의 체감은 변하지 않는다. `CurrentVersion` 을 3 으로
+올리고 `MigrateV2ToV3` 를 채웠다. additive 라 버전 태그만 올린다.
+
+**숨김 이유를 구분하지 않는다.** 트레이 숨기기든 전체화면 자동 숨김이든
+커서는 똑같이 살아남는다. 이유별로 옵션을 두 개 만들지 않은 것은 의도적이다 —
+표시 여부를 위 한 줄로 합쳐 둔 것이 §6 의 상태 꼬임 방지책이고, 이유별 예외를
+만들면 그 이점이 사라진다. `CursorEnabled` 가 꺼져 있으면 이 값과 무관하게
+커서는 안 나오고, 옵션 창에서도 "커서 장식" 을 끄면 이 체크박스가 비활성된다
+(값은 지운다 — 다시 켰을 때 유저가 정해 둔 값이 살아 있어야 한다).
+
+실측 (2026-09-16): 실제 v2 세이브를 로드해 v3 로 올라가고 `cursorIndependent`
+가 기본값으로 채워지는 것, 켠 상태에서 `H` 로 숨겼을 때 셸만 사라지고 커서
+창은 `vis=True` 로 남는 것을 확인했다.
+
+> **을에게 알릴 것 (§8-2).** 세이브 스키마가 v2 → v3 로 올라갔다. 필드 추가
+> 하나뿐이고 게임 레이어가 읽는 `tree`/`upgrades`/`inventory` 는 그대로다.
 
 ---
 
@@ -155,7 +240,7 @@ _cursor.Enabled = visible && CursorEnabled
 
 | 일감 | 관계 |
 |---|---|
-| 전체화면 감지 실제 검증 | 실제 전체화면 게임/영상으로 육안 확인 (§5) |
+| 전체화면 감지 실제 검증 | 실제 전체화면 게임/영상으로 육안 확인 (§5). **숨김 자체는 이제 먹는다**(§6-1) - 남은 건 감지가 걸리는지뿐이다 |
 | A7 저부하 재측정 | `FullscreenWatcher` 폴링 비용을 포함해서 재야 한다 |
 | A12 빌드 파이프라인 | 익스포트 빌드에서 `Autostart`가 정확히 게임 exe를 등록하는지 재확인 |
 | B6 상점/장착 UI | `2`/`3`/`4` debug 키를 대신한다 (A5) |

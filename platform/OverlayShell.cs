@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Godot;
 using ProjectSeWoo.Shared;
 
@@ -31,6 +32,9 @@ public partial class OverlayShell : Node2D, IShell
 
     /// <summary>0 = 무제한. 상주 앱에서 부하와 반응성의 균형점을 찾기 위한 후보들.</summary>
     private static readonly int[] FpsCaps = { 60, 30, 10, 0 };
+
+    /// <summary>H(debug 숨김)가 스스로 돌아오기까지의 시간. 숨은 창은 키를 못 받는다.</summary>
+    private const double DebugHideSeconds = 3.0;
 
     private readonly PerfProbe _perf = new();
     private CursorLayer _cursor;
@@ -66,6 +70,18 @@ public partial class OverlayShell : Node2D, IShell
     // (CursorEnabled)까지 하나 더 곱해진다. ---
     private bool _userWantsVisible = true;
     private bool _autoHiddenForFullscreen;
+
+    /// <summary>
+    /// 셸 창이 지금 실제로 보이는가. <see cref="_userWantsVisible"/> 등이 "원하는 것"이라면
+    /// 이쪽은 <see cref="SetShellWindowVisible"/>가 OS 에 물어서 되읽은 "실제"다.
+    /// </summary>
+    private bool _shellWindowVisible = true;
+
+    /// <summary>창 숨김 미지원 플랫폼 경고를 한 번만 찍기 위한 표식. 0.5초 틱마다 도배하면 안 된다.</summary>
+    private bool _hideUnsupportedLogged;
+
+    /// <summary>H(debug 숨김)의 남은 시간. 0 이하면 쉬는 중이다.</summary>
+    private double _debugHideRemaining;
 
     private TrayIcon _tray;
     private OptionsWindow _options;
@@ -467,16 +483,91 @@ public partial class OverlayShell : Node2D, IShell
     /// "보이는가"는 서로 독립적인 두 이유의 조합이다 - 유저가 트레이에서 숨겼는가
     /// (<see cref="_userWantsVisible"/>), 전체화면 앱이 떠서 자동으로 숨겼는가
     /// (<see cref="_autoHiddenForFullscreen"/>). 둘 중 하나라도 "숨겨라"면 숨긴다.
-    /// 커서 장식은 그 위에 옵션(<see cref="SaveData.SettingsState.CursorEnabled"/>)까지
-    /// 한 번 더 곱한다. 이 메서드 하나로만 <c>_win.Visible</c>/<c>_cursor</c> 표시를
-    /// 바꾸면, "트레이로 숨겼는데 전체화면이 끝나자 다시 나타났다" 같은 상태 꼬임이
-    /// 구조적으로 안 생긴다.
+    /// 이 메서드 하나로만 창/커서 표시를 바꾸면, "트레이로 숨겼는데 전체화면이
+    /// 끝나자 다시 나타났다" 같은 상태 꼬임이 구조적으로 안 생긴다.
+    ///
+    /// 커서 장식은 그 위에 옵션 두 개를 더 곱한다 -
+    /// <see cref="SaveData.SettingsState.CursorEnabled"/>(아예 쓸 것인가)와
+    /// <see cref="SaveData.SettingsState.CursorIndependent"/>(셸이 숨어도 남길 것인가).
+    /// 뒤쪽은 숨김 **이유**를 구분하지 않는다. 위 한 줄로 합쳐 둔 것이 상태 꼬임
+    /// 방지책이라, 이유별 예외를 만들면 그 이점이 사라진다.
     /// </summary>
     private void ApplyVisibility()
     {
         bool visible = _userWantsVisible && !_autoHiddenForFullscreen;
-        _win.Visible = visible;
-        _cursor.SetEnabled(visible && _settings.CursorEnabled);
+        SetShellWindowVisible(visible);
+        _cursor.SetEnabled(_settings.CursorEnabled && (visible || _settings.CursorIndependent));
+    }
+
+    // --- 셸 창 숨기기 -------------------------------------------------------
+    //
+    // **Godot 은 메인 창의 Visible 을 못 바꾼다.** scene/main/window.cpp 의
+    // set_visible 이 "Can't change visibility of main window" 로 막는다. A6 이
+    // 그걸 모르고 _win.Visible 에 그대로 썼고, 그래서 트레이 "숨기기"와 전체화면
+    // 자동 숨김이 **에러만 찍고 아무 일도 안 했다**(2026-09-16 실행 로그). 커서
+    // 레이어는 서브 창이라 똑같은 코드가 멀쩡히 동작했고, 그래서 더 늦게 드러났다.
+    //
+    // 대신 OS 에 직접 건다. 최소화(WindowSetMode(Minimized))는 안 쓴다 - 작업
+    // 표시줄 항목이 생겼다 사라지고 복원 애니메이션이 붙는다. 상주 오버레이가
+    // 할 동작이 아니다. ShowWindow 는 ex-style(클릭 통과)도 passthrough 영역도
+    // 건드리지 않아서 복원한 뒤 다시 걸어 줄 것이 없다.
+
+    private const int SwHide = 0;
+
+    /// <summary>보이되 포커스는 뺏지 않는다. 오버레이가 남의 창에서 포커스를 가져가면 안 된다.</summary>
+    private const int SwShowNoActivate = 4;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    /// <summary>
+    /// 셸 창을 실제로 숨기고/보인다. 부르는 곳은 <see cref="ApplyVisibility"/> 하나뿐이다.
+    /// </summary>
+    private void SetShellWindowVisible(bool visible)
+    {
+        if (_shellWindowVisible == visible)
+        {
+            return;
+        }
+
+        if (OS.GetName() != "Windows")
+        {
+            // 트레이도 FullscreenWatcher 도 Windows 전용이라 여기 올 일은 거의 없다.
+            // 그래도 조용히 넘기지 않는다 - "숨겼다고 생각했는데 안 숨었다" 가 정확히
+            // 방금 고친 버그였다.
+            if (!_hideUnsupportedLogged)
+            {
+                _hideUnsupportedLogged = true;
+                GD.PrintErr($"[shell] 창 숨김 미지원 플랫폼 ({OS.GetName()}) - 계속 보인다");
+            }
+
+            return;
+        }
+
+        long handle = DisplayServer.WindowGetNativeHandle(
+            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
+
+        if (handle == 0)
+        {
+            GD.PrintErr("[shell] HWND 를 못 얻었다. 창을 숨길 수 없다");
+            return;
+        }
+
+        var hwnd = new IntPtr(handle);
+        ShowWindow(hwnd, visible ? SwShowNoActivate : SwHide);
+
+        // A2 의 교훈 그대로 되읽어서 확인한다 - "걸었다" 와 "걸렸다" 는 다르다.
+        // 이번 버그도 아무도 결과를 안 물어봐서 통과한 것이다.
+        bool actual = IsWindowVisible(hwnd);
+        _shellWindowVisible = actual;
+
+        if (actual != visible)
+        {
+            GD.PrintErr($"[shell] 창 숨김 실패: 요청 {visible}, 실제 {actual}");
+        }
     }
 
     // ------------------------------------------------------------------ A6: 트레이 / 옵션 창 / 자동 숨김
@@ -535,6 +626,7 @@ public partial class OverlayShell : Node2D, IShell
         _options.SoundChanged += v => { _settings.Sound = v; PersistSettings(); };
         _options.NotificationsChanged += v => { _settings.Notifications = v; PersistSettings(); };
         _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
+        _options.CursorIndependentChanged += v => { _settings.CursorIndependent = v; ApplyVisibility(); PersistSettings(); };
         _options.HideOnFullscreenChanged += v => { _settings.HideOnFullscreen = v; PersistSettings(); };
         _options.KeystrokeCountingChanged += v => { _settings.KeystrokeCounting = v; PersistSettings(); };
         _options.AutostartChanged += v =>
@@ -719,6 +811,16 @@ public partial class OverlayShell : Node2D, IShell
             }
         }
 
+        if (_debugHideRemaining > 0.0)
+        {
+            _debugHideRemaining -= delta;
+            if (_debugHideRemaining <= 0.0)
+            {
+                _userWantsVisible = true;
+                ApplyVisibility();
+            }
+        }
+
         ApplyPassthrough(force: _updateEveryFrame);
         _cursor.Tick(delta);
         _input.Tick(delta);
@@ -893,6 +995,15 @@ public partial class OverlayShell : Node2D, IShell
                 _uptime = 0.0;
                 break;
 
+            // 숨김이 실제로 먹는지 트레이 없이 확인하기 위한 debug 키. 그냥 숨기면
+            // 창이 포커스를 잃어 **다시 켤 키를 못 받는다** - 트레이로만 되돌릴 수
+            // 있게 된다. 그래서 잠깐 숨겼다 스스로 돌아온다.
+            case Key.H:
+                _userWantsVisible = false;
+                _debugHideRemaining = DebugHideSeconds;
+                ApplyVisibility();
+                break;
+
             case Key.F11:
                 // 옵션 창의 "커서 장식" 체크박스와 같은 경로.
                 _settings.CursorEnabled = !_settings.CursorEnabled;
@@ -1022,10 +1133,14 @@ public partial class OverlayShell : Node2D, IShell
             "",
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
                 + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
-            $"opts  cursor {OnOff(_settings.CursorEnabled)}  sound {OnOff(_settings.Sound)}"
-                + $"  notify {OnOff(_settings.Notifications)}  hideFs {OnOff(_settings.HideOnFullscreen)}"
-                + $"  keys {OnOff(_settings.KeystrokeCounting)}  autostart {OnOff(_settings.Autostart)}"
-                + $"  visible {OnOff(_userWantsVisible)}  autoHidden {OnOff(_autoHiddenForFullscreen)}",
+            $"opts  cursor {OnOff(_settings.CursorEnabled)}  indep {OnOff(_settings.CursorIndependent)}"
+                + $"  sound {OnOff(_settings.Sound)}  notify {OnOff(_settings.Notifications)}"
+                + $"  hideFs {OnOff(_settings.HideOnFullscreen)}  keys {OnOff(_settings.KeystrokeCounting)}"
+                + $"  autostart {OnOff(_settings.Autostart)}",
+            // winShown 은 OS 에 되물은 값이다. 나머지 둘이 "원하는 것" 이고 이게 "된 것" 이라,
+            // 셋이 어긋나면 숨김이 먹지 않았다는 뜻이다 - 그걸 눈으로 못 봐서 생긴 버그가 있었다.
+            $"      want {OnOff(_userWantsVisible)}  autoHidden {OnOff(_autoHiddenForFullscreen)}"
+                + $"  winShown {OnOff(_shellWindowVisible)}",
             $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}",
             $"scr   #{screen} of {DisplayServer.GetScreenCount()}  {usable.Size.X}x{usable.Size.Y}"
                 + $"  dpi {DisplayServer.ScreenGetDpi(screen)}  scale {DisplayServer.ScreenGetScale(screen):F2}"

@@ -20,7 +20,7 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 | [docs/A3-SHELL-MODULE.md](docs/A3-SHELL-MODULE.md) | 셸 모듈화, `IShell` 실물, 세이브 파일 I/O |
 | [docs/A4-GLOBAL-INPUT.md](docs/A4-GLOBAL-INPUT.md) | 글로벌 입력 (RawInput, 별도 헬퍼 프로세스) |
 | [docs/A5-CURSOR-COSMETICS.md](docs/A5-CURSOR-COSMETICS.md) | 커서 꾸미기 정식화, `ICursorLayer` 실물, 3슬롯 장착 |
-| [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2 |
+| [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2/v3, 창 숨김 버그 |
 | [docs/A7-PERF.md](docs/A7-PERF.md) | 저부하 최종 실측(커서 창 포함), .NET 런타임 튜닝 한계, 메모리 게이트 판단 |
 | [docs/SCENE-ARCHITECTURE.md](docs/SCENE-ARCHITECTURE.md) | `IInteractiveArea` 계약, 씬/폴더 배치 (B1 착수 전 필독) |
 | [docs/B-TRACK-START.md](docs/B-TRACK-START.md) | **을 시작 가이드.** 목 4종 쓰는 법, B1 착수 순서, `GameRoot` 스캐폴딩 예시 |
@@ -48,7 +48,7 @@ dotnet build ProjectSeWoo.csproj
 project.godot              투명/무테/항상위/per-pixel 투명 + 스트레치 1:1 고정
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
 shared/Contracts/          갑/을 인터페이스 5종 (IInputSource, ICursorLayer, INetSession, IShell, IInteractiveArea)
-shared/Save/               세이브 스키마 v2 + 마이그레이션 훅
+shared/Save/               세이브 스키마 v3 + 마이그레이션 훅
 platform/                  갑 담당. OS와 붙는 전부
   Shell.tscn                 씬 루트 (scenes/ 에서 이동). 나머지는 코드로 구성
   OverlayShell.cs            창 설정, 클릭 통과, 드래그, 핫키, 리포트. IShell 실물
@@ -62,7 +62,7 @@ platform/                  갑 담당. OS와 붙는 전부
   Autostart.cs               시작 프로그램 등록 (HKCU Run 키)
   FullscreenWatcher.cs       전체화면 앱 위 자동 숨김 휴리스틱
   PerfProbe.cs               CPU%/메모리 샘플링
-  DebugHud.cs                HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
+  DebugHud.cs                HUD (ASCII 전용 — 제약이 아니라 관성. DAY1-2-SPIKE.md §1 참고)
   Mocks/                     4개 인터페이스의 목 구현 (을이 갑을 안 기다리고 쓴다)
 game/                      을 담당. 게임 안에서 도는 전부 (아직 착수 전)
   entities/ ui/ effects/ multiplayer/   골격만 잡아 둔 빈 폴더 (docs/SCENE-ARCHITECTURE.md §2)

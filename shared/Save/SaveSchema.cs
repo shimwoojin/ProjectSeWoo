@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -29,8 +29,8 @@ public static class SaveSchema
     /// <summary>
     /// 구버전 JSON 을 현재 버전으로 올린다.
     ///
-    /// v1 뿐이라 지금은 할 일이 없지만, **호출 지점을 먼저 만들어 둔다.**
-    /// 나중에 스키마를 바꿀 때 로드 경로를 뜯어고치지 않아도 되게 하려는 것이고,
+    /// 한 단계씩 올린다(v1 -> v2 -> v3). 버전을 건너뛰는 경로를 만들지 않는 것은,
+    /// 단계가 늘어날수록 조합이 폭발해서 안 밟아 본 경로가 생기기 때문이다.
     /// 이게 §7-5 가 "마이그레이션 훅 준비" 라고 쓴 것의 내용이다.
     /// </summary>
     /// <returns>현재 버전으로 올라간 노드.</returns>
@@ -49,6 +49,11 @@ public static class SaveSchema
                 case 1:
                     MigrateV1ToV2(root);
                     version = 2;
+                    break;
+
+                case 2:
+                    MigrateV2ToV3(root);
+                    version = 3;
                     break;
 
                 default:
@@ -74,6 +79,19 @@ public static class SaveSchema
     private static void MigrateV1ToV2(JsonNode root)
     {
         root["version"] = 2;
+    }
+
+    /// <summary>
+    /// v2 -> v3 (2026-09-16): <c>settings.cursorIndependent</c> 추가.
+    /// "셸을 숨겨도 커서 장식은 남긴다" 옵션이다.
+    ///
+    /// <see cref="MigrateV1ToV2"/>와 같은 이유로 additive라 버전 태그만 올린다.
+    /// 기본값 <c>false</c>가 v2 의 동작(숨기면 커서도 같이 사라진다)과 같으므로,
+    /// 구버전 세이브를 들고 온 유저의 체감은 변하지 않는다.
+    /// </summary>
+    private static void MigrateV2ToV3(JsonNode root)
+    {
+        root["version"] = 3;
     }
 
     /// <summary>
@@ -104,6 +122,7 @@ public static class SaveSchema
             "inventory", "owned", "equipped", "hang", "trail", "base",
             "settings", "scale", "opacity", "pos", "sound", "autostart",
             "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen", "keystrokeCounting",
+            "cursorIndependent",
             "lastQuitUtc",
         };
 
