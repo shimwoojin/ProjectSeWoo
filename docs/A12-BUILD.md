@@ -19,7 +19,7 @@
 | Depot ID | ☑ **`5281131`** (2026-09-16 확인). 스크립트 기본값 |
 | SteamPipe VDF 생성 | ☑ `build/steampipe/` 에 자동 생성 |
 | steamcmd | ☑ `C:\Tools\steamcmd\` (2026-09-16 설치, 자체 업데이트까지 확인) |
-| 실제 업로드 | ☐ **대화형 로그인 1회만 남았다** (§5). 계정은 당분간 메인 `ggoggal627` — §5-4 |
+| 실제 업로드 | ☐ **대화형 로그인 1회만 남았다** (§5). 계정은 당분간 메인 `swj627` — §5-4 |
 | A13 Defender / VirusTotal 재검증 | ☐ 이 빌드로 한다 |
 
 ---
@@ -174,10 +174,10 @@ build/dist/
 powershell -ExecutionPolicy Bypass -File tools\build-release.ps1
 
 # 2. 최초 1회 - 대화형 로그인. Steam Guard 코드를 묻는다
-C:\Tools\steamcmd\steamcmd.exe +login ggoggal627
+C:\Tools\steamcmd\steamcmd.exe +login swj627
 
 # 3. 업로드 (2번 이후로는 코드 없이 통과한다)
-C:\Tools\steamcmd\steamcmd.exe +login ggoggal627 `
+C:\Tools\steamcmd\steamcmd.exe +login swj627 `
     +run_app_build "C:\EtcProjects\pc-idle\build\steampipe\app_build_5281130.vdf" +quit
 ```
 
@@ -219,7 +219,7 @@ steamcmd 는 `C:\Tools\steamcmd\` 에 받아 뒀다(2026-09-16). Godot 과 같�
 
 ### 5-4. 업로드 계정
 
-> **결정 (2026-09-16): 당분간 메인 계정 `ggoggal627` 로 올린다.** 쓸 수 있는 스팀
+> **결정 (2026-09-16): 당분간 메인 계정 `swj627` 로 올린다.** 쓸 수 있는 스팀
 > 계정이 그것뿐이다. 아래 "따로 파는" 절차는 **분리할 때를 위해 남겨 둔다.**
 >
 > **분리 시점: CI 로 옮기기 직전.** 개발 PC 한 대에서 사람이 직접 돌리는 동안은
@@ -259,6 +259,33 @@ steamcmd 는 `C:\Tools\steamcmd\` 에 받아 뒀다(2026-09-16). Godot 과 같�
 
 구매 이력이 없는 계정은 일부 기능이 제한된다. 파트너 권한 부여 자체에는 보통
 문제가 없지만, **3번에서 막히면 이쪽을 먼저 의심한다.**
+
+### 5-5. 최초 로그인에서 밟은 것 (2026-09-16)
+
+**두 번 다 "멈춘 것처럼" 보였고, 두 번 다 원인이 달랐다.** 다음에 머신을 바꿔서
+다시 로그인할 때 그대로 반복될 자리라 남긴다.
+
+#### 대화형 로그인은 실제 터미널 창에서 해야 한다
+
+에이전트 셸(Claude Code 의 `!` 러너)로 돌리면 steamcmd 에 TTY 가 없다.
+`password:` 프롬프트가 빈 입력을 받고 **`ERROR (Invalid Password)` 로 즉사한다.**
+그 전에는 아예 응답 없이 멈춘 것처럼 보였는데, **영원히 안 오는 stdin 을
+기다리고 있던 것**이지 스팀이 느린 게 아니었다.
+
+로그인만 PowerShell 창을 따로 열어서 하고, **그 뒤의 업로드는 캐시 덕분에
+비대화형이라 어디서 돌려도 된다.**
+
+> 창에서 칠 때도 **비밀번호는 화면에 아무것도 안 찍힌다**(별표도 없다).
+> 방금 진짜로 멈춘 걸 본 직후라면 또 멈춘 줄 알기 쉽다.
+
+#### persona name 은 로그인 ID 가 아니다
+
+셀프테스트 로그의 `user=ggoggal627` 은 **표시 이름**이다. `+login` 에 넣어야 하는
+로그인 ID 는 `swj627` 이고, 둘이 다르다. 잘못 넣으면 계정이 존재하니까
+**"비밀번호가 틀렸다" 로 나온다** — 원인이 아이디인데 에러는 비밀번호를 가리킨다.
+
+`SteamService` 가 찍는 것은 `SteamFriends.GetPersonaName()` 이라 앞으로도 계속
+표시 이름이다. 로그인 ID 는 이 문서 §5 의 명령에만 있다.
 
 ---
 
