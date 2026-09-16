@@ -372,7 +372,7 @@ build/                     익스포트 산출물 (gitignore)
 릴리스 빌드는 헤드리스로 뽑는다 — W4의 A12(빌드 파이프라인)가 여기서 절반 끝났다:
 
 ```
-Godot_..._console.exe --headless --path . --export-release "Windows Desktop" build\ProjectSeWoo.exe
+Godot_..._console.exe --headless --path . --export-release "Windows Desktop" build\PunchMonkey.exe
 ```
 
 **함정: 헤드리스 익스포트는 끝나고도 프로세스가 안 죽는다.** 패킹까지 `DONE`을 찍고

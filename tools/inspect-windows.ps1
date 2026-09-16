@@ -15,11 +15,11 @@
       NOACTIVATE 포커스를 뺏지 않는가 <- 타이핑 중에 포커스를 뺏으면 게임이 아니라 사고다
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tools/inspect-windows.ps1 -Name ProjectSeWoo
+    powershell -ExecutionPolicy Bypass -File tools/inspect-windows.ps1 -Name PunchMonkey
 #>
 [CmdletBinding()]
 param(
-    [string]$Name = "ProjectSeWoo",
+    [string]$Name = "PunchMonkey",
     [int]$ProcessId
 )
 
