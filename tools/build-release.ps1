@@ -18,9 +18,8 @@
     빌드 부산물이 섞이면 그대로 유저에게 배포되므로 매번 비우고 다시 채운다.
 
 .PARAMETER DepotId
-    주면 build/steampipe/ 에 SteamPipe VDF 두 개를 같이 생성한다.
-    파트너 사이트 > SteamPipe > Depots 에서 확인한 값을 넣는다. **추측하지 말 것** —
-    보통 앱 ID+1 이지만 보장된 규칙이 아니고, 틀린 depot 에 올리면 되돌리기 번거롭다.
+    build/steampipe/ 에 SteamPipe VDF 두 개를 생성한다. 기본값은 확인된 실제
+    depot(5281131). 0 을 주면 VDF 를 만들지 않는다.
 
 .PARAMETER SkipVerify
     §5 검증을 건너뛴다. 스팀이 안 떠 있는 환경(CI)에서만 쓴다.
@@ -43,7 +42,12 @@ param(
 
     [string]$Preset = "Windows Desktop",
     [string]$OutDir = "build\dist",
-    [uint32]$DepotId = 0,
+
+    # 2026-09-16 파트너 사이트에서 확인한 값. 앱 ID+1 이지만 그건 결과이지
+    # 규칙이 아니다 - 새 depot 을 만들면 번호가 이어지지 않는다.
+    # 0 을 주면 VDF 를 생성하지 않는다 (빌드만 뽑고 싶을 때).
+    [uint32]$DepotId = 5281131,
+
     [switch]$SkipVerify
 )
 
@@ -335,6 +339,5 @@ Get-ChildItem $dist -Force | ForEach-Object {
 }
 Write-Host ""
 if ($DepotId -eq 0) {
-    Write-Host "Depot 에 올리려면 -DepotId <번호> 를 주고 다시 돌려라." -ForegroundColor Cyan
-    Write-Host "번호는 파트너 사이트 > SteamPipe > Depots 에서 확인한다. 추측하지 말 것." -ForegroundColor Yellow
+    Write-Host "-DepotId 0 이라 VDF 를 만들지 않았다. 업로드하려면 인자 없이 다시 돌려라." -ForegroundColor Cyan
 }
