@@ -1,6 +1,9 @@
 [gd_scene format=3 uid="uid://bmeiemyhpecf3"]
 
 [ext_resource type="Script" uid="uid://c15368wl7s4k1" path="res://platform/OverlayShell.cs" id="1_shell"]
+[ext_resource type="PackedScene" path="res://game/GameRoot.tscn" id="2_gameroot"]
 
 [node name="Shell" type="Node2D" unique_id=1693618959]
 script = ExtResource("1_shell")
+
+[node name="GameRoot" parent="." instance=ExtResource("2_gameroot")]
