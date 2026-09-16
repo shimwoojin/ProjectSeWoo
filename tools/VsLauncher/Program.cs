@@ -21,7 +21,7 @@ internal static class Program
 {
     /// <summary>환경변수 GODOT 가 없을 때 쓸 경로. 개발자마다 다르므로 GODOT 설정을 권장한다.</summary>
     private const string FallbackGodotExe =
-        @"C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe";
+        @"C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe";
 
     private static int Main(string[] args)
     {
