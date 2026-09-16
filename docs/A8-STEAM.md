@@ -238,7 +238,7 @@ execution"). 실제 구현은 `runtimes/<rid>/lib/netstandard2.1/` 에만 있다
 |---|---|
 | **진짜 앱 ID 확보** | §11 수수료 결제 → 앱 생성. `--steam-appid=` 로 먼저 검증한 뒤 상수 교체 |
 | A9~A11 (로비 / P2P / 재접속) | 이 위에 바로 얹는다. `SteamService.SelfId` · `IsInitialized` 가 진입점 |
-| A12 빌드 파이프라인 | **내보낸 exe 옆에 `steam_api64.dll` 을 복사해야 한다.** Godot export 는 네이티브 dll 을 자동으로 안 옮긴다 (pck 안에 넣어도 소용없다) |
+| A12 빌드 파이프라인 | **내보낸 exe 옆에 `steam_api64.dll` 을 복사해야 한다.** Godot export 는 네이티브 dll 을 자동으로 안 옮긴다 (pck 안에 넣어도 소용없다). **2026-09-16 실제 익스포트로 검증함** — 복사한 뒤 `--steam-selftest` 가 익스포트 바이너리에서 종료 코드 0. 같은 익스포트에서 **`InputHelper.exe` 는 아예 안 들어간다**는 것도 같이 드러났다(익스포트 빌드는 전역 타건을 못 받는다). 둘 다 A12 가 처리할 것 |
 | A15 도전과제 등록 | 파트너 사이트에 `AchievementIds` 의 4개 등록. **등록 전에 마일스톤 수치 확정** (§2-4) |
-| A7 Release `PrivWS` 재측정 | 이제 `--steam` 을 켠 조건으로 재야 한다 (§4-2) |
+| ~~A7 Release `PrivWS` 재측정~~ | ✅ 완료 (2026-09-16, A7-PERF.md §3). **커밋 기준의 +24MB 는 Release 에서도 그대로 재현됐지만, 정식 기준인 `PrivWS` 로는 +4MB 다** — §4-2 가 "여유가 줄었다"고 쓴 것은 커밋 기준이었고, 기준을 바꾼 지금 스팀의 실질 비용은 거의 없다 |
 | B 트랙 | `MockAchievements` 로 해금 조건 로직을 지금 끝까지 시험할 수 있다. 실물 교체 시 게임 코드 변경 없음 |
