@@ -7,4 +7,6 @@
 script = ExtResource("1_gameroot")
 
 [node name="Placeholder" type="Sprite2D" parent="."]
+position = Vector2(210, 160)
+scale = Vector2(1.5, 1.5)
 texture = ExtResource("2_placeholder")
