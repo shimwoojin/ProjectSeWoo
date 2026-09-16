@@ -222,7 +222,12 @@ public partial class OverlayShell : Node2D, IShell
         }
 
         string[] args = OS.GetCmdlineUserArgs();
-        return Array.IndexOf(args, "--selftest") >= 0
+
+        // "...selftest" 로 끝나는 인자는 전부 무인으로 본다. --steam-selftest 를
+        // 이름으로 하나씩 열거하다 A7 Release 측정 때 빠뜨린 게 드러났다 - 헤드리스로만
+        // 돌리던 것을 창 있는 채로 돌리자 세이브 파일을 덮고 Run 키를 건드렸다.
+        // 앞으로 --net-selftest 같은 게 늘어도 같은 실수가 반복되지 않게 접미사로 잡는다.
+        return Array.Exists(args, a => a.EndsWith("selftest", StringComparison.Ordinal))
             || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal));
     }
 
@@ -1237,6 +1242,10 @@ public partial class OverlayShell : Node2D, IShell
                 + $" / {_perf.WorkingSetMb} MB working set"
                 + $" (godot {_perf.GodotStaticMb} MB, clr heap {_perf.ManagedHeapMb} MB)",
             $"renderer       {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
+            // 스팀은 개인 커밋을 수십 MB 먹는다. 리포트에 이 줄이 없으면 측정값이
+            // 스팀을 켠 것인지 아닌지 나중에 알 수가 없다 - A7 Release 재측정에서
+            // 실제로 회차마다 50MB 씩 흔들렸고, 원인이 스팀인지 판별할 방법이 없었다.
+            $"steam          {(_steam == null ? "off (요청 안 함)" : _steam.Status)}",
             $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
             $"passthrough    {OnOff(_settings.PositionLocked)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
                 + $" writes {_regionWrites}",
@@ -1259,8 +1268,13 @@ public partial class OverlayShell : Node2D, IShell
             // 플리커 / 드래그 / 멀티모니터는 사람이 눈으로 봐야 하므로 미정으로 남긴다.
             $"[auto] idle cpu avg < 1%       {Verdict(_perf.AvgCpuPercent < 1.0)}"
                 + $"   ({_perf.AvgCpuPercent:F2}%, sampled {_uptime:F0}s)",
-            $"[auto] private commit < 150MB  {Verdict(_perf.PrivateCommitMb < 150)}"
-                + $"   ({_perf.PrivateCommitMb} MB)",
+            // 메모리 기준은 2026-09-16 에 개인 커밋 150MB 에서 OS PrivWS 300MB 로
+            // 재설정됐다(A7-PERF.md §4-2). PrivWS 는 프로세스가 자기 자신에 대해
+            // 싸게 구할 수 없어서 measure-renderers.ps1 이 WMI 로 밖에서 찍는다.
+            // 옛 기준을 그대로 두면 이미 조건부 Go 로 판정한 빌드가 리포트마다
+            // FAIL 을 찍어서, 표와 리포트가 정반대를 말하게 된다.
+            $"[info] private commit         {_perf.PrivateCommitMb} MB (참고값 - 판정 기준 아님)",
+            "[info] 메모리 판정            OS PrivWS < 300MB - measure-renderers.ps1 표에서 본다",
             "[eye ] no flicker              ?   <- F3 로 every-frame 과 비교해서 직접 채운다",
             "[eye ] drag ok on every screen ?   <- F7/F8 로 모니터별 확인 후 직접 채운다",
         });
