@@ -67,6 +67,7 @@ PunchMonkey (저장소·어셈블리 이름은 `ProjectSeWoo`) 문서 목록과 
 
 | 스크립트 | 언제 |
 |---|---|
+| `tools/setup-steamcmd.cmd` | **새 빌드 머신 준비** (더블클릭). steamcmd 설치 + 최초 로그인. [A12-BUILD.md](A12-BUILD.md) §5-5 |
 | `tools/build-release.ps1` | 스팀에 올릴 릴리스 빌드. [A12-BUILD.md](A12-BUILD.md) |
 | `tools/measure-renderers.ps1` | 메모리·CPU 실측. [A7-PERF.md](A7-PERF.md) §3 |
 | `tools/inspect-windows.ps1` | 창 스타일 플래그 확인 (클릭 통과 검증). [A2-CURSOR-SPIKE.md](A2-CURSOR-SPIKE.md) |
