@@ -22,20 +22,34 @@ public partial class Tree : Node2D
 
     [Export] private PackedScene _slotScene;
 
+    private Node2D _crown;
     private Node2D _slotRoot;
     private Polygon2D _trunk;
     private Polygon2D _canopy;
+    private CpuParticles2D _leaves;
+    private Tween _shake;
 
     private TreeSlot[] _slots;
     private long[] _timers;
     private int[] _drawnStep;
     private long _growthMs = 1;
 
+    /// <summary>
+    /// 흔들기 전의 클릭 영역. 흔들리는 동안 다시 재지 않는다 - 매 프레임 값이 바뀌면
+    /// 그만큼 WindowSetMousePassthrough 쓰기가 늘어난다 (§7-3).
+    /// </summary>
+    private Rect2 _restBounds;
+
     public override void _Ready()
     {
-        _slotRoot = GetNode<Node2D>("Slots");
+        _crown = GetNode<Node2D>("Crown");
+        _slotRoot = GetNode<Node2D>("Crown/Slots");
+        _canopy = GetNode<Polygon2D>("Crown/Canopy");
+        _leaves = GetNode<CpuParticles2D>("Crown/Leaves");
         _trunk = GetNode<Polygon2D>("Trunk");
-        _canopy = GetNode<Polygon2D>("Canopy");
+
+        Rect2 crownBounds = _crown.Transform * Shapes.Bounds(_canopy);
+        _restBounds = Transform * Shapes.Bounds(_trunk).Merge(crownBounds);
     }
 
     /// <summary>세이브 스키마를 그대로 받는다 (§4-4). 파일 I/O 는 B5 가 붙인다.</summary>
@@ -62,7 +76,7 @@ public partial class Tree : Node2D
 
             _slots[i] = slot;
             _drawnStep[i] = -1;
-            Redraw(i);
+            Redraw(i, flashOnRipe: false);
         }
     }
 
@@ -78,12 +92,29 @@ public partial class Tree : Node2D
             }
 
             _timers[i] = Math.Min(_timers[i] + ms, _growthMs);
-            Redraw(i);
+            Redraw(i, flashOnRipe: true);
         }
     }
 
+    /// <summary>
+    /// 펀치가 닿은 순간의 반응. **열린 바나나가 없어도 반드시 보인다** -
+    /// 빈 나무를 쳐도 반응이 있어야 한다는 것이 §2-3 의 P0 요구다.
+    /// </summary>
+    public void Shake()
+    {
+        _leaves.Restart();
+
+        _shake?.Kill();
+        _crown.Rotation = 0f;
+        _shake = CreateTween();
+        _shake.TweenProperty(_crown, "rotation", 0.028f, 0.05).SetTrans(Tween.TransitionType.Sine);
+        _shake.TweenProperty(_crown, "rotation", -0.018f, 0.08).SetTrans(Tween.TransitionType.Sine);
+        _shake.TweenProperty(_crown, "rotation", 0.0f, 0.12).SetTrans(Tween.TransitionType.Sine);
+    }
+
     /// <summary>열린 바나나가 있으면 하나 수확하고 그 슬롯을 비운다.</summary>
-    public bool TryHarvest()
+    /// <param name="fruitPosition">수확한 자리. 이 나무의 부모 좌표계 기준이다.</param>
+    public bool TryHarvest(out Vector2 fruitPosition)
     {
         for (int i = 0; i < _timers.Length; i++)
         {
@@ -92,11 +123,13 @@ public partial class Tree : Node2D
                 continue;
             }
 
+            fruitPosition = Transform * (_crown.Transform * _slots[i].Position);
             _timers[i] = 0;
-            Redraw(i);
+            Redraw(i, flashOnRipe: false);
             return true;
         }
 
+        fruitPosition = Vector2.Zero;
         return false;
     }
 
@@ -106,13 +139,13 @@ public partial class Tree : Node2D
         for (int i = 0; i < _timers.Length; i++)
         {
             _timers[i] = Math.Min(_timers[i] + ms, _growthMs);
-            Redraw(i);
+            Redraw(i, flashOnRipe: true);
         }
     }
 
-    public Rect2 GetBounds() => Transform * Shapes.Bounds(_trunk).Merge(Shapes.Bounds(_canopy));
+    public Rect2 GetBounds() => _restBounds;
 
-    private void Redraw(int i)
+    private void Redraw(int i, bool flashOnRipe)
     {
         float t = (float)_timers[i] / _growthMs;
 
@@ -122,7 +155,13 @@ public partial class Tree : Node2D
             return;
         }
 
+        bool justRipened = flashOnRipe && t >= 1f;
         _drawnStep[i] = step;
         _slots[i].SetProgress(t);
+
+        if (justRipened)
+        {
+            _slots[i].FlashRipe();
+        }
     }
 }

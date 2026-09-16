@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://game/entities/Tree.cs" id="1_tree"]
 [ext_resource type="PackedScene" path="res://game/entities/TreeSlot.tscn" id="2_slot"]
+[ext_resource type="PackedScene" path="res://game/effects/LeafParticle.tscn" id="3_leaf"]
 
 [node name="Tree" type="Node2D"]
 script = ExtResource("1_tree")
@@ -11,10 +12,14 @@ _slotScene = ExtResource("2_slot")
 color = Color(0.42, 0.29, 0.18, 1)
 polygon = PackedVector2Array(-17, 0, 17, 0, 17, 150, -17, 150)
 
-[node name="Canopy" type="Polygon2D" parent="."]
+[node name="Crown" type="Node2D" parent="."]
 position = Vector2(0, -40)
+
+[node name="Canopy" type="Polygon2D" parent="Crown"]
 color = Color(0.22, 0.45, 0.2, 1)
 polygon = PackedVector2Array(110, 0, 95.3, 55, 55, 95.3, 0, 110, -55, 95.3, -95.3, 55, -110, 0, -95.3, -55, -55, -95.3, 0, -110, 55, -95.3, 95.3, -55)
 
-[node name="Slots" type="Node2D" parent="."]
-position = Vector2(0, -40)
+[node name="Slots" type="Node2D" parent="Crown"]
+
+[node name="Leaves" parent="Crown" instance=ExtResource("3_leaf")]
+position = Vector2(0, 20)

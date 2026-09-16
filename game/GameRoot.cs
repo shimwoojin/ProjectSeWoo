@@ -9,6 +9,9 @@ public partial class GameRoot : Node2D, IInteractiveArea
     /// <summary>디버그 키가 한 번에 앞당기는 성장 시간.</summary>
     private const long DebugGrowMs = 60_000;
 
+    /// <summary>수확한 바나나가 떨어져 착지하는 높이. 원숭이 발치다.</summary>
+    private const float GroundY = 404f;
+
     // 목 4종. 지금 읽는 곳은 _input 뿐이지만, 나머지도 부를 자리가 정해져 있어
     // 같이 들고 간다 - _cursor 는 B6(상점/장착), _shell 은 B4(안전 영역 배치),
     // _net 은 B10~B12(룸 화면)에서 쓴다. A1-CONTRACTS.md §3 의 목록과 같다.
@@ -17,9 +20,12 @@ public partial class GameRoot : Node2D, IInteractiveArea
     private MockShell _shell;
     private MockNetSession _net;
 
+    [Export] private PackedScene _fallingBananaScene;
+
     private Tree _tree;
     private Monkey _monkey;
     private Label _bananas;
+    private Tween _counterPop;
 
     // TODO(B5): SaveIO 로 왕복시킨다. 지금은 스키마 기본값(슬롯 3개, 성장 8분)만 읽는다.
     private readonly SaveData _save = new();
@@ -40,7 +46,7 @@ public partial class GameRoot : Node2D, IInteractiveArea
         _input.OnKeystrokes += OnKeystrokes;
 
         _tree.Configure(_save.Tree);
-        UpdateBananaLabel();
+        _bananas.Text = $"bananas {_save.Bananas}";
     }
 
     public override void _Process(double delta)
@@ -73,14 +79,18 @@ public partial class GameRoot : Node2D, IInteractiveArea
 
     private void OnKeystrokes(int count)
     {
-        _monkey.Punch();
+        // 펀치 연출과 나무 반응은 수확 여부와 무관하게 항상 돈다 - 빈 나무를 쳐도
+        // 반응이 있어야 한다는 것이 §2-3 의 P0 요구다.
+        double contact = _monkey.Punch();
+        GetTree().CreateTimer(contact).Timeout += _tree.Shake;
 
-        // 수확을 애니메이션 타이밍이 아니라 입력에 직접 건다. §2-3 검토 노트의
+        // 수확은 애니메이션 타이밍이 아니라 입력에 직접 건다. §2-3 검토 노트의
         // "키 입력과 애니메이션을 1:1 고정 대응시키지 말 것"이 이 뜻이고,
-        // 펀치 연출이 끊기거나 겹쳐도 수확 개수가 흔들리지 않는다.
+        // 연출이 끊기거나 겹쳐도 수확 개수가 흔들리지 않는다.
         int harvested = 0;
-        while (harvested < count && _tree.TryHarvest())
+        while (harvested < count && _tree.TryHarvest(out Vector2 fruitPosition))
         {
+            DropBanana(fruitPosition, contact);
             harvested++;
         }
 
@@ -90,12 +100,29 @@ public partial class GameRoot : Node2D, IInteractiveArea
         }
 
         _save.Bananas += harvested;   // §2-2: 펀치 1회당 열린 바나나 1개
-        UpdateBananaLabel();
+        _bananas.Text = $"bananas {_save.Bananas}";
+        PopCounter();
     }
 
-    private void UpdateBananaLabel()
+    private void DropBanana(Vector2 from, double delay)
     {
-        _bananas.Text = $"bananas {_save.Bananas}";
+        var banana = _fallingBananaScene.Instantiate<FallingBanana>();
+        banana.Position = from;
+        AddChild(banana);
+
+        // 팔이 닿기 전에 떨어지면 원인과 결과가 뒤집혀 보인다.
+        GetTree().CreateTimer(delay).Timeout += () => banana.Drop(GroundY);
+    }
+
+    private void PopCounter()
+    {
+        _counterPop?.Kill();
+        _bananas.Scale = Vector2.One;
+        _counterPop = CreateTween();
+        _counterPop.TweenProperty(_bananas, "scale", Vector2.One * 1.18f, 0.07)
+            .SetTrans(Tween.TransitionType.Quad);
+        _counterPop.TweenProperty(_bananas, "scale", Vector2.One, 0.14)
+            .SetTrans(Tween.TransitionType.Quad);
     }
 
     public Rect2 GetClickableBounds() => Transform * _tree.GetBounds().Merge(_monkey.GetBounds());
