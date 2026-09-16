@@ -15,7 +15,7 @@
 | 목 구현 | `platform/Mocks/MockAchievements.cs` | ☑ 커밋 |
 | 네이티브 `steam_api64.dll` | 저장소 루트 | ☑ 커밋 (SDK 1.60) |
 | 자체 검사 | `--steam-selftest` | ☑ PASS (§4) |
-| 진짜 앱 ID | — | ⬜ **없다. 수수료 미결제 (§11).** 지금은 480(Spacewar) |
+| 진짜 앱 ID | `SteamService.DefaultAppId` | ☑ **`5281130`** (2026-09-16 수수료 결제 후 발급, §2-2) |
 | 도전과제 실제 등록 | — | ⬜ A15 |
 | 내보낸 빌드에 dll 복사 | — | ⬜ A12 (§6) |
 
@@ -60,18 +60,25 @@ A6 자동 시작을 켜면 로그인 직후 — 스팀이 뜨기 한참 전에 �
 버려지고 `IsUnlocked` 는 항상 false 다. **을이 분기 없이 그냥 부르면 된다.**
 `IInputSource.IsAvailable` 과 같은 계약이다.
 
-### 2-2. 앱 ID 는 480 (Spacewar) — 임시값이다
+### 2-2. 앱 ID — `5281130` (2026-09-16 확정)
 
-진짜 앱 ID 가 없다. 스팀 Direct 수수료가 아직 결제되지 않았고(§11), 결제 전에는
-앱이 생성되지 않으므로 **A8 시점에 진짜 ID 를 넣는 것이 불가능하다.**
+A8 작성 시점에는 수수료 미결제라 480(Spacewar, 밸브가 SDK 예제용으로 공개한 앱 ID)을
+임시로 썼다. **2026-09-16 에 Direct 수수료를 결제하고 `5281130` 을 받았다.**
+`SteamService.DefaultAppId` 가 그 값이고, `--steam-appid=<N>` 오버라이드는 그대로
+남겨 뒀다 — 480 으로 되돌려 보면 "우리 앱 설정 문제인가, SDK/로컬 환경 문제인가"를
+가를 수 있다. 상수 교체 전에 이 인자로 먼저 검증했다(§4-3).
 
-480 은 밸브가 SDK 예제용으로 공개한 앱 ID 로, 아무 계정에서나 초기화가 된다.
-`--steam-appid=<N>` 으로 덮어쓸 수 있게 열어 두었으므로, 앱이 생기면 그 인자로 먼저
-검증하고 확인되면 `SteamService.SpacewarAppId` 자리를 바꾼다.
+> **로비(A9)를 480 으로 시험하지 말 것.** 전 세계 SDK 예제 사용자와 같은 로비 공간을
+> 쓰게 된다. 진짜 앱 ID 가 생긴 지금은 그럴 이유도 없다.
 
-**480 에서 도전과제는 해금되지 않는다.** 우리 API Name 이 Spacewar 에 등록돼 있을 리
-없으므로 `SetAchievement` 가 false 를 돌려준다. 그게 정상이고, 실제 해금 확인은
-A15 에서 진짜 앱 ID 로 한다. 지금 확인되는 것은 "호출 경로가 살아 있는가" 까지다.
+**진짜 앱 ID 로 바꾸면 도전과제 통계가 오히려 안 온다 — 이건 퇴행이 아니다.**
+`UserStatsReceived` 가 `k_EResultFail` 로 돌아온다(2026-09-16 실측). 파트너 사이트에
+통계·도전과제 스키마가 아직 없기 때문이고, A15 에서 등록하면 풀린다. 480 일 때
+`PASS` 였던 건 **Spacewar 의 도전과제 5개**가 잡혔던 것이지 우리 것이 아니었다.
+
+결과적으로 `IsAvailable` 이 false 이므로 `Unlock` 은 조용히 버려지고 `IsUnlocked` 는
+false 다 — §2-1 계약 그대로다. **을 쪽 코드는 영향이 없다.** 해금 조건 로직은
+`MockAchievements` 로 끝까지 시험할 수 있다.
 
 ### 2-3. 스팀이 나중에 켜져도 붙는다
 
@@ -162,12 +169,35 @@ Godot_v4.7.2-stable_mono_win64_console.exe --headless --path . -- --steam-selfte
 통계는 콜백으로 비동기로 오기 때문이다. 종료 코드는 0(초기화 성공) / 1(실패).
 
 ```
-[steam] 연결됨 appid=480 user=ggoggal627 id=76561198411431220 (Spacewar 임시 ID)
+[steam] 연결됨 appid=480 user=ggoggal627 id=76561198411431220 (Spacewar 진단 ID)
 [steam] 통계 수신 완료. 도전과제 5개
 initialized : PASS
 stats/ach   : PASS
 elapsed     : 0.3s
 ```
+
+### 4-3. 진짜 앱 ID 로 다시 (2026-09-16, 익스포트 바이너리)
+
+`build\PunchMonkey.exe -- --steam-selftest` (오버라이드 없이 기본값으로):
+
+```
+[steam] 연결됨 appid=5281130 user=ggoggal627 id=76561198411431220
+[steam] 통계 수신 실패 (k_EResultFail) - 도전과제 비활성
+initialized : PASS
+stats/ach   : FAIL      <- A15 전까지 정상. §2-2
+elapsed     : 10.0s
+```
+
+**확인된 것 세 가지.** ① 실제 계정으로 우리 앱 ID 초기화 성공 — A9~A11 의 진입점인
+`IsInitialized` · `SelfId` 가 산다. ② 익스포트 바이너리 옆에 `steam_api64.dll` 을
+복사하면 붙는다(§6 A12 항목 검증). ③ 통계는 A15 전까지 안 온다.
+
+**종료 코드는 여전히 0 이다** — `IsInitialized` 로 판정하기 때문이다. 통계까지 보고
+싶으면 판정을 `IsAvailable` 로 올려야 하는데, **A15 전까지는 그러면 항상 1 이 된다.**
+A15 에서 도전과제를 등록한 뒤에 올리는 것이 맞다.
+
+`elapsed` 가 0.3s → 10.0s 로 늘어난 것도 이것 때문이다. 실패 콜백을 기다리느라
+셀프테스트가 타임아웃까지 간다.
 
 도전과제 ID 는 **읽기만** 한다. `Unlock` 을 자체 검사에 넣으면 나중에 진짜 앱 ID 로
 이 검사를 돌렸을 때 실제 도전과제가 해금돼 버린다.
@@ -236,7 +266,7 @@ execution"). 실제 구현은 `runtimes/<rid>/lib/netstandard2.1/` 에만 있다
 
 | 일감 | 관계 |
 |---|---|
-| **진짜 앱 ID 확보** | §11 수수료 결제 → 앱 생성. `--steam-appid=` 로 먼저 검증한 뒤 상수 교체 |
+| ~~**진짜 앱 ID 확보**~~ | ✅ 완료 (2026-09-16). `5281130`. `--steam-appid=` 로 먼저 검증한 뒤 `DefaultAppId` 교체, 익스포트 바이너리로 재확인 (§4-3) |
 | A9~A11 (로비 / P2P / 재접속) | 이 위에 바로 얹는다. `SteamService.SelfId` · `IsInitialized` 가 진입점 |
 | A12 빌드 파이프라인 | **내보낸 exe 옆에 `steam_api64.dll` 을 복사해야 한다.** Godot export 는 네이티브 dll 을 자동으로 안 옮긴다 (pck 안에 넣어도 소용없다). **2026-09-16 실제 익스포트로 검증함** — 복사한 뒤 `--steam-selftest` 가 익스포트 바이너리에서 종료 코드 0. 같은 익스포트에서 **`InputHelper.exe` 는 아예 안 들어간다**는 것도 같이 드러났다(익스포트 빌드는 전역 타건을 못 받는다). 둘 다 A12 가 처리할 것 |
 | A15 도전과제 등록 | 파트너 사이트에 `AchievementIds` 의 4개 등록. **등록 전에 마일스톤 수치 확정** (§2-4) |
