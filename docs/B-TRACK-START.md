@@ -2,9 +2,14 @@
 
 관련: [확정 기획서](기획확정-일감분배-260907.md) §2 · §9 (Week 1) / [A1 계약](A1-CONTRACTS.md) / [씬 구조](SCENE-ARCHITECTURE.md)
 
-> **이 문서는 을을 대상으로 쓴다.** 갑 쪽(A1~A7 + 씬 구조 정비)이 끝나서
+> **이 문서는 을을 대상으로 쓴다.** 갑 쪽(A1~A8, A12 + 씬 구조 정비)이 끝나서
 > 지금 시점부터 B1(코어 루프)을 바로 시작할 수 있다. **갑의 실물을 하나도
-> 기다릴 필요가 없다** — 그게 A1이 목(Mock) 4종을 먼저 만들어 둔 이유다.
+> 기다릴 필요가 없다** — 그게 A1이 목(Mock)을 먼저 만들어 둔 이유다.
+
+> **2026-09-16 갱신.** 게임명이 `PunchMonkey` 로 확정됐고, 스팀 앱 ID 가 실물
+> (`5281130`)로 바뀌었고, 릴리스 빌드 파이프라인(A12)이 생겼다. **셋 다 `game/`
+> 코드에는 영향이 없다** — 을이 신경 쓸 것은 §2 개발 환경의 `GODOT` 환경변수
+> 한 줄뿐이다. 그 외 오늘 바뀐 것의 요약은 [docs/README.md](README.md).
 
 ---
 
@@ -18,6 +23,7 @@
 | 실물 5종(A3~A6, A8) | `platform/` | **안 봐도 된다.** 목과 똑같이 동작하는 걸로 취급 |
 | `game/` 폴더 골격 | `game/{entities,ui,effects,multiplayer}/` | 여기가 을 작업 공간. 지금은 전부 빈 폴더 |
 | `Shell.tscn` | `platform/Shell.tscn` | 손대지 않는다. `GameRoot`를 자식으로 넣는 것만 예외 |
+| 릴리스 빌드 (A12) | `tools/build-release.ps1` | **안 써도 된다.** 스팀에 올릴 때만 쓴다 — 개발 중에는 §2 의 VS F5 로 돈다 |
 
 **갑의 실물 코드(`platform/OverlayShell.cs` 등)를 읽을 필요가 없다.** 목이 인터페이스와
 똑같이 동작하도록 이미 맞춰져 있다(A1 문서 §3). 나중에 목에서 실물로 갈아끼울 때
@@ -42,6 +48,24 @@
 - 코드는 C# 단일. `ProjectSeWoo.sln`을 Visual Studio로 열면 `ProjectSeWoo`/`VsLauncher`/`InputHelper` 세 프로젝트가 보인다
 - **씬 편집은 Godot 에디터, 코드 디버깅은 VS F5(`VsLauncher` 시작 프로젝트로 고정)** — 둘이 별도 프로세스라 동시에 켜놔도 된다
 - 실행: `Godot_v4.7.2-stable_mono_win64.exe --path .`
+
+> ### ⚠ `GODOT` 환경변수를 먼저 설정할 것
+>
+> VS F5 는 `VsLauncher` 가 Godot 실행 파일을 찾아서 띄우는 구조다. 찾는 순서는
+> **`GODOT` 환경변수 → 하드코딩된 폴백 경로** 인데, **폴백은 갑의 PC 경로다.**
+> 을의 PC 에 그 경로가 있을 리 없으므로 환경변수를 설정하지 않으면 F5 가 바로
+> 실패한다.
+>
+> ```powershell
+> # 값은 Godot .NET(mono) exe 의 전체 경로. 예:
+> setx GODOT "C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64.exe"
+> ```
+>
+> `setx` 후에는 **Visual Studio 를 다시 띄워야** 새 환경변수가 붙는다.
+>
+> (2026-09-16 에 그 폴백 경로 자체에 오타가 있던 것도 고쳤다. 갑 PC 에서는
+> 환경변수가 있어서 그 줄을 탈 일이 없어 안 드러났고, **을이 첫 F5 를 누르는
+> 순간 만날 자리였다.**)
 
 ---
 
