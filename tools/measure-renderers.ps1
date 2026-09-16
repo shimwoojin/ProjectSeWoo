@@ -36,7 +36,17 @@ param(
 
     [int]$Seconds = 60,
     [int]$Warmup = 15,
-    [string]$OutDir
+    [string]$OutDir,
+
+    # 조건 번호를 지정하면 그것만 돈다. 렌더러를 고르는 A/B 가 아니라 "이미 채택한
+    # 렌더러로 Debug/Release 를 비교"하는 용도다 — 그때는 1번만 돌리면 된다.
+    # 네 조건을 다 돌리면 4배 시간이 드는데 나머지 셋은 비교 대상이 아니다.
+    [int[]]$Only,
+
+    # 게임에 그대로 넘길 추가 인자. Release PrivWS 재측정은 --steam 을 켠 조건으로
+    # 해야 한다(A8 §4-2) — 스팀 런타임이 개인 커밋을 +24MB 먹기 때문에, 스팀을 끄고
+    # 잰 값은 실제 출시 구성의 값이 아니다.
+    [string[]]$GameArgs = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,6 +84,11 @@ $combos = @(
     [pscustomobject]@{ N = 4; Method = 'gl_compatibility'; Driver = 'opengl3'; Note = '가장 가벼울 후보' }
 )
 
+if ($Only) {
+    $combos = @($combos | Where-Object { $Only -contains $_.N })
+    if ($combos.Count -eq 0) { throw "-Only 로 고른 조건이 없다: $($Only -join ',')" }
+}
+
 Write-Host ""
 Write-Host "렌더러 A/B — 조건 $($combos.Count)개 x $($Seconds)초 = 약 $([Math]::Ceiling($combos.Count * ($Seconds + 8) / 60))분" -ForegroundColor Cyan
 Write-Host "대상: $target  ($buildKind)"
@@ -99,6 +114,7 @@ foreach ($c in $combos) {
         '--rendering-driver', $c.Driver,
         '--', "--report=$report", "--seconds=$Seconds", "--warmup=$Warmup"
     )
+    $argList += $GameArgs
 
     $proc = Start-Process -FilePath $target -ArgumentList $argList -PassThru
 
@@ -160,14 +176,19 @@ $md = @()
 $md += "| # | 요청 렌더러 | 실제 렌더러 | ``priv`` | ``ws`` | OS ``PrivCommit`` | OS ``PrivWS`` | cpu avg | 투명 정상? | 비고 |"
 $md += "|---|---|---|---|---|---|---|---|---|---|"
 foreach ($r in $rows) {
-    $verdict = if ($r.Priv -match '^\d+$') {
-        if ([int]$r.Priv -lt 150) { "**$($r.Priv)**" } else { $r.Priv }
-    } else { $r.Priv }
-    $md += "| $($r.N) | ``$($r.Cond)`` | ``$($r.Actual)`` | $verdict | $($r.Ws) | $($r.OsPriv) | $($r.OsPrivWs) | $($r.CpuAvg)% | (눈으로) | $($r.Note) |"
+    # 기준은 OS PrivWS < 300MB 다 (2026-09-16 결정, A7-PERF.md §4-2).
+    # 예전 기준이던 priv < 150MB 로 굵게 칠하면 전부 탈락으로 보여서, 이 표를
+    # 문서에 붙였을 때 이미 내린 조건부 Go 판정과 정면으로 어긋난다.
+    $verdict = if ($r.OsPrivWs -match '^\d+$') {
+        if ([int]$r.OsPrivWs -lt 300) { "**$($r.OsPrivWs)**" } else { $r.OsPrivWs }
+    } else { $r.OsPrivWs }
+    $md += "| $($r.N) | ``$($r.Cond)`` | ``$($r.Actual)`` | $($r.Priv) | $($r.Ws) | $($r.OsPriv) | $verdict | $($r.CpuAvg)% | (눈으로) | $($r.Note) |"
 }
 $md += ""
-$md += "기준: ``priv`` < 150MB. ``ws`` 는 공유 DLL 페이지를 포함하므로 기준에 대지 않는다."
+$md += "기준: OS ``PrivWS`` < 300MB (2026-09-16 재설정, A7-PERF.md §4-2). ``ws`` 는 공유 DLL"
+$md += "페이지를 포함하므로 기준에 대지 않고, ``priv``(개인 커밋)는 예약까지 세므로 참고값이다."
 $md += "조건당 $($Seconds)초(워밍 $($Warmup)초 제외하고 $($Seconds - $Warmup)초 측정), ``$buildKind`` 빌드."
+if ($GameArgs.Count -gt 0) { $md += "게임 인자: ``$($GameArgs -join ' ')``" }
 
 $table = $md -join "`r`n"
 $tablePath = Join-Path $OutDir "renderer-ab.md"
