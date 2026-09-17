@@ -10,6 +10,12 @@ namespace ProjectSeWoo.Platform;
 /// <c>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</c>. 관리자 권한이
 /// 필요 없고 이 유저 계정에만 적용된다 - 상주 앱의 자동 시작으로는 이거면 충분하고,
 /// 서비스/작업 스케줄러 등록 같은 무거운 방식을 쓸 이유가 없다.
+///
+/// <b>Windows 전용이고, 다른 OS 에서는 조용히 아무것도 안 한다.</b> 가드는 전부터
+/// 있었지만 <c>OS.GetName()</c>(Godot) 으로 물어봐서 분석기가 그걸 못 읽었고,
+/// CA1416 경고 7개가 매 빌드마다 났다 - 진짜 경고가 그 틈에 섞이면 못 본다.
+/// 같은 판정을 <see cref="OperatingSystem.IsWindows"/> 로 하면 분석기가 가드를
+/// 인식해서 호출부까지 깨끗해진다. 동작은 안 바뀐다.
 /// </summary>
 public static class Autostart
 {
@@ -27,7 +33,7 @@ public static class Autostart
     /// </summary>
     public static void SetEnabled(bool on)
     {
-        if (OS.GetName() != "Windows")
+        if (!OperatingSystem.IsWindows())
         {
             return;
         }
@@ -66,7 +72,7 @@ public static class Autostart
     /// </summary>
     public static bool IsEnabled()
     {
-        if (OS.GetName() != "Windows")
+        if (!OperatingSystem.IsWindows())
         {
             return false;
         }

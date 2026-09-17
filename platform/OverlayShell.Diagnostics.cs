@@ -390,8 +390,11 @@ public partial class OverlayShell
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y},"
                 + $" uiscale {_settings.Scale:F2}, opacity {_settings.Opacity:F2}, save {OnOff(SaveIO.Exists())}",
+            // winVisible 은 _win.Visible 이면 안 된다 - Godot 은 메인 창의 Visible 을
+            // 못 바꾸므로 그 값은 항상 true 다. 숨김이 안 먹던 A6 버그가 리포트에서
+            // 안 보였던 이유가 정확히 이것이고, HUD(BuildStats)는 이미 고쳐져 있었다.
             $"visibility     userWants {OnOff(_userWantsVisible)}, autoHiddenForFullscreen {OnOff(_autoHiddenForFullscreen)},"
-                + $" winVisible {OnOff(_win.Visible)}",
+                + $" winVisible {OnOff(_shellWindowVisible)}",
             $"input on body: left {_clicks}, right {_rclicks},"
                 + $" wheel {_wheels}, drag-moved {_drags}",
             _input.StatusLine(),

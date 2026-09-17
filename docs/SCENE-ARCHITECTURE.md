@@ -16,11 +16,10 @@
 |---|---|---|
 | `IInteractiveArea` 계약 | `shared/Contracts/IInteractiveArea.cs` | ☑ |
 | `SceneGroups.GameRoot` 그룹 상수 | `shared/Contracts/Types.cs` | ☑ |
-| 자리표시자 구현체 | `platform/PlaceholderMascot.cs` | ☑ |
+| 자리표시자 구현체 | ~~`platform/PlaceholderMascot.cs`~~ | ☑ → **2026-09-17 제거됨** (§3) |
 | `OverlayShell`을 자리표시자/실물 양쪽으로 동작하게 리팩터 | `platform/OverlayShell.cs` | ☑ |
 | `Shell.tscn` → `platform/`로 이동 | `platform/Shell.tscn` | ☑ |
-| `game/` 하위 폴더 골격 | `game/{entities,ui,effects,multiplayer}/` | ☑ (빈 폴더, `.gitkeep`) |
-| 실제 게임 콘텐츠 씬 (Tree/Monkey/GameRoot 등) | `game/` | ☑ B1 완료 |
+| 실제 게임 콘텐츠 씬 (Tree/Monkey/GameRoot) | `game/` | ☑ B1 완료 |
 | `IPlatformServices` — 실물을 게임 레이어로 넘기는 통로 | `shared/Contracts/IPlatformServices.cs` | ☑ 2026-09-17 |
 | `OverlayShell` 을 4개 partial 로 분할 | `platform/OverlayShell*.cs` | ☑ 2026-09-17 (§4) |
 
@@ -77,14 +76,20 @@ if (gameRootNode is IInteractiveArea area)
 }
 else
 {
-    _content = new PlaceholderMascot(_mascot);   // 지금 기본 경로
+    // 2026-09-17 이전에는 여기서 PlaceholderMascot 으로 폴백했다.
+    // 지금은 씬이 깨진 경우뿐이라 에러를 찍고 클릭 영역 없이 뜬다.
 }
 ```
 
 **을이 할 일은 이 두 줄이 전부다** — `game/GameRoot`를 만들고
 `IInteractiveArea`를 구현하고 그룹에 등록하면, `platform/OverlayShell.cs`는
-단 한 글자도 안 고쳐도 자리표시자 대신 실물을 쓴다. `PlaceholderMascot`가
-사라지는 날(더 이상 아무도 안 쓰는 게 확인되면) 그게 B1 착수 완료 신호다.
+단 한 글자도 안 고쳐도 실물을 쓴다.
+
+> **2026-09-17.** `PlaceholderMascot` 은 지웠다. B1 이 끝나서 `Shell.tscn` 이
+> `game/GameRoot.tscn` 을 자식으로 물고 있으므로 자리표시자 경로는 **실행되지
+> 않는 코드**였고, 딸려 있던 `_mascot`/`MascotScale`/클릭 시 튀는 연출도 같이
+> 죽어 있었다. 폴백을 없앤 자리에는 에러 로그를 남긴다 — 조용히 클릭이 전부
+> 통과하면 원인을 엉뚱한 데서 찾게 된다.
 
 ### 검증
 
@@ -129,8 +134,8 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 | `Shop.tscn`, `Inventory.tscn`, `Collection.tscn`, `Onboarding.tscn` | 을 | `game/ui/` | 상점/장착/도감/온보딩 |
 | `RoomView.tscn`, `RemotePlayerView.tscn` (W3) | 을 | `game/multiplayer/` | 룸 화면, 원격 플레이어 1명당 1 instance |
 
-`game/`의 4개 하위 폴더(`entities/`, `ui/`, `effects/`, `multiplayer/`)는
-지금 빈 채로 만들어 뒀다 - 을이 시작할 자리를 미리 잡아 둔 것뿐이다.
+`entities/` 는 B1 이 채웠다(`Tree`/`TreeSlot`/`Monkey`). 나머지 셋
+(`ui/`, `effects/`, `multiplayer/`)은 아직 빈 폴더다.
 
 ### `Shell.tscn`과 `GameRoot.tscn`을 어떻게 연결하는가
 
@@ -152,9 +157,9 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 
 | 일감 | 관계 |
 |---|---|
-| B1 착수 | `game/GameRoot.tscn` 생성 + `IInteractiveArea` 구현 + `SceneGroups.GameRoot` 등록이 첫 걸음 |
+| B2 마이크로 피드백 | `Monkey.tscn` 을 AnimationPlayer 4종 교차로. 에디터 작업이라 `.uid` 도 같이 정리된다 |
 | `CursorDeco`/`OptionsWindow` 코드→씬 전환 | 급하지 않음. 실제로 애니메이션/레이아웃을 자주 손볼 때가 되면 |
-| `PlaceholderMascot` 제거 | `game/GameRoot`가 안정화되면 |
+| 클릭 영역을 사각형 2개로 | 지금은 나무+원숭이를 **하나의 합 사각형**으로 넘긴다. 420x560 창에서 약 35%가 투명한데도 마우스를 먹는다. B4 에서 `IInteractiveArea` 를 `Rect2[]` 로 넓힐지 판단 |
 
 ---
 
@@ -171,7 +176,7 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 
 | 파일 | 줄 | 내용 |
 |---|---|---|
-| `OverlayShell.cs` | ~730 | 기동 · 씬 · `IShell`/`IPlatformServices` 실물 · 세이브 복원 · 클릭 통과 · 프레임 루프 · 드래그 |
+| `OverlayShell.cs` | ~700 | 기동 · 씬 · `IShell`/`IPlatformServices` 실물 · 세이브 복원 · 클릭 통과 · 프레임 루프 · 드래그 |
 | `OverlayShell.Visibility.cs` | ~245 | 표시/숨김(Win32 `ShowWindow`) · 트레이 · 옵션 창 · 전체화면 자동 숨김 (A6) |
 | `OverlayShell.Diagnostics.cs` | ~420 | HUD 통계 · F9 리포트 · `--report=` 무인 측정 · `--steam-selftest` |
 | `OverlayShell.DebugKeys.cs` | ~195 | 디버그 키 전부. 주인이 생기면 지울 것들 |

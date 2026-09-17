@@ -25,10 +25,8 @@ namespace ProjectSeWoo.Platform;
 /// </summary>
 public partial class OverlayShell : Node2D, IShell, IPlatformServices
 {
-    /// <summary>클릭 영역을 스프라이트보다 조금 넓게 잡는다. 가장자리 클릭이 새는 걸 막는다.</summary>
+    /// <summary>클릭 영역을 신고된 것보다 조금 넓게 잡는다. 가장자리 클릭이 새는 걸 막는다.</summary>
     private const int HitPadding = 8;
-
-    private const float MascotScale = 1.5f;
 
     /// <summary>0 = 무제한. 상주 앱에서 부하와 반응성의 균형점을 찾기 위한 후보들.</summary>
     private static readonly int[] FpsCaps = { 60, 30, 10, 0 };
@@ -38,15 +36,13 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     private Window _win;
 
-    /// <summary>game/GameRoot 가 없을 때만 만든다. 있으면 null로 남는다 - <see cref="_content"/> 참고.</summary>
-    private Sprite2D _mascot;
-
     private Line2D _outline;
     private DebugHud _hud;
 
     /// <summary>
-    /// 클릭 영역의 출처. <see cref="PlaceholderMascot"/>(자리표시자) 또는
-    /// game/GameRoot(실물) 둘 중 하나가 항상 들어있다 - shared/Contracts/IInteractiveArea.cs.
+    /// 클릭 영역의 출처. <c>game/GameRoot</c> 가 신고한다 -
+    /// shared/Contracts/IInteractiveArea.cs. 씬이 깨져서 못 찾은 경우에만 null 이고,
+    /// 그때는 <see cref="BuildRegion"/>/<see cref="CurrentHitRect"/> 가 빈 값으로 답한다.
     /// </summary>
     private IInteractiveArea _content;
 
@@ -57,11 +53,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// 지금 세션의 옵션 값 (§7-4). 세이브에서 읽어와 이 객체 하나로 유지한다 -
     /// Scale/Opacity/PositionLocked 뿐 아니라 A6이 추가한 옵션(§7-4) 전부 여기 있다.
     /// 값이 바뀔 때마다 <see cref="PersistSettings"/>가 이 객체를 그대로 디스크에 쓴다.
-    /// 옵션 UI(A6)가 아직 시험용 debug 키(아래 _UnhandledKeyInput)와 같이 쓰인다.
+    /// 옵션 UI(A6)가 아직 시험용 debug 키(OverlayShell.DebugKeys.cs)와 같이 쓰인다.
     /// </summary>
     private SaveData.SettingsState _settings = new();
-
-
 
     /// <summary>
     /// A8 스팀. 스팀이 없어도 null 이 아니다 - 붙었는지는 <see cref="SteamService.IsAvailable"/>
@@ -109,9 +103,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     /// <summary>마지막으로 실제 적용한 passthrough 폴리곤. "바뀔 때만 쓰기"의 비교 대상이다.</summary>
     private Vector2[] _appliedRegion = Array.Empty<Vector2>();
-
-    /// <summary>클릭 시 자리표시자 마스코트가 살짝 튀는 연출의 남은 양.</summary>
-    private double _punch;
 
     public override void _Ready()
     {
@@ -228,36 +219,28 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     // ------------------------------------------------------------------ 씬 구성
 
     /// <summary>
-    /// 씬을 코드로 짓는다. .tscn 은 루트 노드 하나뿐이다.
-    /// 스파이크 단계에서는 이게 낫다 - 에디터를 안 거쳐도 상태 전부가 한 파일에서 읽힌다.
-    /// 게임 본편으로 넘어가면 당연히 에디터에서 씬을 짜야 한다.
+    /// 셸이 직접 만드는 노드를 짓는다. 히트 외곽선과 HUD 뿐이다 - 둘 다 디버그용이라
+    /// 에디터에 둘 이유가 없다. 보이는 콘텐츠는 전부 <c>game/GameRoot.tscn</c> 쪽이고,
+    /// <c>Shell.tscn</c> 이 그걸 자식으로 물고 있다 (docs/SCENE-ARCHITECTURE.md §2).
     /// </summary>
     private void BuildScene()
     {
-        // game/GameRoot 가 자기 자신을 이 그룹에 등록해 두면 그걸 쓰고, 없으면
-        // 자리표시자 마스코트로 채운다. 타입 이름이 아니라 그룹으로 찾는 이유는
-        // platform/이 game/의 구체 타입을 컴파일 타임에 알면 안 되기 때문이다
-        // (shared/Contracts/IInteractiveArea.cs 문서 참고).
+        // game/GameRoot 가 자기 자신을 이 그룹에 등록해 두면 그걸 쓴다. 타입 이름이
+        // 아니라 그룹으로 찾는 이유는 platform/이 game/의 구체 타입을 컴파일 타임에
+        // 알면 안 되기 때문이다 (shared/Contracts/IInteractiveArea.cs 문서 참고).
         Node gameRootNode = GetTree().GetFirstNodeInGroup(SceneGroups.GameRoot);
         if (gameRootNode is IInteractiveArea area)
         {
             _content = area;
-            GD.Print("[shell] game/GameRoot 발견 - 자리표시자 마스코트를 안 만든다");
         }
         else
         {
-            var texture = GD.Load<Texture2D>("res://icon.svg");
-
-            _mascot = new Sprite2D
-            {
-                Name = "Mascot",
-                Texture = texture,
-                Centered = true,
-                Scale = Vector2.One * MascotScale,
-                Position = new Vector2(_win.Size.X / 2f, 160f),
-            };
-            AddChild(_mascot);
-            _content = new PlaceholderMascot(_mascot);
+            // B1 이 끝나서 자리표시자 마스코트(PlaceholderMascot)는 없앴다 -
+            // Shell.tscn 이 game/GameRoot.tscn 을 자식으로 물고 있으므로 여기 오면
+            // 씬이 깨진 것이다. 크래시 대신 창 전체가 클릭을 받게 두고(BuildRegion)
+            // 시끄럽게 남긴다 - 조용히 클릭이 전부 통과하면 원인을 엉뚱한 데서 찾는다.
+            GD.PrintErr("[shell] game/GameRoot 를 못 찾았다. Shell.tscn 의 자식 구성을 확인할 것"
+                + " - 클릭 영역 없이 뜬다");
         }
 
         _outline = new Line2D
@@ -323,11 +306,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <summary>
     /// 창 배율. 옵션 창(A6) "크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
     ///
-    /// 루트 <see cref="Node2D.Scale"/>을 바꿔서 마스코트/외곽선을 같이 키운다.
+    /// 루트 <see cref="Node2D.Scale"/>을 바꿔서 게임 콘텐츠/외곽선을 같이 키운다.
     /// <see cref="DebugHud"/>/<see cref="OptionsWindow"/>는 <c>CanvasLayer</c>라 이
     /// 노드의 Transform/Modulate를 물려받지 않는다 - 배율/투명도를 바꿔도 HUD와
     /// 옵션 UI는 항상 또렷하게 남는다 (docs/A3-SHELL-MODULE.md §1). 창 크기도 같이
-    /// 키우는 이유는, 안 키우면 커진 마스코트가 창 밖으로 잘려서 클릭 영역
+    /// 키우는 이유는, 안 키우면 커진 나무/원숭이가 창 밖으로 잘려서 클릭 영역
     /// (passthrough 폴리곤)도 창 밖으로 나가 못 먹는 부분이 생기기 때문이다.
     /// </summary>
     public void SetScale(float s)
@@ -361,9 +344,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <summary>
     /// 클릭 통과 On/Off. 옵션의 "위치 잠금"이 이것이다 (§7-1, §7-4).
     ///
-    /// on(잠금) = 마스코트 영역만 클릭을 받고 나머지는 통과 - 실수로 안 끌리고,
+    /// on(잠금) = 게임 콘텐츠 영역만 클릭을 받고 나머지는 통과 - 실수로 안 끌리고,
     /// 뒤에 있는 다른 창 작업도 안 막는다. off(잠금 해제) = 창 전체가 클릭을 받아서
-    /// 마스코트의 작은 히트박스를 정확히 안 눌러도 어디서든 끌 수 있다 - 처음
+    /// 작은 히트박스를 정확히 안 눌러도 어디서든 끌 수 있다 - 처음
     /// 위치를 잡을 때 편하라고 두는 탈출구다.
     /// </summary>
     public void SetClickThrough(bool on)
@@ -462,7 +445,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private Vector2[] BuildRegion()
     {
-        if (!_settings.PositionLocked)
+        // _content 가 없으면 신고된 클릭 영역도 없다 - BuildScene 이 이미 에러를 찍었다.
+        if (!_settings.PositionLocked || _content == null)
         {
             return Array.Empty<Vector2>();
         }
@@ -491,6 +475,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private Rect2 CurrentHitRect()
     {
+        if (_content == null)
+        {
+            return new Rect2();
+        }
+
         Rect2 local = _content.GetClickableBounds();
         var scaled = new Rect2(local.Position * _settings.Scale, local.Size * _settings.Scale);
         return scaled.Grow(HitPadding);
@@ -566,17 +555,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             else
             {
                 _win.Position = DisplayServer.MouseGetPosition() - _dragOffset;
-            }
-        }
-
-        // 클릭 시 살짝 튀는 연출. 자리표시자 전용이다 - 실제 펀치 애니메이션은
-        // 게임 레이어(B2 마이크로 피드백)가 GameRoot 안에서 직접 맡는다.
-        if (_punch > 0.0)
-        {
-            _punch = Math.Max(0.0, _punch - delta * 4.0);
-            if (_mascot != null)
-            {
-                _mascot.Scale = Vector2.One * (MascotScale * (1.0f + (float)_punch * 0.18f));
             }
         }
 
@@ -660,7 +638,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     {
         _dragging = true;
         _clicks++;
-        _punch = 1.0;
         _dragOffset = DisplayServer.MouseGetPosition() - _win.Position;
         _dragStart = _win.Position;
 

@@ -31,6 +31,15 @@ public partial class Tree : Node2D
     private int[] _drawnStep;
     private long _growthMs = 1;
 
+    /// <summary>
+    /// 아직 타이머에 못 넣은 1ms 미만의 잔차.
+    ///
+    /// <c>(long)(delta * 1000)</c> 로 잘라 버리면 60fps 에서 프레임당 0.67ms 씩
+    /// 새서 **성장이 약 4% 느려진다** - 8분 주기 기준 매번 20초쯤 늦는다.
+    /// 방치형에서 성장 속도는 경제 그 자체라(§2-2) 눈에 안 보이는 만큼 오래 간다.
+    /// </summary>
+    private double _msCarry;
+
     public override void _Ready()
     {
         _slotRoot = GetNode<Node2D>("Slots");
@@ -68,7 +77,14 @@ public partial class Tree : Node2D
 
     public void Tick(double delta)
     {
-        var ms = (long)(delta * 1000.0);
+        _msCarry += delta * 1000.0;
+        var ms = (long)_msCarry;
+        _msCarry -= ms;
+
+        if (ms <= 0)
+        {
+            return;
+        }
 
         for (int i = 0; i < _timers.Length; i++)
         {
