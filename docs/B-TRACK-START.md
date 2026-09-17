@@ -183,9 +183,22 @@ SCENE-ARCHITECTURE.md §2 표 순서대로:
 `SaveData.TreeState`(`Slots`/`GrowthMs`/`SlotTimers`), 재화는
 `SaveData.Bananas`, 커서 장착은 `SaveData.InventoryState.Equipped` 그대로
 쓰면 된다 — **이 타입을 직접 직렬화 대상으로 쓰고, 별도 포맷을 만들지 않는다.**
-파일 I/O(`platform/SaveIO.cs`)는 이미 갑이 만들어 뒀지만 지금은 `Settings`
-필드만 쓰고 있다 — B5에서 나무/인벤토리 필드도 왕복시키게 되면 자동으로 저장된다
-(`SaveIO.Save(SaveData)`가 객체 전체를 쓰므로 을 쪽 코드 변경 없이 바로 됨).
+
+> **2026-09-17 (B5) — `SaveIO` 를 직접 부르지 않는다.**
+> `_platform.Save`(`ISaveStore`)를 쓴다. 세션에 `SaveData` 인스턴스는 **하나뿐**이고
+> 셸과 게임이 그 객체를 같이 고친다:
+>
+> ```csharp
+> _store.Data.Bananas += harvested;   // 고치고
+> _store.MarkDirty();                 // 알리면 끝. 디스크 쓰기는 플랫폼이 묶어서 한다
+> ```
+>
+> 각자 `SaveIO.Load()` → 자기 몫 수정 → `SaveIO.Save()` 를 하면 사이에 낀 상대의
+> 변경이 사라진다. 드래그 한 번에 바나나가 되돌아가는 종류의 버그고 타이밍에
+> 달려 있어 잡기 어렵다. `FlushNow()` 는 종료 경로에서만 부른다.
+>
+> 오프라인 성장은 `Tree.AdvanceOffline(ms)` 이고, 기준점 `lastQuitUtc` 는 실제로는
+> "마지막으로 저장한 시각" 이다 — 그래서 강제 종료도 정상 종료와 같은 경로를 탄다.
 
 ---
 

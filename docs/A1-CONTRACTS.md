@@ -15,13 +15,14 @@
 | 인터페이스 4종 | `shared/Contracts/` | ☑ 커밋 |
 | 공용 타입 (`CursorSlot`, `PeerId`, `RoomHandle`, `PlayerState`) | `shared/Contracts/Types.cs` | ☑ 커밋 |
 | 세이브 스키마 v1 + 마이그레이션 훅 | `shared/Save/` | ☑ 커밋 |
-| 목 구현 6종 | `shared/Mocks/` | ☑ 커밋 (2026-09-17 `platform/` 에서 이동) |
+| 목 구현 7종 | `shared/Mocks/` | ☑ 커밋 (2026-09-17 `platform/` 에서 이동) |
 | 스키마 self-test | `--selftest` 인자 | ☑ PASS |
 
 ### 변경 이력 (§8-2 규칙 — 인터페이스를 바꾸거나 늘리면 여기 한 줄)
 
 | 날짜 | 무엇 | 사유 |
 |---|---|---|
+| 2026-09-17 | `ISaveStore` 추가 (9번째) + `IPlatformServices.Save` | B5. **세이브 파일에 쓰는 주체가 둘이 됐다** - 셸이 `settings`, 게임이 `tree`/`bananas`/`totalKeystrokes`. 양쪽이 각자 "읽고 → 자기 몫만 고치고 → 통째로 쓰기" 를 하면 사이에 낀 상대의 변경이 조용히 사라진다. 그래서 `SaveData` 인스턴스를 세션에 하나만 두고 디스크 쓰기 시점은 플랫폼이 혼자 정한다. 게임 레이어는 `SaveIO` 를 직접 부르지 않는다 |
 | 2026-09-17 | `IPlatformServices` + `IPlatformConsumer` 추가 (7·8번째) | **실물을 게임 레이어에 넘길 통로가 없었다.** A1~A8 로 실물 5종이 다 생겼는데도 `game/GameRoot` 는 목을 직접 `new` 했고, 그래서 `HelperInputSource.OnKeystrokes`(A4 실물)의 구독자가 0명이었다 — 오버레이 창에 포커스가 있을 때만 게임이 돌았다. `IInteractiveArea` 와 같은 그룹 조회로 갑이 을에게 실물 묶음을 건넨다. **⚠ `AttachPlatform` 은 `_Ready()` 보다 늦게 온다** (자식 `_Ready` 가 부모보다 먼저 돌기 때문) |
 | 2026-09-17 | 목 5종을 `platform/Mocks/` → `shared/Mocks/` 로 이동 | 시그니처 변경 아님. `game/` 이 `ProjectSeWoo.Platform.Mocks` 를 `using` 하고 있어서 §8-3 폴더 소유권 규칙이 깨져 있었다. 목은 "갑이 만들고 을이 쓰는 것" 이라 `shared/` 의 정의와 정확히 맞는다. **네임스페이스가 `ProjectSeWoo.Shared.Mocks` 로 바뀐다** |
 | 2026-09-16 | `IInteractiveArea` 추가 (5번째) | 클릭 영역을 을이 신고하고 갑이 읽는, 방향이 반대인 계약. docs/SCENE-ARCHITECTURE.md §1 |

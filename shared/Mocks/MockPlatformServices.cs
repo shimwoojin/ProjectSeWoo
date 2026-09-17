@@ -23,6 +23,8 @@ public sealed class MockPlatformServices : IPlatformServices
 {
     public MockInputSource Input { get; } = new();
 
+    public MockSaveStore Save { get; } = new();
+
     public MockCursorLayer Cursor { get; } = new();
 
     public MockShell Shell { get; } = new();
@@ -32,6 +34,8 @@ public sealed class MockPlatformServices : IPlatformServices
     public MockNetSession Net { get; } = new();
 
     IInputSource IPlatformServices.Input => Input;
+
+    ISaveStore IPlatformServices.Save => Save;
 
     ICursorLayer IPlatformServices.Cursor => Cursor;
 

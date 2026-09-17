@@ -52,10 +52,21 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <summary>
     /// 지금 세션의 옵션 값 (§7-4). 세이브에서 읽어와 이 객체 하나로 유지한다 -
     /// Scale/Opacity/PositionLocked 뿐 아니라 A6이 추가한 옵션(§7-4) 전부 여기 있다.
-    /// 값이 바뀔 때마다 <see cref="PersistSettings"/>가 이 객체를 그대로 디스크에 쓴다.
+    /// 값이 바뀔 때마다 <see cref="PersistSettings"/>가 저장을 예약한다.
     /// 옵션 UI(A6)가 아직 시험용 debug 키(OverlayShell.DebugKeys.cs)와 같이 쓰인다.
+    ///
+    /// <b><see cref="_save"/>.Data.Settings 와 같은 객체다</b> - 별도 사본이 아니라
+    /// 참조다. 셸이 여기를 고치면 그게 곧 세이브 객체가 고쳐진 것이고,
+    /// <see cref="PersistSettings"/>는 "바뀌었다"고 알리기만 하면 된다.
     /// </summary>
     private SaveData.SettingsState _settings = new();
+
+    /// <summary>
+    /// 세이브 파일의 단일 소유자 (B5, shared/Contracts/ISaveStore.cs).
+    /// 셸의 옵션과 게임의 나무/재화가 <b>같은 객체 하나</b>를 고친다 - 양쪽이 각자
+    /// 읽고-고치고-쓰면 서로의 변경이 조용히 사라지기 때문이다.
+    /// </summary>
+    private SaveStore _save;
 
     /// <summary>
     /// A8 스팀. 스팀이 없어도 null 이 아니다 - 붙었는지는 <see cref="SteamService.IsAvailable"/>
@@ -122,6 +133,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         _win.CloseRequested += OnCloseRequested;
 
         ApplyPowerSettings();
+
+        // 창 상태 복원(RestoreWindowState)도, 게임 레이어도 이 객체를 본다.
+        // 무인 실행에서는 읽기만 하고 디스크에 안 쓴다.
+        _save = new SaveStore(_unattended);
+
         BuildScene();
 
         _options = new OptionsWindow { Name = "Options" };
@@ -260,6 +276,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     IInputSource IPlatformServices.Input => _input;
 
+    ISaveStore IPlatformServices.Save => _save;
+
     ICursorLayer IPlatformServices.Cursor => _cursor;
 
     IShell IPlatformServices.Shell => this;
@@ -376,9 +394,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private void RestoreWindowState()
     {
-        bool hasSave = SaveIO.Exists();
-        SaveData save = SaveIO.Load();
-        _settings = save.Settings;
+        _settings = _save.Data.Settings;
 
         SetScale(_settings.Scale);
         SetOpacity(_settings.Opacity);
@@ -392,9 +408,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             Autostart.SetEnabled(_settings.Autostart);
         }
 
-        var savedPos = new Vector2I(save.Settings.Pos[0], save.Settings.Pos[1]);
+        var savedPos = new Vector2I(_settings.Pos[0], _settings.Pos[1]);
 
-        if (hasSave && IsWithinAnyScreen(savedPos))
+        if (_save.HadFile && IsWithinAnyScreen(savedPos))
         {
             _win.Position = savedPos;
         }
@@ -418,23 +434,19 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     }
 
     /// <summary>
-    /// 지금 옵션 전부와 창 위치를 세이브 파일에 반영한다.
+    /// 지금 옵션 전부와 창 위치를 세이브 객체에 반영하고 저장을 예약한다.
     ///
-    /// 전체 <see cref="SaveData"/>를 새로 만들지 않고 매번 <see cref="SaveIO.Load"/>로
-    /// 읽어서 <c>Settings</c>만 고쳐 쓴다 - 을의 B5가 나무/인벤토리를 채운 뒤에는
-    /// 이 파일에 게임 상태도 같이 들어있을 것이고, 셸이 그걸 기본값으로 덮어쓰면 안 된다.
+    /// <b>디스크를 직접 건드리지 않는다.</b> B5 부터 이 파일에는 게임 상태(나무·재화)도
+    /// 같이 들어 있고, 셸이 자기 몫만 들고 통째로 덮어쓰면 그 사이의 게임 변경이
+    /// 사라진다. 소유자를 하나로 묶은 것이 <see cref="SaveStore"/>다.
+    ///
+    /// <see cref="_settings"/>는 세이브 객체 안의 <c>Settings</c> 그 자체이므로
+    /// 여기서 따로 대입할 것이 창 위치 한 줄뿐이다.
     /// </summary>
     private void PersistSettings()
     {
-        if (_unattended)
-        {
-            return;
-        }
-
-        SaveData save = SaveIO.Load();
         _settings.Pos = new[] { _win.Position.X, _win.Position.Y };
-        save.Settings = _settings;
-        SaveIO.Save(save);
+        _save.MarkDirty();
     }
 
     // ------------------------------------------------------------------ 클릭 통과
@@ -575,6 +587,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 스팀 콜백은 우리가 펌프를 돌려야 도착한다. 못 붙은 상태면 여기서 재시도까지 한다.
         _steam?.Tick(delta);
 
+        _save.Tick(delta);
+
         TickDiagnostics(delta);
     }
 
@@ -689,6 +703,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 옵션 전부와 창 위치를 여기서 한 번 더 남긴다. 드래그 없이 바로 끈 세션도
         // 다음 실행에서 지금 상태(예: [ 로 바꾼 스케일)를 복원하려면 필요하다.
         PersistSettings();
+
+        // 게임 레이어(GameRoot._ExitTree)가 자기 상태를 먼저 써 넣는다 - Godot 은
+        // 자식의 _ExitTree 를 부모보다 먼저 부른다. 여기서 디스크로 내보낸다.
+        _save.FlushNow();
 
         // RawInput 등록과 WndProc 후킹을 되돌린다. 상주 앱이라 프로세스가
         // 오래 살고, 남겨두면 다음 실행에서 무엇이 원인인지 알기 어려워진다.

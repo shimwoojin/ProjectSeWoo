@@ -38,6 +38,15 @@ public interface IPlatformServices
     /// </summary>
     IInputSource Input { get; }
 
+    /// <summary>
+    /// 세이브 파일 (A3 실물 = <c>platform/SaveStore</c>).
+    ///
+    /// 게임 레이어가 <c>SaveIO</c> 를 직접 부르지 않는 이유는
+    /// <see cref="ISaveStore"/> 주석에 있다 - 한 파일에 쓰는 주체가 둘이라
+    /// 소유자를 하나로 묶어야 한다.
+    /// </summary>
+    ISaveStore Save { get; }
+
     /// <summary>커서 장식 (A5 실물 = <c>platform/CursorLayer</c>).</summary>
     ICursorLayer Cursor { get; }
 

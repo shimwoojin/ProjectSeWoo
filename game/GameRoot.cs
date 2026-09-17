@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using ProjectSeWoo.Shared;
 using ProjectSeWoo.Shared.Mocks;
@@ -10,11 +11,20 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private const long DebugGrowMs = 60_000;
 
     /// <summary>
+    /// 아무 일이 없어도 이 간격으로 세이브 객체를 한 번 갱신한다.
+    ///
+    /// 나무는 수확이 없어도 계속 자라므로, 변경이 있을 때만 알리면 성장 진행이
+    /// 오래 안 실린다. 실제 디스크 쓰기는 플랫폼이 또 한 번 묶으므로
+    /// (<see cref="ISaveStore"/>) 이 간격이 곧 쓰기 주기는 아니다.
+    /// </summary>
+    private const double SyncIntervalSec = 5.0;
+
+    /// <summary>
     /// 플랫폼 실물 묶음. 셸이 <see cref="AttachPlatform"/> 으로 넘긴다.
-    /// 지금 읽는 곳은 <see cref="IPlatformServices.Input"/> 뿐이지만 나머지도
-    /// 부를 자리가 정해져 있다 - <c>Cursor</c> 는 B6(상점/장착), <c>Shell</c> 은
-    /// B4(안전 영역 배치), <c>Achievements</c> 는 B3/B7(마일스톤·도감 100%),
-    /// <c>Net</c> 은 B10~B12(룸 화면)다.
+    /// 지금 읽는 곳은 <c>Input</c>/<c>Save</c> 뿐이지만 나머지도 부를 자리가
+    /// 정해져 있다 - <c>Cursor</c> 는 B6(상점/장착), <c>Shell</c> 은 B4(안전 영역
+    /// 배치), <c>Achievements</c> 는 B3/B7(마일스톤·도감 100%), <c>Net</c> 은
+    /// B10~B12(룸 화면)다.
     /// </summary>
     private IPlatformServices _platform;
 
@@ -30,8 +40,17 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private Monkey _monkey;
     private Label _bananas;
 
-    // TODO(B5): SaveIO 로 왕복시킨다. 지금은 스키마 기본값(슬롯 3개, 성장 8분)만 읽는다.
-    private readonly SaveData _save = new();
+    /// <summary>
+    /// 세이브 객체의 소유자. <b>셸과 같은 인스턴스를 본다</b>
+    /// (shared/Contracts/ISaveStore.cs) - 여기를 고치고 <c>MarkDirty()</c> 를
+    /// 부르면 디스크 쓰기는 플랫폼이 알아서 한다.
+    /// <see cref="AttachPlatform"/> 전까지는 널이다.
+    /// </summary>
+    private ISaveStore _store;
+
+    private SaveData Save => _store.Data;
+
+    private double _sinceSync;
 
     public override void _Ready()
     {
@@ -41,12 +60,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _monkey = GetNode<Monkey>("Monkey");
         _bananas = GetNode<Label>("Bananas");
 
-        _tree.Configure(_save.Tree);
-        UpdateBananaLabel();
-
-        // **여기서 입력을 구독하면 안 된다.** Godot 은 자식의 _Ready 를 부모보다
-        // 먼저 부르는데 실물을 만드는 것은 부모(OverlayShell)라, 이 시점에는
-        // _platform 이 아직 비어 있다 (shared/Contracts/IPlatformServices.cs 의 ⚠).
+        // **여기서 세이브를 읽거나 입력을 구독하면 안 된다.** Godot 은 자식의
+        // _Ready 를 부모보다 먼저 부르는데 실물을 만드는 것은 부모(OverlayShell)라,
+        // 이 시점에는 _platform 이 아직 비어 있다
+        // (shared/Contracts/IPlatformServices.cs 의 ⚠).
         //
         // 프레임 끝에 한 번 확인해서 그래도 비어 있으면 셸이 없는 실행이다 -
         // 그때만 목으로 돈다.
@@ -65,7 +82,53 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         _platform = platform;
+        _store = platform.Save;
         _platform.Input.OnKeystrokes += OnKeystrokes;
+
+        LoadGameState();
+    }
+
+    /// <summary>
+    /// 세이브에서 게임 상태를 세우고, 꺼져 있던 동안 자란 만큼을 반영한다 (B5, §2-2).
+    /// </summary>
+    private void LoadGameState()
+    {
+        _tree.Configure(Save.Tree);
+
+        int ripened = _tree.AdvanceOffline(OfflineMs());
+        UpdateBananaLabel();
+
+        GD.Print($"[game] 세이브 로드 - 바나나 {Save.Bananas}, 누적 {Save.TotalKeystrokes}타,"
+            + $" 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림");
+
+        // 오프라인 성장분을 바로 한 번 받아 적는다. 안 해도 다음 실행이 같은 계산을
+        // 다시 하므로 손해는 없지만, 세이브 파일만 열어 봐도 지금 상태가 보이는 편이
+        // 디버깅에 낫다.
+        SyncToSave();
+    }
+
+    /// <summary>
+    /// 앱이 꺼져 있던 시간(ms). 기준점은 <see cref="SaveData.LastQuitUtc"/> 이고,
+    /// 실제 의미는 "마지막으로 저장한 시각" 이다 (platform/SaveStore.cs 참고) -
+    /// 그래서 정상 종료와 강제 종료가 같은 경로를 탄다.
+    ///
+    /// 두 경우를 막는다. 첫 실행(<c>lastQuitUtc</c> 가 UnixEpoch)이면 0이고,
+    /// <b>시계를 뒤로 돌렸으면</b>(음수) 역시 0이다 - 음수를 그대로 더하면
+    /// 자라던 나무가 거꾸로 간다.
+    ///
+    /// 상한은 성장 주기 하나다. 어차피 슬롯마다 주기에서 상한에 걸리므로
+    /// (<see cref="Tree.AdvanceOffline"/>) 그 이상은 의미가 없고, 몇 년 된 세이브의
+    /// 거대한 차이가 <c>long</c> 범위를 넘는 것도 여기서 막힌다.
+    /// </summary>
+    private long OfflineMs()
+    {
+        if (Save.LastQuitUtc <= DateTime.UnixEpoch)
+        {
+            return 0;
+        }
+
+        double ms = (DateTime.UtcNow - Save.LastQuitUtc).TotalMilliseconds;
+        return (long)Math.Clamp(ms, 0.0, Save.Tree.GrowthMs);
     }
 
     /// <summary>
@@ -90,6 +153,19 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _standalone?.Tick(delta);
 
         _tree.Tick(delta);
+
+        if (_store == null)
+        {
+            return;
+        }
+
+        _sinceSync += delta;
+        if (_sinceSync >= SyncIntervalSec)
+        {
+            _sinceSync = 0.0;
+            SyncToSave();
+            _store.MarkDirty();
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -118,6 +194,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     {
         _monkey.Punch();
 
+        // 누적 타수는 재화가 아니라 기록이다 (§6). 수확 여부와 무관하게 센다 -
+        // 빈 나무를 쳐도 타수는 늘어야 "논 시간" 이 레벨에 반영된다. 레벨 환산과
+        // 마일스톤 도전과제(AchievementIds)는 B3 가 이 값 위에 올린다.
+        Save.TotalKeystrokes += count;
+
         // 수확을 애니메이션 타이밍이 아니라 입력에 직접 건다. §2-3 검토 노트의
         // "키 입력과 애니메이션을 1:1 고정 대응시키지 말 것"이 이 뜻이고,
         // 펀치 연출이 끊기거나 겹쳐도 수확 개수가 흔들리지 않는다.
@@ -127,28 +208,49 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             harvested++;
         }
 
-        if (harvested == 0)
+        if (harvested > 0)
         {
-            return;
+            Save.Bananas += harvested;   // §2-2: 펀치 1회당 열린 바나나 1개
+            UpdateBananaLabel();
         }
 
-        _save.Bananas += harvested;   // §2-2: 펀치 1회당 열린 바나나 1개
-        UpdateBananaLabel();
+        // 수확이 없어도 누적 타수가 늘었으므로 저장 대상이다.
+        SyncToSave();
+        _store.MarkDirty();
     }
+
+    /// <summary>
+    /// 지금 상태를 세이브 객체에 반영한다. <b>디스크를 건드리지 않는다</b> -
+    /// 언제 쓸지는 <see cref="ISaveStore"/> 쪽이 정한다.
+    ///
+    /// 재화와 누적 타수는 이미 <see cref="Save"/> 를 직접 고치고 있으므로 여기서
+    /// 할 일은 나무 타이머를 받아 적는 것뿐이다. 나무가 자기 타이머를 들고 있는
+    /// 것은 상태를 두 군데 두지 않기 위해서다 (game/entities/TreeSlot.cs 참고).
+    /// </summary>
+    private void SyncToSave() => _tree.WriteTo(Save.Tree);
 
     private void UpdateBananaLabel()
     {
-        _bananas.Text = $"bananas {_save.Bananas}";
+        _bananas.Text = $"bananas {Save.Bananas}";
     }
 
     public override void _ExitTree()
     {
+        if (_platform == null)
+        {
+            return;
+        }
+
         // 실물(HelperInputSource)은 이 노드보다 오래 살 수 있다 - 셸이 들고 있고
         // 셸은 _ExitTree 가 더 늦게 돈다. 구독을 남긴 채 나가지 않는다.
-        if (_platform != null)
-        {
-            _platform.Input.OnKeystrokes -= OnKeystrokes;
-        }
+        _platform.Input.OnKeystrokes -= OnKeystrokes;
+
+        // 마지막 상태를 써 넣는다. 디스크 쓰기는 셸의 _ExitTree 가 FlushNow 로
+        // 마무리하지만, 그 순서를 가정하지 않으려고 여기서도 한 번 흘려보낸다 -
+        // 이미 쓴 뒤라면 아무 일도 안 한다.
+        SyncToSave();
+        _store.MarkDirty();
+        _store.FlushNow();
     }
 
     public Rect2 GetClickableBounds() => Transform * _tree.GetBounds().Merge(_monkey.GetBounds());
