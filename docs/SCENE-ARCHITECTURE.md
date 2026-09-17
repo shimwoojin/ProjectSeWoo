@@ -130,6 +130,7 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 | `Tree.tscn` | 을 | `game/entities/` | 나무 하나. 슬롯 N개(강화로 증가) |
 | `TreeSlot.tscn` | 을 | `game/entities/` | 슬롯 재사용 단위 - `Tree`가 N번 instance |
 | `Monkey.tscn` | 을 | `game/entities/` | 펀치 애니메이션(AnimationPlayer), 키 입력 반응 - B2 마이크로 피드백이 여기로 옮겨온다 |
+| `StatusHud.tscn` ☑ B3 | 을 | `game/ui/` | 레벨 · 누적 타수 · 바나나 표시 (§6, §2-3). **문자열은 ASCII** — 기본 테마 폰트에 한글 글리프가 없다 |
 | `PunchImpact.tscn`, `LeafParticle.tscn` | 을 | `game/effects/` | 파티클/이펙트 |
 | `Shop.tscn`, `Inventory.tscn`, `Collection.tscn`, `Onboarding.tscn` | 을 | `game/ui/` | 상점/장착/도감/온보딩 |
 | `RoomView.tscn`, `RemotePlayerView.tscn` (W3) | 을 | `game/multiplayer/` | 룸 화면, 원격 플레이어 1명당 1 instance |
@@ -157,7 +158,8 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 
 | 일감 | 관계 |
 |---|---|
-| B2 마이크로 피드백 | `Monkey.tscn` 을 AnimationPlayer 4종 교차로. 에디터 작업이라 `.uid` 도 같이 정리된다 |
+| B2 마이크로 피드백 | `Monkey.tscn` 을 AnimationPlayer 4종 교차로. 자릿수 강조·레벨업 연출이 `game/ui/StatusHud` 에 붙는다 |
+| 한글 폰트 번들 | 지금 게임 UI 문자열이 전부 ASCII 인 이유다. B4/B9 에서 폰트를 넣기 전까지 한글은 두부(□)로 나온다 |
 | `CursorDeco`/`OptionsWindow` 코드→씬 전환 | 급하지 않음. 실제로 애니메이션/레이아웃을 자주 손볼 때가 되면 |
 | 클릭 영역을 사각형 2개로 | 지금은 나무+원숭이를 **하나의 합 사각형**으로 넘긴다. 420x560 창에서 약 35%가 투명한데도 마우스를 먹는다. B4 에서 `IInteractiveArea` 를 `Rect2[]` 로 넓힐지 판단 |
 

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
 [ext_resource type="PackedScene" path="res://game/entities/Monkey.tscn" id="3_monkey"]
+[ext_resource type="PackedScene" path="res://game/ui/StatusHud.tscn" id="4_statushud"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
@@ -13,10 +14,4 @@ position = Vector2(210, 170)
 [node name="Monkey" parent="." instance=ExtResource("3_monkey")]
 position = Vector2(140, 360)
 
-[node name="Bananas" type="Label" parent="."]
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 200.0
-offset_bottom = 36.0
-theme_override_font_sizes/font_size = 16
-text = "bananas 0"
+[node name="StatusHud" parent="." instance=ExtResource("4_statushud")]

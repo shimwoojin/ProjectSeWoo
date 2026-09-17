@@ -38,7 +38,28 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     private Tree _tree;
     private Monkey _monkey;
-    private Label _bananas;
+    private StatusHud _hud;
+
+    /// <summary>
+    /// 아직 안 딴 가장 낮은 타수 마일스톤의 인덱스 (§6,
+    /// <see cref="AchievementIds.KeystrokeMilestones"/>). 표 끝까지 갔으면 전부 딴 것이다.
+    ///
+    /// 배열이 오름차순이라 앞에서부터 하나씩 밀면 되고, 매 배치마다 표 전체를
+    /// 훑을 필요가 없다.
+    /// </summary>
+    private int _nextMilestone;
+
+    /// <summary>
+    /// 마지막으로 진행도 토스트를 띄운 구간. <see cref="IAchievements.IndicateProgress"/>
+    /// 는 <b>매 타건마다 부르라고 만든 API 가 아니다</b>(계약 주석) - 구간을 넘을 때만 부른다.
+    /// </summary>
+    private int _shownProgressBucket = -1;
+
+    /// <summary>진행도 토스트를 몇 구간으로 끊을지. 20 = 5%마다 한 번.</summary>
+    private const int ProgressBuckets = 20;
+
+    /// <summary>직전 프레임의 레벨. 레벨업 순간을 잡는 데만 쓴다.</summary>
+    private int _level = 1;
 
     /// <summary>
     /// 세이브 객체의 소유자. <b>셸과 같은 인스턴스를 본다</b>
@@ -58,7 +79,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         _tree = GetNode<Tree>("Tree");
         _monkey = GetNode<Monkey>("Monkey");
-        _bananas = GetNode<Label>("Bananas");
+        _hud = GetNode<StatusHud>("StatusHud");
 
         // **여기서 세이브를 읽거나 입력을 구독하면 안 된다.** Godot 은 자식의
         // _Ready 를 부모보다 먼저 부르는데 실물을 만드는 것은 부모(OverlayShell)라,
@@ -96,10 +117,22 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _tree.Configure(Save.Tree);
 
         int ripened = _tree.AdvanceOffline(OfflineMs());
-        UpdateBananaLabel();
 
-        GD.Print($"[game] 세이브 로드 - 바나나 {Save.Bananas}, 누적 {Save.TotalKeystrokes}타,"
-            + $" 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림");
+        // 이미 넘어선 마일스톤은 세션 시작 시점에 지나간 것으로 잡는다. 안 그러면
+        // 켤 때마다 예전에 딴 도전과제를 다시 Unlock 한다 - 스팀이 무시하긴 하지만
+        // 부를 이유가 없고, 진행도 토스트가 엉뚱한 구간에서 뜬다.
+        _level = KeystrokeLevel.LevelFor(Save.TotalKeystrokes);
+        while (_nextMilestone < AchievementIds.KeystrokeMilestones.Length
+            && Save.TotalKeystrokes >= AchievementIds.KeystrokeMilestones[_nextMilestone].Threshold)
+        {
+            _nextMilestone++;
+        }
+
+        _hud.SetBananas(Save.Bananas);
+        _hud.SetKeystrokes(Save.TotalKeystrokes);
+
+        GD.Print($"[game] 세이브 로드 - 바나나 {Save.Bananas}, 누적 {Save.TotalKeystrokes}타"
+            + $" (Lv.{_level}), 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림");
 
         // 오프라인 성장분을 바로 한 번 받아 적는다. 안 해도 다음 실행이 같은 계산을
         // 다시 하므로 손해는 없지만, 세이브 파일만 열어 봐도 지금 상태가 보이는 편이
@@ -211,12 +244,77 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         if (harvested > 0)
         {
             Save.Bananas += harvested;   // §2-2: 펀치 1회당 열린 바나나 1개
-            UpdateBananaLabel();
+            _hud.SetBananas(Save.Bananas);
         }
+
+        _hud.SetKeystrokes(Save.TotalKeystrokes);
+        CheckLevelUp();
+        CheckMilestones();
 
         // 수확이 없어도 누적 타수가 늘었으므로 저장 대상이다.
         SyncToSave();
         _store.MarkDirty();
+    }
+
+    /// <summary>
+    /// 레벨이 올랐으면 알린다. 지금은 로그 한 줄이고, 연출은 B2 가 붙인다 (§2-3).
+    /// </summary>
+    private void CheckLevelUp()
+    {
+        int now = KeystrokeLevel.LevelFor(Save.TotalKeystrokes);
+        if (now == _level)
+        {
+            return;
+        }
+
+        _level = now;
+        GD.Print($"[game] Lv.{now} ({Save.TotalKeystrokes:N0}타)");
+    }
+
+    /// <summary>
+    /// 누적 타수 마일스톤 도전과제 (§6, <see cref="AchievementIds"/>).
+    ///
+    /// <b>해금 조건을 아는 것은 게임 레이어이고 스팀에 쓰는 것은 플랫폼이다</b> -
+    /// 그래서 여기서 <see cref="IAchievements"/> 만 부르고 <c>SteamUserStats</c> 는
+    /// 모른다 (shared/Contracts/IAchievements.cs). 스팀이 안 붙어 있으면 호출이
+    /// 조용히 버려지므로 분기하지 않는다.
+    ///
+    /// <b>A15 전까지는 실물에서도 해금이 안 된다.</b> 파트너 사이트에 스키마가
+    /// 없어서 통계 수신이 실패하고 <c>IsAvailable</c> 이 false 다(docs/A8-STEAM.md).
+    /// 조건 로직이 맞는지는 <c>MockAchievements</c> 로만 확인할 수 있다.
+    /// </summary>
+    private void CheckMilestones()
+    {
+        (string Id, int Threshold)[] table = AchievementIds.KeystrokeMilestones;
+
+        while (_nextMilestone < table.Length
+            && Save.TotalKeystrokes >= table[_nextMilestone].Threshold)
+        {
+            string id = table[_nextMilestone].Id;
+            _platform.Achievements.Unlock(id);
+            GD.Print($"[game] 마일스톤 해금 {id} ({Save.TotalKeystrokes:N0}타)");
+
+            _nextMilestone++;
+            _shownProgressBucket = -1;
+        }
+
+        if (_nextMilestone >= table.Length)
+        {
+            return;
+        }
+
+        // 다음 마일스톤까지의 진행도. 구간을 넘을 때만 띄운다.
+        (string nextId, int threshold) = table[_nextMilestone];
+        var current = (int)Math.Min(Save.TotalKeystrokes, threshold);
+
+        int bucket = current * ProgressBuckets / threshold;
+        if (bucket == _shownProgressBucket)
+        {
+            return;
+        }
+
+        _shownProgressBucket = bucket;
+        _platform.Achievements.IndicateProgress(nextId, current, threshold);
     }
 
     /// <summary>
@@ -228,11 +326,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 것은 상태를 두 군데 두지 않기 위해서다 (game/entities/TreeSlot.cs 참고).
     /// </summary>
     private void SyncToSave() => _tree.WriteTo(Save.Tree);
-
-    private void UpdateBananaLabel()
-    {
-        _bananas.Text = $"bananas {Save.Bananas}";
-    }
 
     public override void _ExitTree()
     {

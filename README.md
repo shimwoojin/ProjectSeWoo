@@ -68,8 +68,10 @@ platform/                  갑 담당. OS와 붙는 전부
   DebugHud.cs                HUD (ASCII 전용 — 제약이 아니라 관성. DAY1-2-SPIKE.md §1 참고)
 game/                      을 담당. 게임 안에서 도는 전부
   GameRoot.tscn/.cs          IInteractiveArea + IPlatformConsumer. 갑과 맞닿는 유일한 지점
+  KeystrokeLevel.cs          누적 타수 -> 레벨 환산 (§6). 순수 함수, 상태 없음
   entities/                  Tree · TreeSlot · Monkey (B1)
-  ui/ effects/ multiplayer/  아직 빈 폴더 (docs/SCENE-ARCHITECTURE.md §2)
+  ui/StatusHud.*             레벨 · 누적 타수 · 바나나 표시 (B3)
+  effects/ multiplayer/      아직 빈 폴더 (docs/SCENE-ARCHITECTURE.md §2)
 tools/VsLauncher/          Visual Studio F5 디버깅용 런처 (게임 아님, 배포 제외)
 ```
 
