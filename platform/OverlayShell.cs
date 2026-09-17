@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Godot;
 using ProjectSeWoo.Shared;
+using ProjectSeWoo.Shared.Mocks;
 
 namespace ProjectSeWoo.Platform;
 
@@ -23,7 +24,7 @@ namespace ProjectSeWoo.Platform;
 /// 상태가 바뀔 때만 갱신하는 모드를 F3로 즉시 전환할 수 있게 해서, 플리커가
 /// "Godot이 못 하는 것"인지 "우리가 잘못 부른 것"인지를 눈으로 갈랐다 (Go 판정).
 /// </summary>
-public partial class OverlayShell : Node2D, IShell
+public partial class OverlayShell : Node2D, IShell, IPlatformServices
 {
     /// <summary>클릭 영역을 스프라이트보다 조금 넓게 잡는다. 가장자리 클릭이 새는 걸 막는다.</summary>
     private const int HitPadding = 8;
@@ -92,6 +93,22 @@ public partial class OverlayShell : Node2D, IShell
     /// 가 답한다. 무인 실행에서만 null 이다 (아래 _Ready 참고).
     /// </summary>
     private SteamService _steam;
+
+    /// <summary>
+    /// A9~A11 전까지의 <see cref="INetSession"/> 자리. 지금은 목이다.
+    ///
+    /// 실물이 없다고 게임 레이어에 널을 넘기지 않는다는 약속을 여기서 지킨다
+    /// (<see cref="IPlatformServices.Net"/> 주석). 멀티는 컷 라인 마지막이라
+    /// 을이 룸 화면을 먼저 만들어야 하는데, 그러려면 지금 붙잡을 것이 있어야 한다.
+    /// </summary>
+    private readonly MockNetSession _net = new();
+
+    /// <summary>
+    /// <see cref="IPlatformServices.Achievements"/> 로 넘길 실물. 스팀을 안 붙인
+    /// 실행(무인 측정 등)에서는 <see cref="UnavailableAchievements"/> 가 들어온다 -
+    /// <see cref="_steam"/> 이 널일 수 있는 것과 달리 이쪽은 절대 널이 아니다.
+    /// </summary>
+    private IAchievements _achievements = new UnavailableAchievements();
 
     /// <summary>--steam-selftest 로 떴는가. 스팀 연결만 확인하고 바로 종료한다.</summary>
     private bool _steamSelftest;
@@ -200,7 +217,13 @@ public partial class OverlayShell : Node2D, IShell
         {
             _steam = new SteamService();
             _steam.Start();
+            _achievements = _steam;
         }
+
+        // 여기까지 와야 실물 5종이 전부 존재한다. 그래서 게임 레이어에 넘기는 것도
+        // 여기가 처음 가능한 지점이다 - BuildScene() 에서 찾아둔 그 노드지만,
+        // 그때는 _input/_cursor/_steam 이 아직 없었다.
+        AttachPlatformToGame();
 
         var tick = new Timer { WaitTime = 0.5, Autostart = true };
         tick.Timeout += OnTick;
@@ -339,6 +362,51 @@ public partial class OverlayShell : Node2D, IShell
 
         _hud = new DebugHud { Name = "Hud" };
         AddChild(_hud);
+    }
+
+    // ------------------------------------------------------------------ IPlatformServices 실물
+
+    IInputSource IPlatformServices.Input => _input;
+
+    ICursorLayer IPlatformServices.Cursor => _cursor;
+
+    IShell IPlatformServices.Shell => this;
+
+    IAchievements IPlatformServices.Achievements => _achievements;
+
+    INetSession IPlatformServices.Net => _net;
+
+    /// <summary>
+    /// 게임 레이어에 실물을 물려준다 (shared/Contracts/IPlatformServices.cs).
+    ///
+    /// <see cref="BuildScene"/> 이 <see cref="IInteractiveArea"/> 를 찾은 것과 같은
+    /// 그룹 조회를 한 번 더 한다 - 두 계약은 방향만 같을 뿐 서로 독립이라
+    /// (클릭 영역만 신고하고 실물은 안 받는 구현도 문법상 가능하다) 한쪽 캐스팅
+    /// 결과를 다른 쪽에 재활용하지 않는다.
+    ///
+    /// <b>이게 없으면 조용히 아무 일도 안 일어난다.</b> 실제로 B1 직후가 그 상태였다 -
+    /// <c>HelperInputSource.OnKeystrokes</c> 의 구독자가 0명이라 전역 타건이
+    /// 게임에 닿지 않았고, 대신 게임이 자기 목을 창 포커스로 먹이고 있어서
+    /// "되는 것처럼" 보였다. 그래서 여기서는 성공/실패를 반드시 로그로 남긴다.
+    /// </summary>
+    private void AttachPlatformToGame()
+    {
+        Node gameRootNode = GetTree().GetFirstNodeInGroup(SceneGroups.GameRoot);
+
+        if (gameRootNode is not IPlatformConsumer consumer)
+        {
+            // 자리표시자만 있는 실행(게임 씬 없이 셸만 띄운 경우)에서는 정상이다.
+            GD.Print("[shell] IPlatformConsumer 없음 - 실물을 넘길 곳이 없다");
+            return;
+        }
+
+        consumer.AttachPlatform(this);
+
+        // 어떤 자리가 실물이고 어떤 자리가 목인지 기동 로그 한 줄로 남긴다.
+        // A9~A11 이 붙는 날 net 이 mock 에서 바뀌는 것을 여기서 확인하게 된다.
+        GD.Print($"[shell] 실물 전달 완료 - input={_input.Status}"
+            + $" cursor={(_cursor.IsSupported ? "실물" : "미지원")}"
+            + $" ach={(_steam == null ? "없음" : _steam.Status)} net=mock(A9~A11 대기)");
     }
 
     // ------------------------------------------------------------------ IShell 실물

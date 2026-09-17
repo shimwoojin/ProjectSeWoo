@@ -1,21 +1,30 @@
 using Godot;
 using ProjectSeWoo.Shared;
-using ProjectSeWoo.Platform.Mocks;
+using ProjectSeWoo.Shared.Mocks;
 
 namespace ProjectSeWoo.Game;
 
-public partial class GameRoot : Node2D, IInteractiveArea
+public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 {
     /// <summary>디버그 키가 한 번에 앞당기는 성장 시간.</summary>
     private const long DebugGrowMs = 60_000;
 
-    // 목 4종. 지금 읽는 곳은 _input 뿐이지만, 나머지도 부를 자리가 정해져 있어
-    // 같이 들고 간다 - _cursor 는 B6(상점/장착), _shell 은 B4(안전 영역 배치),
-    // _net 은 B10~B12(룸 화면)에서 쓴다. A1-CONTRACTS.md §3 의 목록과 같다.
-    private MockInputSource _input;
-    private MockCursorLayer _cursor;
-    private MockShell _shell;
-    private MockNetSession _net;
+    /// <summary>
+    /// 플랫폼 실물 묶음. 셸이 <see cref="AttachPlatform"/> 으로 넘긴다.
+    /// 지금 읽는 곳은 <see cref="IPlatformServices.Input"/> 뿐이지만 나머지도
+    /// 부를 자리가 정해져 있다 - <c>Cursor</c> 는 B6(상점/장착), <c>Shell</c> 은
+    /// B4(안전 영역 배치), <c>Achievements</c> 는 B3/B7(마일스톤·도감 100%),
+    /// <c>Net</c> 은 B10~B12(룸 화면)다.
+    /// </summary>
+    private IPlatformServices _platform;
+
+    /// <summary>
+    /// <b>단독 실행일 때만</b> 채워진다 - 에디터에서 <c>Shell.tscn</c> 없이 이 씬만
+    /// 열어 돌리는 경우다. 실물이 왔으면 널로 남고, 널인지 아닌지가 곧
+    /// "지금 목으로 도는가"의 답이다. 목에만 있는 <c>Tick</c>/<c>Feed</c> 를
+    /// 부를 자격도 여기에 묶여 있다.
+    /// </summary>
+    private MockPlatformServices _standalone;
 
     private Tree _tree;
     private Monkey _monkey;
@@ -32,20 +41,54 @@ public partial class GameRoot : Node2D, IInteractiveArea
         _monkey = GetNode<Monkey>("Monkey");
         _bananas = GetNode<Label>("Bananas");
 
-        _input = new MockInputSource();
-        _cursor = new MockCursorLayer();
-        _shell = new MockShell();
-        _net = new MockNetSession();
-
-        _input.OnKeystrokes += OnKeystrokes;
-
         _tree.Configure(_save.Tree);
         UpdateBananaLabel();
+
+        // **여기서 입력을 구독하면 안 된다.** Godot 은 자식의 _Ready 를 부모보다
+        // 먼저 부르는데 실물을 만드는 것은 부모(OverlayShell)라, 이 시점에는
+        // _platform 이 아직 비어 있다 (shared/Contracts/IPlatformServices.cs 의 ⚠).
+        //
+        // 프레임 끝에 한 번 확인해서 그래도 비어 있으면 셸이 없는 실행이다 -
+        // 그때만 목으로 돈다.
+        Callable.From(FallBackToMocks).CallDeferred();
+    }
+
+    /// <summary>
+    /// <see cref="IPlatformConsumer.AttachPlatform"/>. 실물이 필요한 배선은 전부 여기서 한다.
+    /// </summary>
+    public void AttachPlatform(IPlatformServices platform)
+    {
+        if (_platform != null)
+        {
+            GD.PushWarning("[game] AttachPlatform 이 두 번 왔다 - 먼저 온 것을 유지한다");
+            return;
+        }
+
+        _platform = platform;
+        _platform.Input.OnKeystrokes += OnKeystrokes;
+    }
+
+    /// <summary>
+    /// 셸이 실물을 안 넘겼으면 목으로 돈다. <see cref="_Ready"/> 가 프레임 끝으로
+    /// 미뤄 두고 부른다 - 그때는 부모의 <c>_Ready</c> 까지 전부 끝나 있다.
+    /// </summary>
+    private void FallBackToMocks()
+    {
+        if (_platform != null)
+        {
+            return;
+        }
+
+        GD.Print("[game] 플랫폼 미연결 - 목으로 돈다 (Shell.tscn 없이 단독 실행)");
+        _standalone = new MockPlatformServices();
+        AttachPlatform(_standalone);
     }
 
     public override void _Process(double delta)
     {
-        _input.Tick(delta);
+        // 실물의 폴링은 셸이 돌린다. 목일 때만 우리가 굴린다.
+        _standalone?.Tick(delta);
+
         _tree.Tick(delta);
     }
 
@@ -57,18 +100,18 @@ public partial class GameRoot : Node2D, IInteractiveArea
         }
 
         // 8분을 기다리지 않고 수확까지 확인하려고 둔 debug 키다. 셸이 쓰는 키
-        // (F1~F12 / 1~4 / [ ] - = O / Esc)와 겹치지 않는 자리를 골랐다.
-        // 강화 UI(B7)가 생기면 그쪽이 이 자리를 대신한다 - platform 쪽 Key2~4
-        // (커서 장착 시연)와 같은 성격의 임시 키다.
+        // (F1~F12 / 1~4 / [ ] - = O H / Esc)와 겹치지 않는 자리를 골랐다.
+        // 강화 UI(B7)가 생기면 그쪽이 이 자리를 대신한다.
         if (key.Keycode == Key.G)
         {
             _tree.DebugAdvance(DebugGrowMs);
             return;
         }
 
-        // 테스트용: 실물 IInputSource(A4)는 포커스 없이 전역으로 받지만 목은
-        // 수동으로 Feed() 해줘야 한다. 실물로 갈아끼우면 이 줄은 지운다.
-        _input.Feed(1);
+        // 목은 수동으로 먹여야 타건이 생긴다. **실물일 때는 부르지 않는다** -
+        // A4 는 포커스 없이 전역으로 이미 세고 있어서, 여기서 또 먹이면 창에
+        // 포커스가 있는 동안만 두 배로 수확된다.
+        _standalone?.Feed(1);
     }
 
     private void OnKeystrokes(int count)
@@ -96,6 +139,16 @@ public partial class GameRoot : Node2D, IInteractiveArea
     private void UpdateBananaLabel()
     {
         _bananas.Text = $"bananas {_save.Bananas}";
+    }
+
+    public override void _ExitTree()
+    {
+        // 실물(HelperInputSource)은 이 노드보다 오래 살 수 있다 - 셸이 들고 있고
+        // 셸은 _ExitTree 가 더 늦게 돈다. 구독을 남긴 채 나가지 않는다.
+        if (_platform != null)
+        {
+            _platform.Input.OnKeystrokes -= OnKeystrokes;
+        }
     }
 
     public Rect2 GetClickableBounds() => Transform * _tree.GetBounds().Merge(_monkey.GetBounds());

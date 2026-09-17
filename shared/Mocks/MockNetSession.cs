@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Godot;
 using ProjectSeWoo.Shared;
 
-namespace ProjectSeWoo.Platform.Mocks;
+namespace ProjectSeWoo.Shared.Mocks;
 
 /// <summary>
 /// <see cref="INetSession"/> 목 구현. 혼자서 룸을 만들고, 가짜 친구를 붙일 수 있다.

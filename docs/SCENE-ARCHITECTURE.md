@@ -10,7 +10,7 @@
 
 ---
 
-## 0. 상태 (2026-09-16)
+## 0. 상태 (2026-09-17)
 
 | 산출물 | 위치 | 상태 |
 |---|---|---|
@@ -20,7 +20,8 @@
 | `OverlayShell`을 자리표시자/실물 양쪽으로 동작하게 리팩터 | `platform/OverlayShell.cs` | ☑ |
 | `Shell.tscn` → `platform/`로 이동 | `platform/Shell.tscn` | ☑ |
 | `game/` 하위 폴더 골격 | `game/{entities,ui,effects,multiplayer}/` | ☑ (빈 폴더, `.gitkeep`) |
-| 실제 게임 콘텐츠 씬 (Tree/Monkey/GameRoot 등) | `game/` | ☐ **B1이 만든다. 여기 없음** |
+| 실제 게임 콘텐츠 씬 (Tree/Monkey/GameRoot 등) | `game/` | ☑ B1 완료 |
+| `IPlatformServices` — 실물을 게임 레이어로 넘기는 통로 | `shared/Contracts/IPlatformServices.cs` | ☑ 2026-09-17 |
 
 ---
 

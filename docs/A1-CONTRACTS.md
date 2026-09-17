@@ -15,13 +15,15 @@
 | 인터페이스 4종 | `shared/Contracts/` | ☑ 커밋 |
 | 공용 타입 (`CursorSlot`, `PeerId`, `RoomHandle`, `PlayerState`) | `shared/Contracts/Types.cs` | ☑ 커밋 |
 | 세이브 스키마 v1 + 마이그레이션 훅 | `shared/Save/` | ☑ 커밋 |
-| 목 구현 4종 | `platform/Mocks/` | ☑ 커밋 |
+| 목 구현 6종 | `shared/Mocks/` | ☑ 커밋 (2026-09-17 `platform/` 에서 이동) |
 | 스키마 self-test | `--selftest` 인자 | ☑ PASS |
 
 ### 변경 이력 (§8-2 규칙 — 인터페이스를 바꾸거나 늘리면 여기 한 줄)
 
 | 날짜 | 무엇 | 사유 |
 |---|---|---|
+| 2026-09-17 | `IPlatformServices` + `IPlatformConsumer` 추가 (7·8번째) | **실물을 게임 레이어에 넘길 통로가 없었다.** A1~A8 로 실물 5종이 다 생겼는데도 `game/GameRoot` 는 목을 직접 `new` 했고, 그래서 `HelperInputSource.OnKeystrokes`(A4 실물)의 구독자가 0명이었다 — 오버레이 창에 포커스가 있을 때만 게임이 돌았다. `IInteractiveArea` 와 같은 그룹 조회로 갑이 을에게 실물 묶음을 건넨다. **⚠ `AttachPlatform` 은 `_Ready()` 보다 늦게 온다** (자식 `_Ready` 가 부모보다 먼저 돌기 때문) |
+| 2026-09-17 | 목 5종을 `platform/Mocks/` → `shared/Mocks/` 로 이동 | 시그니처 변경 아님. `game/` 이 `ProjectSeWoo.Platform.Mocks` 를 `using` 하고 있어서 §8-3 폴더 소유권 규칙이 깨져 있었다. 목은 "갑이 만들고 을이 쓰는 것" 이라 `shared/` 의 정의와 정확히 맞는다. **네임스페이스가 `ProjectSeWoo.Shared.Mocks` 로 바뀐다** |
 | 2026-09-16 | `IInteractiveArea` 추가 (5번째) | 클릭 영역을 을이 신고하고 갑이 읽는, 방향이 반대인 계약. docs/SCENE-ARCHITECTURE.md §1 |
 | 2026-09-15 | `IAchievements` + `AchievementIds` 추가 (6번째) | A8. 해금 조건은 을이 알고 스팀 기록은 갑이 한다. 을이 `SteamUserStats` 를 직접 부르면 A15 이름 변경이 game/ 을 흔들고, 스팀 없는 개발 실행에서 game/ 이 죽는다. docs/A8-STEAM.md §2-4 |
 | 2026-09-15 | A8 구현을 GodotSteam → **Steamworks.NET** 으로 변경 | 기획서 §9 문구에서 벗어남. 코드가 100% C# 이라 GDExtension 의 문자열 호출은 A9~A11 전체의 컴파일 타임 검증을 없앤다. **인터페이스 시그니처는 안 바뀌므로 을 쪽 영향 없음.** docs/A8-STEAM.md §1 |
@@ -50,7 +52,7 @@ src/         Day 1-2 / A2 스파이크 코드. A3 에서 platform/ 으로 정리
 
 > **2026-09-15 추가 — `IAchievements`.** 6번째 계약이다 (A8). 도전과제 해금을
 > 을이 조건으로 알고 갑이 스팀에 쓴다 — 방향은 나머지 4종과 같은 "갑 제공 → 을 소비"다.
-> 목은 `platform/Mocks/MockAchievements.cs`, 실물은 `platform/SteamService.cs`.
+> 목은 `shared/Mocks/MockAchievements.cs`, 실물은 `platform/SteamService.cs`.
 > **API Name 은 아직 스팀에 등록되지 않았다** (A15). 자세한 것은 docs/A8-STEAM.md.
 >
 > **2026-09-16 추가 — `IInteractiveArea`.** 기획서 §8-2 에 없던 5번째 계약이다.
@@ -134,10 +136,22 @@ Rect2I GetSafeArea();
 
 ---
 
-## 3. 목 구현 — `platform/Mocks/`
+## 3. 목 구현 — `shared/Mocks/`
 
-**목을 갑 쪽에 둔 이유**: 을이 직접 만들면 인터페이스 해석이 갈라지고, 실물로
+**목을 갑이 만드는 이유**: 을이 직접 만들면 인터페이스 해석이 갈라지고, 실물로
 갈아끼울 때 그 차이가 드러난다. 계약을 만든 쪽이 참조 구현도 같이 낸다.
+
+> **2026-09-17 이동.** 만드는 것은 여전히 갑이지만 **두는 곳은 `shared/`** 다.
+> `platform/Mocks/` 에 있던 동안 `game/GameRoot.cs` 가
+> `using ProjectSeWoo.Platform.Mocks;` 를 달아야 했고, 그게 §8-3 의
+> "서로의 담당 폴더는 건드리지 않는다" 를 정면으로 깼다. `shared/` 는 정의상
+> "둘 다 읽는 곳" 이라 목이 있을 자리가 원래 거기였다.
+>
+> `MockPlatformServices` 가 6번째로 늘었다 — 목 5종을 한 덩어리로 묶어
+> `IPlatformServices` 를 구현한다. 셸 없이 `game/GameRoot.tscn` 만 단독
+> 실행할 때 `GameRoot` 가 이걸로 폴백한다. 같은 파일에
+> `UnavailableAchievements`(널 오브젝트)도 있는데, 이쪽은 목이 아니라
+> **실행 경로**다 — 스팀을 안 붙인 실행에서 `Achievements` 자리를 채운다.
 
 | 목 | 실물 | 목에만 있는 것 (시험용) |
 |---|---|---|

@@ -18,16 +18,17 @@
 | 것 | 위치 | 을이 알아야 할 것 |
 |---|---|---|
 | 인터페이스 6종 | `shared/Contracts/` | 시그니처만 보면 된다. 구현은 몰라도 됨 |
-| 목(Mock) 5종 | `platform/Mocks/` | **지금 당장 쓸 것.** §1 참고 |
+| 목(Mock) 6종 | `shared/Mocks/` | §3 참고. **이제 직접 `new` 하지 않는다** — §3 갱신분 |
 | 세이브 스키마 v2 | `shared/Save/SaveData.cs` | 이 클래스가 직렬화 대상. §7-5 JSON과 1:1 대응 |
 | 실물 5종(A3~A6, A8) | `platform/` | **안 봐도 된다.** 목과 똑같이 동작하는 걸로 취급 |
-| `game/` 폴더 골격 | `game/{entities,ui,effects,multiplayer}/` | 여기가 을 작업 공간. 지금은 전부 빈 폴더 |
+| `game/` 코어 루프 (B1) | `game/GameRoot.*`, `game/entities/` | **이미 있다.** B2 부터 이어서 붙인다 |
 | `Shell.tscn` | `platform/Shell.tscn` | 손대지 않는다. `GameRoot`를 자식으로 넣는 것만 예외 |
 | 릴리스 빌드 (A12) | `tools/build-release.ps1` | **안 써도 된다.** 스팀에 올릴 때만 쓴다 — 개발 중에는 §2 의 VS F5 로 돈다 |
 
-**갑의 실물 코드(`platform/OverlayShell.cs` 등)를 읽을 필요가 없다.** 목이 인터페이스와
-똑같이 동작하도록 이미 맞춰져 있다(A1 문서 §3). 나중에 목에서 실물로 갈아끼울 때
-게임 레이어 코드는 한 줄도 안 바뀌는 게 이 구조의 요점이다.
+**갑의 실물 코드(`platform/OverlayShell.cs` 등)를 읽을 필요가 없다.** 인터페이스
+시그니처가 목과 실물에 똑같이 걸려 있고, 어느 쪽이 들어오는지는 셸이 정한다 —
+게임 레이어 코드는 양쪽에서 한 글자도 안 바뀐다. 읽어야 할 갑 쪽 파일은
+`shared/Contracts/` 뿐이다.
 
 ---
 
@@ -69,12 +70,27 @@
 
 ---
 
-## 3. 목(Mock) 5종 — 지금 이걸로 시작한다
+## 3. 목(Mock) — 실물이 없을 때만 쓴다
 
-`platform/Mocks/`에 있다. `GameRoot`가 생성자나 `_Ready()`에서 직접 `new` 해서 쓰면 된다.
+`shared/Mocks/`에 있다 (2026-09-17 에 `platform/Mocks/` 에서 이동, 네임스페이스는
+`ProjectSeWoo.Shared.Mocks`).
 
-> **2026-09-15 갱신 (A8).** 목이 5종으로 늘었다 — `MockAchievements` 가 추가됐다.
-> 계약은 `shared/Contracts/IAchievements.cs`, 배경은 docs/A8-STEAM.md §2-4.
+> ### ⚠ 2026-09-17 갱신 — 이제 목을 직접 `new` 하지 않는다
+>
+> **A1~A8 실물이 전부 끝났으므로 기본값은 실물이다.** `GameRoot` 는
+> `IPlatformConsumer` 를 구현하고, 셸이 `AttachPlatform(IPlatformServices)` 로
+> 실물 5종을 통째로 넘긴다 (`shared/Contracts/IPlatformServices.cs`).
+>
+> **`_Ready()` 안에서 입력을 구독하면 안 된다.** Godot 은 자식의 `_Ready` 를
+> 부모보다 먼저 부르는데 실물을 만드는 것은 부모(`OverlayShell`)라, 그 시점에는
+> 아직 아무것도 안 와 있다. 실물이 필요한 배선은 전부 `AttachPlatform` 안에서 한다 —
+> 순서를 틀리면 증상이 **"조용히 아무 일도 안 일어남"** 이라 눈에 안 띈다.
+> (실제로 B1 직후가 그 상태였다.)
+>
+> 목은 두 자리에 남는다. ① `Shell.tscn` 없이 `game/GameRoot.tscn` 만 단독
+> 실행할 때 — `MockPlatformServices` 로 자동 폴백한다. ② 계약 시험 —
+> `IsAvailable`/`IsSupported` 를 꺼서 "전역 입력이 막힌 PC", "커서 축이 죽은
+> 환경", "스팀 오프라인" 을 만들어 볼 때. 실물로는 재현하기 어려운 것들이다.
 
 | 목 | 시험용 API | 예시 |
 |---|---|---|
@@ -98,69 +114,60 @@
 `GameRoot.cs`로 붙인다. **이 클래스가 `IInteractiveArea`를 구현하고
 그룹에 등록하는 두 줄이 갑 쪽과 연결되는 유일한 접점이다** (SCENE-ARCHITECTURE.md §1):
 
+> **2026-09-17 — 이 절은 끝났다.** `game/GameRoot.tscn`/`.cs` 가 이미 있다.
+> 아래 골격은 **갑과 맞닿는 두 지점이 무엇인지** 보여주려고 남긴다. 실제 파일은
+> `game/GameRoot.cs` 를 그대로 보면 된다.
+
 ```csharp
 using Godot;
 using ProjectSeWoo.Shared;
-using ProjectSeWoo.Platform.Mocks;
 
 namespace ProjectSeWoo.Game;
 
-public partial class GameRoot : Node2D, IInteractiveArea
+//                     (1) 클릭 영역을 신고한다   (2) 실물을 받는다
+public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 {
-    private MockInputSource _input;
-    private MockCursorLayer _cursor;
-    private MockShell _shell;
-    private MockNetSession _net;
-
-    // TODO: Tree/Monkey 노드로 교체
-    private Sprite2D _placeholder;
+    private IPlatformServices _platform;
 
     public override void _Ready()
     {
-        AddToGroup(SceneGroups.GameRoot);   // <- 이게 없으면 플랫폼이 자리표시자를 계속 쓴다
+        AddToGroup(SceneGroups.GameRoot);   // <- 이게 없으면 갑이 우리를 못 찾는다
 
-        _input = new MockInputSource();
-        _cursor = new MockCursorLayer();
-        _shell = new MockShell();
-        _net = new MockNetSession();
-
-        _input.OnKeystrokes += OnKeystrokes;
-
-        // TODO: 나무/원숭이 씬 instance, 세이브 로드
+        // 씬 노드 잡기, 세이브 읽기 같은 "우리만으로 되는 것" 은 여기서.
+        // **실물이 필요한 배선은 여기 두면 안 된다** - 아직 안 왔다.
     }
 
-    public override void _Process(double delta)
+    public void AttachPlatform(IPlatformServices platform)
     {
-        _input.Tick(delta);
-        // TODO: 나무 슬롯 성장 타이머
+        _platform = platform;
+        _platform.Input.OnKeystrokes += OnKeystrokes;   // <- 전역 타건이 여기로 온다
     }
 
     private void OnKeystrokes(int count)
     {
-        // TODO: 원숭이 펀치 트리거, 빈 나무면 헛펀치
+        // 원숭이 펀치 트리거, 빈 나무면 헛펀치
     }
 
-    // IInteractiveArea - 지금은 자리표시자 스프라이트 기준. 나무/원숭이가
-    // 생기면 그 노드들의 합 영역으로 바꾼다.
-    public Rect2 GetClickableBounds()
-    {
-        Vector2 size = _placeholder.Texture.GetSize() * _placeholder.Scale;
-        return new Rect2(_placeholder.Position - size * 0.5f, size);
-    }
+    // 나무 + 원숭이의 합 영역. 셸 루트 로컬 좌표계 기준이다.
+    public Rect2 GetClickableBounds() => Transform * _tree.GetBounds().Merge(_monkey.GetBounds());
 }
 ```
 
-키 입력을 직접 받으려면(테스트용으로) `_UnhandledInput`에서
-`if (@event is InputEventKey { Pressed: true }) _input.Feed(1);` 정도로 흉내
-낼 수 있다 — 실물(A4)은 포커스 없이 전역으로 받지만, 목은 그럴 필요가 없다
-(§0 표, IInputSource 계약은 "가끔 이벤트가 온다"까지만 보장한다).
+`_platform.Input` 은 **틱을 돌리지 않는다** — 실물의 폴링은 셸이 이미 굴리고
+있고, 계약(`IInputSource`)에 틱이 아예 없는 것이 그 뜻이다. 목으로 단독 실행할
+때만 `MockPlatformServices.Tick(delta)` 를 부른다 (`GameRoot._Process` 참고).
 
 ### 4-2. `Shell.tscn`에 `GameRoot`를 자식으로 넣기
 
-Godot 에디터로 `platform/Shell.tscn`을 열고, `game/GameRoot.tscn`을 씬 트리에
-드래그해서 자식으로 넣는다. **`OverlayShell.cs`는 코드를 한 줄도 안 고친다** —
-`BuildScene()`의 그룹 조회가 자동으로 찾아서 자리표시자 대신 쓴다. 실행해서
-`[shell] game/GameRoot 발견 - 자리표시자 마스코트를 안 만든다` 로그가 뜨면 연결 확인된 것.
+**이미 되어 있다** (`platform/Shell.tscn`). `OverlayShell` 은 그룹 조회로 찾으므로
+씬 트리 어디에 넣든 코드를 안 고친다. 실행해서
+
+```
+[shell] 실물 전달 완료 - input=헬퍼 정상 cursor=실물 ach=... net=mock(A9~A11 대기)
+```
+
+로그가 뜨면 연결된 것이다. 반대로 `[game] 플랫폼 미연결 - 목으로 돈다` 가 뜨면
+`AddToGroup(SceneGroups.GameRoot)` 가 빠졌거나 `Shell.tscn` 자식 구성이 깨진 것이다.
 
 ### 4-3. `game/entities/`에 콘텐츠 씬 만들기
 

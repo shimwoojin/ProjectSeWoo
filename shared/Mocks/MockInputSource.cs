@@ -2,7 +2,7 @@ using System;
 using Godot;
 using ProjectSeWoo.Shared;
 
-namespace ProjectSeWoo.Platform.Mocks;
+namespace ProjectSeWoo.Shared.Mocks;
 
 /// <summary>
 /// <see cref="IInputSource"/> 목 구현.
