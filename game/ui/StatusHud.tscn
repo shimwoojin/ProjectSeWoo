@@ -19,8 +19,9 @@ theme_override_font_sizes/font_size = 24
 text = "Lv.1"
 
 [node name="LevelBar" type="ProgressBar" parent="."]
-custom_minimum_size = Vector2(0, 5)
+custom_minimum_size = Vector2(84, 5)
 layout_mode = 2
+size_flags_horizontal = 0
 value = 0.0
 show_percentage = false
 
