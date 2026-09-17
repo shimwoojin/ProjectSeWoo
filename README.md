@@ -52,7 +52,10 @@ shared/Save/               세이브 스키마 v3 + 마이그레이션 훅
 shared/Mocks/              목 6종. 갑이 만들고 을이 쓴다 (실물 없이 game/ 을 돌리는 용도)
 platform/                  갑 담당. OS와 붙는 전부
   Shell.tscn                 씬 루트 (scenes/ 에서 이동). 나머지는 코드로 구성
-  OverlayShell.cs            창 설정, 클릭 통과, 드래그, 핫키, 리포트. IShell + IPlatformServices 실물
+  OverlayShell.cs            창 설정, 클릭 통과, 드래그. IShell + IPlatformServices 실물
+  OverlayShell.Visibility.cs   표시/숨김 · 트레이 · 옵션 창 (A6)
+  OverlayShell.Diagnostics.cs  HUD 통계 · F9 리포트 · --report= 무인 측정 · selftest
+  OverlayShell.DebugKeys.cs    디버그 키 (F1~F12, 1~4, [ ] - = O H, Esc). 전부 임시
   PlaceholderMascot.cs       IInteractiveArea 자리표시자 - game/GameRoot 나오면 대체됨
   CursorLayer.cs             A2 커서 추종 창. ICursorLayer 실물, 3슬롯 장착
   HelperInputSource.cs       IInputSource 실물 (별도 헬퍼 프로세스 IPC)

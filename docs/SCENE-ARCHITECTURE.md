@@ -22,6 +22,7 @@
 | `game/` 하위 폴더 골격 | `game/{entities,ui,effects,multiplayer}/` | ☑ (빈 폴더, `.gitkeep`) |
 | 실제 게임 콘텐츠 씬 (Tree/Monkey/GameRoot 등) | `game/` | ☑ B1 완료 |
 | `IPlatformServices` — 실물을 게임 레이어로 넘기는 통로 | `shared/Contracts/IPlatformServices.cs` | ☑ 2026-09-17 |
+| `OverlayShell` 을 4개 partial 로 분할 | `platform/OverlayShell*.cs` | ☑ 2026-09-17 (§4) |
 
 ---
 
@@ -154,3 +155,31 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 | B1 착수 | `game/GameRoot.tscn` 생성 + `IInteractiveArea` 구현 + `SceneGroups.GameRoot` 등록이 첫 걸음 |
 | `CursorDeco`/`OptionsWindow` 코드→씬 전환 | 급하지 않음. 실제로 애니메이션/레이아웃을 자주 손볼 때가 되면 |
 | `PlaceholderMascot` 제거 | `game/GameRoot`가 안정화되면 |
+
+---
+
+## 4. `OverlayShell` 분할 (2026-09-17)
+
+한 파일 1,419줄이 됐고, 그중 3분의 1이 "창을 띄우는 일"이 아니라 "창이 얼마를
+먹는지 재는 일"이었다. §2가 요구한 "`Shell.tscn` 은 창 mechanics만, 얇게 유지"를
+파일이 스스로 어기고 있던 상태다.
+
+`partial class` 4개로 갈랐다. **클래스를 쪼개지 않은 것은 의도다** — 계측이
+셸 내부 상태 18개를 읽으므로 별도 클래스로 빼면 그만큼을 `internal` 로
+열어야 하고, 그건 캡슐화가 아니라 캡슐화 시늉이다. 여기서 가르는 것은
+바이너리가 아니라 **읽는 사람의 주의**다.
+
+| 파일 | 줄 | 내용 |
+|---|---|---|
+| `OverlayShell.cs` | ~730 | 기동 · 씬 · `IShell`/`IPlatformServices` 실물 · 세이브 복원 · 클릭 통과 · 프레임 루프 · 드래그 |
+| `OverlayShell.Visibility.cs` | ~245 | 표시/숨김(Win32 `ShowWindow`) · 트레이 · 옵션 창 · 전체화면 자동 숨김 (A6) |
+| `OverlayShell.Diagnostics.cs` | ~420 | HUD 통계 · F9 리포트 · `--report=` 무인 측정 · `--steam-selftest` |
+| `OverlayShell.DebugKeys.cs` | ~195 | 디버그 키 전부. 주인이 생기면 지울 것들 |
+
+`Visibility` 가 표시/숨김과 트레이/옵션을 같이 든 이유는 넷이 전부
+`ApplyVisibility()` 하나로 수렴하기 때문이다 — 그 "계산 지점이 하나뿐" 이라는
+성질이 A6 상태 꼬임 방지책의 전부라, 흩어 놓으면 눈에 안 보이게 된다.
+
+**릴리스에서 계측을 빼지 않는다.** `#if DEBUG` 로 감싸고 싶어지지만 A7 메모리
+게이트는 `ExportRelease` 빌드를 상대로 재서 닫혔고(A7-PERF.md §4),
+`tools/measure-renderers.ps1` 이 재는 것도 릴리스 빌드다.

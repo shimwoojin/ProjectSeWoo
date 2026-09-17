@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using Godot;
 using ProjectSeWoo.Shared;
 using ProjectSeWoo.Shared.Mocks;
@@ -34,10 +33,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <summary>0 = 무제한. 상주 앱에서 부하와 반응성의 균형점을 찾기 위한 후보들.</summary>
     private static readonly int[] FpsCaps = { 60, 30, 10, 0 };
 
-    /// <summary>H(debug 숨김)가 스스로 돌아오기까지의 시간. 숨은 창은 키를 못 받는다.</summary>
-    private const double DebugHideSeconds = 3.0;
-
-    private readonly PerfProbe _perf = new();
     private CursorLayer _cursor;
     private HelperInputSource _input;
 
@@ -66,27 +61,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private SaveData.SettingsState _settings = new();
 
-    // --- A6: 표시 여부는 "유저가 원하는가"와 "전체화면 앱이 떠서 자동으로 숨겼는가"
-    // 둘의 조합이다 (ApplyVisibility). 커서 장식도 같은 조합을 따르되 옵션
-    // (CursorEnabled)까지 하나 더 곱해진다. ---
-    private bool _userWantsVisible = true;
-    private bool _autoHiddenForFullscreen;
 
-    /// <summary>
-    /// 셸 창이 지금 실제로 보이는가. <see cref="_userWantsVisible"/> 등이 "원하는 것"이라면
-    /// 이쪽은 <see cref="SetShellWindowVisible"/>가 OS 에 물어서 되읽은 "실제"다.
-    /// </summary>
-    private bool _shellWindowVisible = true;
-
-    /// <summary>창 숨김 미지원 플랫폼 경고를 한 번만 찍기 위한 표식. 0.5초 틱마다 도배하면 안 된다.</summary>
-    private bool _hideUnsupportedLogged;
-
-    /// <summary>H(debug 숨김)의 남은 시간. 0 이하면 쉬는 중이다.</summary>
-    private double _debugHideRemaining;
-
-    private TrayIcon _tray;
-    private OptionsWindow _options;
-    private FullscreenWatcher _fullscreenWatcher;
 
     /// <summary>
     /// A8 스팀. 스팀이 없어도 null 이 아니다 - 붙었는지는 <see cref="SteamService.IsAvailable"/>
@@ -119,11 +94,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// 파일·트레이 아이콘처럼 "우리 프로세스 밖으로 새어나가는" 부작용은 전부 이걸로 막는다.</summary>
     private bool _unattended;
 
-    // --- A5 커서 장착 debug 데모. B6(상점/장착 UI)가 나오기 전까지 Key2/3/4로
-    // 슬롯별 자리표시자 에셋을 순환한다. null 은 "빈 슬롯". ---
-    private static readonly string[] DemoAssetIds = { null, "demo_a", "demo_b", "demo_c" };
-    private readonly int[] _demoEquipIndex = new int[3];
-
     // --- 토글 상태 ---
     private bool _updateEveryFrame;
     private bool _showOutline;
@@ -135,27 +105,12 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     private Vector2I _dragOffset;
     private Vector2I _dragStart;
 
-    // --- 무인 측정 모드 (tools/measure-renderers.ps1) ---
-    private string _autoReportPath;
-    private double _autoWarmupSec = 15.0;
-    private double _autoDurationSec;
-    private double _autoElapsed;
-    private bool _autoWarmedUp;
-    private bool _autoCursor;
-    private bool _autoCursorSim;
-    private bool _autoCursorNoPass;
-    private string _autoCursorEquip;
-    private string _autoCursorIntervalMs;
-    private string _autoCursorMode;
+    // --- 클릭 통과 ---
 
-    // --- 계측 ---
+    /// <summary>마지막으로 실제 적용한 passthrough 폴리곤. "바뀔 때만 쓰기"의 비교 대상이다.</summary>
     private Vector2[] _appliedRegion = Array.Empty<Vector2>();
-    private long _regionWrites;
-    private int _clicks;
-    private int _rclicks;
-    private int _wheels;
-    private int _drags;
-    private double _uptime;
+
+    /// <summary>클릭 시 자리표시자 마스코트가 살짝 튀는 연출의 남은 양.</summary>
     private double _punch;
 
     public override void _Ready()
@@ -268,52 +223,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 앞으로 --net-selftest 같은 게 늘어도 같은 실수가 반복되지 않게 접미사로 잡는다.
         return Array.Exists(args, a => a.EndsWith("selftest", StringComparison.Ordinal))
             || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// <c>--steam-selftest</c> 진행. A8 이 실제로 붙는지 사람 눈 없이 확인하는 경로다.
-    ///
-    /// 초기화는 동기지만 **도전과제 통계는 콜백으로 비동기로 온다** - 그래서 바로
-    /// 판정하지 못하고 몇 프레임 펌프를 돌려야 한다. 스키마 <c>--selftest</c> 가
-    /// 한 줄로 끝나는 것과 다른 이유가 이것이다.
-    ///
-    /// 종료 코드: 0 = 초기화 성공, 1 = 실패(사유는 Status 에 찍힌다).
-    /// **스팀이 안 떠 있는 것도 1 이다** - 이 자체 검사는 "붙을 수 있는 환경인가" 를
-    /// 묻는 것이고, 앱의 정상 동작 여부와는 별개다 (스팀 없이도 앱은 돈다).
-    /// </summary>
-    private void TickSteamSelftest(double delta)
-    {
-        const double TimeoutSec = 10.0;
-
-        _steamSelftestElapsed += delta;
-
-        bool done = _steam != null && _steam.IsAvailable;
-        if (!done && _steamSelftestElapsed < TimeoutSec)
-        {
-            return;
-        }
-
-        GD.Print("--- steam selftest ---");
-        GD.Print($"status      : {_steam?.Status ?? "(서비스 없음)"}");
-        GD.Print($"initialized : {Verdict(_steam?.IsInitialized == true)}");
-        GD.Print($"stats/ach   : {Verdict(_steam?.IsAvailable == true)}");
-        GD.Print($"appid       : {_steam?.AppId}");
-        GD.Print($"steam id    : {_steam?.SelfId}");
-        GD.Print($"persona     : {_steam?.PersonaName}");
-        GD.Print($"elapsed     : {_steamSelftestElapsed:F1}s");
-
-        // 도전과제 스텁 배선 확인. **읽기만 한다** - Unlock 을 여기서 부르면 나중에
-        // 진짜 앱 ID 로 이 검사를 돌렸을 때 실제 도전과제가 해금돼 버린다.
-        // appid=480 에서는 우리 이름이 등록돼 있지 않으므로 전부 false 가 정상이다.
-        GD.Print($"ach ids     : {AchievementIds.KeystrokeMilestones.Length + 1}개 정의됨");
-        GD.Print($"  {AchievementIds.Collection100} = {_steam?.IsUnlocked(AchievementIds.Collection100)}");
-        foreach ((string id, int threshold) in AchievementIds.KeystrokeMilestones)
-        {
-            GD.Print($"  {id} ({threshold:N0}타) = {_steam?.IsUnlocked(id)}");
-        }
-
-        _steamSelftest = false;
-        GetTree().Quit(_steam?.IsInitialized == true ? 0 : 1);
     }
 
     // ------------------------------------------------------------------ 씬 구성
@@ -545,212 +454,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         SaveIO.Save(save);
     }
 
-    /// <summary>
-    /// 실제 표시 여부를 계산해서 창/커서에 적용하는 유일한 지점.
-    ///
-    /// "보이는가"는 서로 독립적인 두 이유의 조합이다 - 유저가 트레이에서 숨겼는가
-    /// (<see cref="_userWantsVisible"/>), 전체화면 앱이 떠서 자동으로 숨겼는가
-    /// (<see cref="_autoHiddenForFullscreen"/>). 둘 중 하나라도 "숨겨라"면 숨긴다.
-    /// 이 메서드 하나로만 창/커서 표시를 바꾸면, "트레이로 숨겼는데 전체화면이
-    /// 끝나자 다시 나타났다" 같은 상태 꼬임이 구조적으로 안 생긴다.
-    ///
-    /// 커서 장식은 그 위에 옵션 두 개를 더 곱한다 -
-    /// <see cref="SaveData.SettingsState.CursorEnabled"/>(아예 쓸 것인가)와
-    /// <see cref="SaveData.SettingsState.CursorIndependent"/>(셸이 숨어도 남길 것인가).
-    /// 뒤쪽은 숨김 **이유**를 구분하지 않는다. 위 한 줄로 합쳐 둔 것이 상태 꼬임
-    /// 방지책이라, 이유별 예외를 만들면 그 이점이 사라진다.
-    /// </summary>
-    private void ApplyVisibility()
-    {
-        bool visible = _userWantsVisible && !_autoHiddenForFullscreen;
-        SetShellWindowVisible(visible);
-        _cursor.SetEnabled(_settings.CursorEnabled && (visible || _settings.CursorIndependent));
-    }
-
-    // --- 셸 창 숨기기 -------------------------------------------------------
-    //
-    // **Godot 은 메인 창의 Visible 을 못 바꾼다.** scene/main/window.cpp 의
-    // set_visible 이 "Can't change visibility of main window" 로 막는다. A6 이
-    // 그걸 모르고 _win.Visible 에 그대로 썼고, 그래서 트레이 "숨기기"와 전체화면
-    // 자동 숨김이 **에러만 찍고 아무 일도 안 했다**(2026-09-16 실행 로그). 커서
-    // 레이어는 서브 창이라 똑같은 코드가 멀쩡히 동작했고, 그래서 더 늦게 드러났다.
-    //
-    // 대신 OS 에 직접 건다. 최소화(WindowSetMode(Minimized))는 안 쓴다 - 작업
-    // 표시줄 항목이 생겼다 사라지고 복원 애니메이션이 붙는다. 상주 오버레이가
-    // 할 동작이 아니다. ShowWindow 는 ex-style(클릭 통과)도 passthrough 영역도
-    // 건드리지 않아서 복원한 뒤 다시 걸어 줄 것이 없다.
-
-    private const int SwHide = 0;
-
-    /// <summary>보이되 포커스는 뺏지 않는다. 오버레이가 남의 창에서 포커스를 가져가면 안 된다.</summary>
-    private const int SwShowNoActivate = 4;
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    [DllImport("user32.dll")]
-    private static extern bool IsWindowVisible(IntPtr hWnd);
-
-    /// <summary>
-    /// 셸 창을 실제로 숨기고/보인다. 부르는 곳은 <see cref="ApplyVisibility"/> 하나뿐이다.
-    /// </summary>
-    private void SetShellWindowVisible(bool visible)
-    {
-        if (_shellWindowVisible == visible)
-        {
-            return;
-        }
-
-        if (OS.GetName() != "Windows")
-        {
-            // 트레이도 FullscreenWatcher 도 Windows 전용이라 여기 올 일은 거의 없다.
-            // 그래도 조용히 넘기지 않는다 - "숨겼다고 생각했는데 안 숨었다" 가 정확히
-            // 방금 고친 버그였다.
-            if (!_hideUnsupportedLogged)
-            {
-                _hideUnsupportedLogged = true;
-                GD.PrintErr($"[shell] 창 숨김 미지원 플랫폼 ({OS.GetName()}) - 계속 보인다");
-            }
-
-            return;
-        }
-
-        long handle = DisplayServer.WindowGetNativeHandle(
-            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
-
-        if (handle == 0)
-        {
-            GD.PrintErr("[shell] HWND 를 못 얻었다. 창을 숨길 수 없다");
-            return;
-        }
-
-        var hwnd = new IntPtr(handle);
-        ShowWindow(hwnd, visible ? SwShowNoActivate : SwHide);
-
-        // A2 의 교훈 그대로 되읽어서 확인한다 - "걸었다" 와 "걸렸다" 는 다르다.
-        // 이번 버그도 아무도 결과를 안 물어봐서 통과한 것이다.
-        bool actual = IsWindowVisible(hwnd);
-        _shellWindowVisible = actual;
-
-        if (actual != visible)
-        {
-            GD.PrintErr($"[shell] 창 숨김 실패: 요청 {visible}, 실제 {actual}");
-        }
-    }
-
-    // ------------------------------------------------------------------ A6: 트레이 / 옵션 창 / 자동 숨김
-
-    /// <summary>
-    /// WEEK0-GODOT-VALIDATION.md §4 "트레이 아이콘 + 메뉴(보이기/숨기기/설정/종료)".
-    /// Godot 4.3+ 내장 API만 쓴다(<see cref="TrayIcon"/>). macOS/Windows만 지원한다.
-    /// </summary>
-    private void SetupTray()
-    {
-        _tray = new TrayIcon();
-        _tray.OnToggleVisibility += () =>
-        {
-            _userWantsVisible = !_userWantsVisible;
-            ApplyVisibility();
-        };
-        _tray.OnOpenSettings += OpenOptionsWindow;
-        _tray.OnQuit += () => GetTree().Quit();
-
-        var icon = GD.Load<Texture2D>("res://icon.svg");
-        _tray.Build(icon, "ProjectSeWoo");
-
-        if (!_tray.IsSupported)
-        {
-            GD.Print("[shell] 트레이 아이콘 미지원 - 창을 닫으면 트레이로 숨는 대신 그대로 숨는다");
-        }
-    }
-
-    /// <summary>
-    /// 창 닫기 요청(Alt+F4 등)을 종료가 아니라 숨기기로 바꾼다
-    /// (WEEK0-GODOT-VALIDATION.md §4). 트레이가 없는 환경(미지원 플랫폼)에서는
-    /// 되찾을 방법이 없어지므로, 그때는 그냥 종료한다.
-    /// </summary>
-    private void OnCloseRequested()
-    {
-        if (_tray is { IsSupported: true })
-        {
-            _userWantsVisible = false;
-            ApplyVisibility();
-        }
-        else
-        {
-            GetTree().Quit();
-        }
-    }
-
-    /// <summary>
-    /// OptionsWindow는 값이 바뀌면 이벤트만 쏜다 - 실제로 적용하고 저장하는 건 여기서 한다
-    /// (docs/A6-TRAY-OPTIONS.md §1 "옵션 UI는 저장을 모른다").
-    /// </summary>
-    private void WireOptionsEvents()
-    {
-        _options.ScaleChanged += v => { SetScale(v); PersistSettings(); };
-        _options.OpacityChanged += v => { SetOpacity(v); PersistSettings(); };
-        _options.PositionLockedChanged += v => { SetClickThrough(v); PersistSettings(); };
-        _options.SoundChanged += v => { _settings.Sound = v; PersistSettings(); };
-        _options.NotificationsChanged += v => { _settings.Notifications = v; PersistSettings(); };
-        _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
-        _options.CursorIndependentChanged += v => { _settings.CursorIndependent = v; ApplyVisibility(); PersistSettings(); };
-        _options.HideOnFullscreenChanged += v => { _settings.HideOnFullscreen = v; PersistSettings(); };
-        _options.KeystrokeCountingChanged += v => { _settings.KeystrokeCounting = v; PersistSettings(); };
-        _options.AutostartChanged += v =>
-        {
-            _settings.Autostart = v;
-            if (!_unattended)
-            {
-                Autostart.SetEnabled(v);
-            }
-
-            PersistSettings();
-        };
-
-        // 옵션 창이 열린 동안은 창 전체가 클릭을 받아야 한다 - 안 그러면 패널이
-        // 마스코트 클릭 영역 밖으로 나가는 순간 슬라이더/체크박스를 못 누른다.
-        // 닫히면 위치 잠금 값대로 되돌린다.
-        _options.Closed += () => ApplyPassthrough(force: true);
-    }
-
-    private void OpenOptionsWindow()
-    {
-        _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
-        _options.Open();
-        DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());
-    }
-
-    private void ToggleOptionsWindow()
-    {
-        if (_options.IsOpen)
-        {
-            _options.Close();
-        }
-        else
-        {
-            OpenOptionsWindow();
-        }
-    }
-
-    /// <summary>
-    /// 전체화면으로 실행 중인 다른 앱 위에서 자동으로 숨긴다 (§7-1, §7-4).
-    /// 0.5초 틱(<see cref="OnTick"/>)마다 확인한다 - 매 프레임 P/Invoke 를 부를
-    /// 이유가 없다. 휴리스틱의 한계는 docs/A6-TRAY-OPTIONS.md §3 참고 - 아직
-    /// 실제 전체화면 게임으로는 검증하지 못했다.
-    /// </summary>
-    private void CheckFullscreen()
-    {
-        bool shouldHide = _settings.HideOnFullscreen && _fullscreenWatcher.IsOtherAppFullscreen();
-        if (shouldHide == _autoHiddenForFullscreen)
-        {
-            return;
-        }
-
-        _autoHiddenForFullscreen = shouldHide;
-        ApplyVisibility();
-    }
-
     // ------------------------------------------------------------------ 클릭 통과
 
     /// <summary>
@@ -853,8 +556,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     public override void _Process(double delta)
     {
-        _uptime += delta;
-
         if (_dragging)
         {
             // 마우스가 창 밖으로 나가면 모션 이벤트가 끊긴다. 그래서 위치는 폴링으로 따라간다.
@@ -896,21 +597,12 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 스팀 콜백은 우리가 펌프를 돌려야 도착한다. 못 붙은 상태면 여기서 재시도까지 한다.
         _steam?.Tick(delta);
 
-        if (_steamSelftest)
-        {
-            TickSteamSelftest(delta);
-        }
-
-        if (_autoReportPath != null)
-        {
-            TickAutoReport(delta);
-        }
+        TickDiagnostics(delta);
     }
 
     private void OnTick()
     {
-        _perf.Sample();
-        _hud.SetStats(BuildStats());
+        SampleDiagnostics();
         CheckFullscreen();
     }
 
@@ -997,155 +689,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         ApplyPassthrough(force: true);
     }
 
-    public override void _UnhandledKeyInput(InputEvent @event)
-    {
-        if (@event is not InputEventKey key || !key.Pressed || key.Echo)
-        {
-            return;
-        }
-
-        switch (key.Keycode)
-        {
-            case Key.F1:
-                _hud.Visible = !_hud.Visible;
-                break;
-
-            case Key.F2:
-                // A6부터는 진짜 옵션이다 - 옵션 창의 "위치 잠금" 체크박스와 정확히
-                // 같은 경로(SetClickThrough)를 부른다.
-                SetClickThrough(!_settings.PositionLocked);
-                PersistSettings();
-                break;
-
-            case Key.F3:
-                _updateEveryFrame = !_updateEveryFrame;
-                GD.Print($"[shell] passthrough update = {(_updateEveryFrame ? "EVERY FRAME (flicker repro)" : "ON CHANGE")}");
-                break;
-
-            case Key.F4:
-                _win.AlwaysOnTop = !_win.AlwaysOnTop;
-                break;
-
-            case Key.F5:
-                _fpsCapIndex = (_fpsCapIndex + 1) % FpsCaps.Length;
-                Engine.MaxFps = FpsCaps[_fpsCapIndex];
-                _perf.Reset();
-                break;
-
-            case Key.F6:
-                _lowPower = !_lowPower;
-                ApplyPowerSettings();
-                _perf.Reset();
-                break;
-
-            case Key.F7:
-                MoveToScreen((DisplayServer.WindowGetCurrentScreen() + 1) % DisplayServer.GetScreenCount());
-                break;
-
-            case Key.F8:
-                _showOutline = !_showOutline;
-                _outline.Visible = _showOutline;
-                RefreshOutline(_appliedRegion);
-                break;
-
-            case Key.F9:
-                DisplayServer.ClipboardSet(BuildReport());
-                GD.Print("[shell] report copied to clipboard");
-                break;
-
-            case Key.F10:
-                _perf.Reset();
-                _regionWrites = 0;
-                _clicks = 0;
-                _rclicks = 0;
-                _wheels = 0;
-                _drags = 0;
-                _uptime = 0.0;
-                break;
-
-            // 숨김이 실제로 먹는지 트레이 없이 확인하기 위한 debug 키. 그냥 숨기면
-            // 창이 포커스를 잃어 **다시 켤 키를 못 받는다** - 트레이로만 되돌릴 수
-            // 있게 된다. 그래서 잠깐 숨겼다 스스로 돌아온다.
-            case Key.H:
-                _userWantsVisible = false;
-                _debugHideRemaining = DebugHideSeconds;
-                ApplyVisibility();
-                break;
-
-            case Key.F11:
-                // 옵션 창의 "커서 장식" 체크박스와 같은 경로.
-                _settings.CursorEnabled = !_settings.CursorEnabled;
-                ApplyVisibility();
-                PersistSettings();
-                _perf.Reset();
-                break;
-
-            case Key.F12:
-                _cursor.CycleInterval();
-                _perf.Reset();
-                break;
-
-            case Key.Key1:
-                _cursor.CycleMode();
-                _perf.Reset();
-                break;
-
-            // A5 의 3슬롯 장착을 옵션/상점 UI(B6) 없이 시험하기 위한 debug 키.
-            // 을이 상점 화면을 만들면 이 자리를 그 UI가 대신 호출한다.
-            case Key.Key2:
-                CycleDemoEquip(CursorSlot.Hang);
-                break;
-
-            case Key.Key3:
-                CycleDemoEquip(CursorSlot.Trail);
-                break;
-
-            case Key.Key4:
-                CycleDemoEquip(CursorSlot.Base);
-                break;
-
-            // IShell 실물을 옵션 창 없이 빠르게 시험하기 위한 debug 키.
-            // 옵션 창의 슬라이더와 정확히 같은 SetScale/SetOpacity를 부른다.
-            case Key.Bracketleft:
-                SetScale(_settings.Scale - 0.1f);
-                break;
-
-            case Key.Bracketright:
-                SetScale(_settings.Scale + 0.1f);
-                break;
-
-            case Key.Minus:
-                SetOpacity(_settings.Opacity - 0.1f);
-                break;
-
-            case Key.Equal:
-                SetOpacity(_settings.Opacity + 0.1f);
-                break;
-
-            case Key.O:
-                // A6 옵션 창을 트레이 없이/트레이 지원이 없는 환경에서도 열 수 있게.
-                ToggleOptionsWindow();
-                break;
-
-            case Key.Escape:
-                if (_options.IsOpen)
-                {
-                    _options.Close();
-                }
-                else
-                {
-                    GetTree().Quit();
-                }
-
-                break;
-
-            default:
-                return;
-        }
-
-        GetViewport().SetInputAsHandled();
-    }
-
     // ------------------------------------------------------------------ 창 배치 / 부하
 
     private void ApplyPowerSettings()
@@ -1155,17 +698,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         Engine.MaxFps = FpsCaps[_fpsCapIndex];
     }
 
-    /// <summary>
-    /// A5 커서 장착 debug 데모. 슬롯 하나를 자리표시자 목록에서 순환시킨다.
-    /// B6이 상점/장착 UI를 만들면 이 자리를 그 UI가 대신 호출한다.
-    /// </summary>
-    private void CycleDemoEquip(CursorSlot slot)
-    {
-        int i = (int)slot;
-        _demoEquipIndex[i] = (_demoEquipIndex[i] + 1) % DemoAssetIds.Length;
-        _cursor.Equip(slot, DemoAssetIds[_demoEquipIndex[i]]);
-    }
-
     /// <summary>지정한 모니터의 작업 영역 우하단에 창을 붙인다.</summary>
     private void MoveToScreen(int screen)
     {
@@ -1173,294 +705,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         _win.Position = new Vector2I(
             usable.Position.X + usable.Size.X - _win.Size.X - 24,
             usable.Position.Y + usable.Size.Y - _win.Size.Y - 24);
-    }
-
-    // ------------------------------------------------------------------ 리포트
-
-    private string BuildStats()
-    {
-        int screen = DisplayServer.WindowGetCurrentScreen();
-        Rect2I usable = DisplayServer.ScreenGetUsableRect(screen);
-        Rect2 hit = CurrentHitRect();
-
-        return string.Join("\n", new[]
-        {
-            $"cpu   {_perf.CpuPercent,5:F2}%  avg {_perf.AvgCpuPercent,5:F2}%  peak {_perf.PeakCpuPercent,5:F2}%",
-            $"mem   priv {_perf.PrivateCommitMb,4} MB   ws {_perf.WorkingSetMb,4} MB"
-                + $"   godot {_perf.GodotStaticMb} MB   clr {_perf.ManagedHeapMb} MB",
-            $"fps   {Engine.GetFramesPerSecond(),5:F0}  cap {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}  lowpower {OnOff(_lowPower)}",
-            $"rend  {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
-            "",
-            $"pass  {OnOff(_settings.PositionLocked)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
-            $"in    total {_input.TotalCount}  cap-drop {_input.DroppedByCap}"
-                + $"  decay-drop {_input.DroppedByDecay}  [{_input.Status}]",
-            $"      available {OnOff(_input.IsAvailable)}  restarts {_input.Restarts}",
-            $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}"
-                + $"   in L{_clicks} R{_rclicks} W{_wheels} D{_drags}",
-            _cursor.StatusLine(),
-            "",
-            $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
-                + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
-            $"opts  cursor {OnOff(_settings.CursorEnabled)}  indep {OnOff(_settings.CursorIndependent)}"
-                + $"  sound {OnOff(_settings.Sound)}  notify {OnOff(_settings.Notifications)}"
-                + $"  hideFs {OnOff(_settings.HideOnFullscreen)}  keys {OnOff(_settings.KeystrokeCounting)}"
-                + $"  autostart {OnOff(_settings.Autostart)}",
-            // winShown 은 OS 에 되물은 값이다. 나머지 둘이 "원하는 것" 이고 이게 "된 것" 이라,
-            // 셋이 어긋나면 숨김이 먹지 않았다는 뜻이다 - 그걸 눈으로 못 봐서 생긴 버그가 있었다.
-            $"      want {OnOff(_userWantsVisible)}  autoHidden {OnOff(_autoHiddenForFullscreen)}"
-                + $"  winShown {OnOff(_shellWindowVisible)}",
-            $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}",
-            $"scr   #{screen} of {DisplayServer.GetScreenCount()}  {usable.Size.X}x{usable.Size.Y}"
-                + $"  dpi {DisplayServer.ScreenGetDpi(screen)}  scale {DisplayServer.ScreenGetScale(screen):F2}"
-                + $"  {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
-            $"up    {_uptime:F0}s",
-        });
-    }
-
-    // ------------------------------------------------------------------ 무인 측정
-
-    /// <summary>
-    /// 렌더러 A/B(DAY1-2-SPIKE.md §4)를 사람이 네 번 재시작하며 F9를 누르는 대신
-    /// 스크립트로 돌리기 위한 모드. 인자는 Godot 자체 옵션과 섞이지 않게 <c>--</c> 뒤에 둔다:
-    /// <code>Godot.exe --path . --rendering-method mobile -- --report=&lt;경로&gt; --seconds=60</code>
-    ///
-    /// <c>--seconds</c>는 워밍을 포함한 총 실행 시간이다. 워밍 구간이 따로 있는 이유는,
-    /// 기동 직후의 CPU 스파이크와 30~60초에 걸쳐 안정되는 메모리가 유휴 판정에 섞이면
-    /// 안 되기 때문이다. 워밍이 끝나는 순간 계측을 리셋하므로, 리포트의 <c>uptime</c>이
-    /// 곧 실제 측정 구간이 된다.
-    /// </summary>
-    private void ParseAutoReportArgs()
-    {
-        foreach (string arg in OS.GetCmdlineUserArgs())
-        {
-            if (arg.StartsWith("--report=", StringComparison.Ordinal))
-            {
-                _autoReportPath = arg["--report=".Length..];
-            }
-            else if (TryParseSeconds(arg, "--seconds=", out double duration))
-            {
-                _autoDurationSec = duration;
-            }
-            else if (TryParseSeconds(arg, "--warmup=", out double warmup))
-            {
-                _autoWarmupSec = warmup;
-            }
-            else if (arg == "--cursor")
-            {
-                // 커서 레이어를 켠 채로 잰다. §7-3 이 "커서 창을 포함해서 실측"하라고
-                // 요구하므로, 셸 단독 숫자만으로는 저부하 판정을 닫을 수 없다.
-                _autoCursor = true;
-            }
-            else if (arg == "--cursor-sim")
-            {
-                _autoCursorSim = true;
-            }
-            else if (arg == "--cursor-nopass")
-            {
-                _autoCursorNoPass = true;
-            }
-            else if (arg.StartsWith("--cursor-interval=", StringComparison.Ordinal))
-            {
-                _autoCursorIntervalMs = arg["--cursor-interval=".Length..];
-            }
-            else if (arg.StartsWith("--cursor-mode=", StringComparison.Ordinal))
-            {
-                _autoCursorMode = arg["--cursor-mode=".Length..];
-            }
-            else if (arg.StartsWith("--cursor-equip=", StringComparison.Ordinal))
-            {
-                // A5. "hang,trail,base" 순서의 쉼표 구분, 빈 칸은 그 슬롯을 비워둔다.
-                // A7 이 "장식을 낀 채로" 저부하를 잴 때 이 인자를 쓴다 - 빈 슬롯과
-                // 채운 슬롯의 렌더 비용 차이를 보려면 필요하다.
-                _autoCursorEquip = arg["--cursor-equip=".Length..];
-            }
-        }
-
-        ApplyAutoCursorArgs();
-
-        if (_autoReportPath == null)
-        {
-            return;
-        }
-
-        // 세이브/레지스트리를 안 건드리는 건 _unattended(IsUnattendedRun)가 이미
-        // --report= 를 감지해서 _Ready() 맨 앞에서 처리했다. 여기서 더 할 일은 없다.
-
-        if (_autoDurationSec <= 0.0)
-        {
-            _autoDurationSec = 60.0;
-        }
-
-        // 워밍이 전체 시간을 잡아먹으면 측정 구간이 사라진다.
-        _autoWarmupSec = Math.Clamp(_autoWarmupSec, 0.0, _autoDurationSec * 0.5);
-
-        GD.Print($"[shell] auto report -> {_autoReportPath}"
-            + $" (warmup {_autoWarmupSec:F0}s, measure {_autoDurationSec - _autoWarmupSec:F0}s)");
-    }
-
-    /// <summary>
-    /// 커서 레이어를 스크립트가 요구한 상태로 맞춘다. 인터랙티브 핫키(F11/F12/1)와
-    /// 같은 조작을 인자로 노출하는 것뿐이라, 사람이 손으로 재든 스크립트가 재든
-    /// 같은 상태를 만든다.
-    /// </summary>
-    private void ApplyAutoCursorArgs()
-    {
-        if (!_autoCursor)
-        {
-            return;
-        }
-
-        if (int.TryParse(_autoCursorIntervalMs, out int ms))
-        {
-            // 후보 배열에 없는 값을 넘기면 조용히 무시되는 게 최악이다. 못 맞추면 말한다.
-            int idx = Array.IndexOf(CursorLayer.IntervalsMs, ms);
-            if (idx < 0)
-            {
-                GD.PrintErr($"[shell] --cursor-interval={ms} 는 후보에 없다"
-                    + $" ({string.Join("/", CursorLayer.IntervalsMs)}). 기본값을 쓴다");
-            }
-            else
-            {
-                while (_cursor.IntervalIndex != idx)
-                {
-                    _cursor.CycleInterval();
-                }
-            }
-        }
-
-        if (!string.IsNullOrEmpty(_autoCursorMode)
-            && Enum.TryParse(_autoCursorMode, ignoreCase: true, out CursorLayer.FollowMode mode))
-        {
-            while (_cursor.Mode != mode)
-            {
-                _cursor.CycleMode();
-            }
-        }
-
-        _cursor.Simulate = _autoCursorSim;
-        _cursor.SkipClickThrough = _autoCursorNoPass;
-
-        _cursor.SetEnabled(true);
-
-        // Equip 은 SetEnabled(true) 뒤에 불러야 한다 - CursorLayer.Equip 이
-        // 스프라이트 가시성을 지금의 Enabled 값으로 정하기 때문이다.
-        if (!string.IsNullOrEmpty(_autoCursorEquip))
-        {
-            string[] ids = _autoCursorEquip.Split(',');
-            CursorSlot[] order = { CursorSlot.Hang, CursorSlot.Trail, CursorSlot.Base };
-            for (int i = 0; i < order.Length && i < ids.Length; i++)
-            {
-                _cursor.Equip(order[i], string.IsNullOrEmpty(ids[i]) ? null : ids[i]);
-            }
-        }
-
-        _cursor.ResetCounters();
-    }
-
-    private static bool TryParseSeconds(string arg, string prefix, out double value)
-    {
-        value = 0.0;
-        return arg.StartsWith(prefix, StringComparison.Ordinal)
-            && double.TryParse(
-                arg[prefix.Length..],
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out value);
-    }
-
-    private void TickAutoReport(double delta)
-    {
-        _autoElapsed += delta;
-
-        if (!_autoWarmedUp)
-        {
-            if (_autoElapsed < _autoWarmupSec)
-            {
-                return;
-            }
-
-            _autoWarmedUp = true;
-            _perf.Reset();
-            _cursor.ResetCounters();
-            _uptime = 0.0;
-            return;
-        }
-
-        if (_autoElapsed < _autoDurationSec)
-        {
-            return;
-        }
-
-        // 마지막 구간을 한 번 더 반영하고 쓴다. 0.5초 틱 사이에서 끝날 수 있기 때문이다.
-        _perf.Sample();
-
-        try
-        {
-            // BOM 을 붙여서 쓴다. Windows PowerShell 5.1 의 Get-Content 는 BOM 이 없으면
-            // UTF-8 을 ANSI 로 읽어서 리포트의 한글이 깨진다.
-            System.IO.File.WriteAllText(
-                _autoReportPath, BuildReport(), new System.Text.UTF8Encoding(true));
-            GD.Print($"[shell] auto report written: {_autoReportPath}");
-        }
-        catch (Exception e)
-        {
-            // 쓰기가 실패해도 종료는 한다. 스크립트는 파일 부재를 실패로 읽는다.
-            GD.PrintErr($"[shell] auto report failed: {e.Message}");
-        }
-
-        GetTree().Quit();
-    }
-
-    /// <summary>F9. 노션 측정 기록표에 그대로 붙일 수 있는 형태로 뽑는다.</summary>
-    private string BuildReport()
-    {
-        int screen = DisplayServer.WindowGetCurrentScreen();
-
-        return string.Join("\n", new[]
-        {
-            "=== ProjectSeWoo overlay shell spike ===",
-            $"uptime         {_uptime:F0}s",
-            $"cpu avg/peak   {_perf.AvgCpuPercent:F2}% / {_perf.PeakCpuPercent:F2}%   (cores {_perf.Cores})",
-            $"memory         {_perf.PrivateCommitMb} MB private commit"
-                + $" / {_perf.WorkingSetMb} MB working set"
-                + $" (godot {_perf.GodotStaticMb} MB, clr heap {_perf.ManagedHeapMb} MB)",
-            $"renderer       {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
-            // 스팀은 개인 커밋을 수십 MB 먹는다. 리포트에 이 줄이 없으면 측정값이
-            // 스팀을 켠 것인지 아닌지 나중에 알 수가 없다 - A7 Release 재측정에서
-            // 실제로 회차마다 50MB 씩 흔들렸고, 원인이 스팀인지 판별할 방법이 없었다.
-            $"steam          {(_steam == null ? "off (요청 안 함)" : _steam.Status)}",
-            $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
-            $"passthrough    {OnOff(_settings.PositionLocked)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
-                + $" writes {_regionWrites}",
-            $"always on top  {OnOff(_win.AlwaysOnTop)}",
-            $"screen         #{screen} of {DisplayServer.GetScreenCount()},"
-                + $" dpi {DisplayServer.ScreenGetDpi(screen)},"
-                + $" scale {DisplayServer.ScreenGetScale(screen):F2},"
-                + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
-            $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y},"
-                + $" uiscale {_settings.Scale:F2}, opacity {_settings.Opacity:F2}, save {OnOff(SaveIO.Exists())}",
-            $"visibility     userWants {OnOff(_userWantsVisible)}, autoHiddenForFullscreen {OnOff(_autoHiddenForFullscreen)},"
-                + $" winVisible {OnOff(_win.Visible)}",
-            $"input on body: left {_clicks}, right {_rclicks},"
-                + $" wheel {_wheels}, drag-moved {_drags}",
-            _input.StatusLine(),
-            _cursor.StatusLine(),
-            _cursor.PositionLine(),
-            "",
-            // 자동 판정은 숫자로 확인되는 두 항목만 한다.
-            // 플리커 / 드래그 / 멀티모니터는 사람이 눈으로 봐야 하므로 미정으로 남긴다.
-            $"[auto] idle cpu avg < 1%       {Verdict(_perf.AvgCpuPercent < 1.0)}"
-                + $"   ({_perf.AvgCpuPercent:F2}%, sampled {_uptime:F0}s)",
-            // 메모리 기준은 2026-09-16 에 개인 커밋 150MB 에서 OS PrivWS 300MB 로
-            // 재설정됐다(A7-PERF.md §4-2). PrivWS 는 프로세스가 자기 자신에 대해
-            // 싸게 구할 수 없어서 measure-renderers.ps1 이 WMI 로 밖에서 찍는다.
-            // 옛 기준을 그대로 두면 이미 조건부 Go 로 판정한 빌드가 리포트마다
-            // FAIL 을 찍어서, 표와 리포트가 정반대를 말하게 된다.
-            $"[info] private commit         {_perf.PrivateCommitMb} MB (참고값 - 판정 기준 아님)",
-            "[info] 메모리 판정            OS PrivWS < 300MB - measure-renderers.ps1 표에서 본다",
-            "[eye ] no flicker              ?   <- F3 로 every-frame 과 비교해서 직접 채운다",
-            "[eye ] drag ok on every screen ?   <- F7/F8 로 모니터별 확인 후 직접 채운다",
-        });
     }
 
     public override void _ExitTree()
@@ -1480,8 +724,4 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 스팀을 안 놓으면 친구 목록에 죽은 프로세스가 한동안 "게임 중"으로 남는다.
         _steam?.Dispose();
     }
-
-    private static string OnOff(bool value) => value ? "on" : "off";
-
-    private static string Verdict(bool pass) => pass ? "PASS" : "FAIL";
 }
