@@ -4,15 +4,21 @@ using System.Runtime.InteropServices;
 namespace ProjectSeWoo.InputHelper;
 
 /// <summary>
-/// RawInput 으로 타건 수만 세는 핵심 (기획확정-일감분배-260907.md §7-2 / §6).
+/// RawInput 으로 입력 횟수만 세는 핵심 (기획확정-일감분배-260907.md §7-2 / §6).
 ///
 /// <b>RawInput(WM_INPUT) 방식이다. <c>WH_KEYBOARD_LL</c> 은 쓰지 않는다.</b>
 /// 저수준 훅은 키로거와 코드 시그니처가 같아서 백신 오탐과 안티치트 충돌이 거의
 /// 확정이고, 게이머 대상 상주 앱에서 그건 치명적이다.
 ///
-/// <b>이 클래스가 "키를 읽지 않는다" 의 증명 지점이다.</b> 프로젝트 전체에서
-/// 키보드 원본 데이터를 만지는 코드는 여기 하나뿐이고, <see cref="HandleRawInput"/>
-/// 하나만 읽으면 검증이 끝난다. 게임 본체에는 이 코드가 아예 없다.
+/// <b>이 클래스가 "무엇을 눌렀는지 읽지 않는다" 의 증명 지점이다.</b> 프로젝트
+/// 전체에서 입력 원본 데이터를 만지는 코드는 여기 하나뿐이고,
+/// <see cref="HandleRawInput"/> 하나만 읽으면 검증이 끝난다. 게임 본체에는 이
+/// 코드가 아예 없다.
+///
+/// <b>2026-09-19: 마우스 버튼도 센다.</b> 키보드만 세던 것을 을 요청으로 넓혔다.
+/// 휠은 빼는데, 한 번 굴릴 때 이벤트가 여러 번 터져서 횟수가 부풀기 때문이다.
+/// 마우스를 넣어도 개인정보 수준은 그대로다 - <see cref="HandleRawInput"/> 의
+/// 설명 참고.
 /// </summary>
 internal sealed class RawKeyboardCounter : IDisposable
 {
@@ -24,16 +30,31 @@ internal sealed class RawKeyboardCounter : IDisposable
 
     private const ushort UsagePageGeneric = 0x01;
     private const ushort UsageKeyboard = 0x06;
+    private const ushort UsageMouse = 0x02;
 
     /// <summary>포커스가 없어도 입력을 받는다. 상주 앱이므로 이게 핵심이다.</summary>
     private const uint RidevInputSink = 0x00000100;
 
     private const uint RidevRemove = 0x00000001;
     private const uint RidInput = 0x10000003;
+    private const uint RimTypeMouse = 0;
     private const uint RimTypeKeyboard = 1;
 
     /// <summary>키를 <b>뗄 때</b> 켜지는 플래그. 이게 있으면 세지 않는다.</summary>
     private const ushort RiKeyBreak = 0x01;
+
+    /// <summary>
+    /// "버튼이 눌렸다" 에 해당하는 비트를 전부 합친 마스크 —
+    /// 좌 0x0001 · 우 0x0004 · 중 0x0010 · 사이드4 0x0040 · 사이드5 0x0100.
+    ///
+    /// <b>뗌 비트와 휠 비트는 일부러 뺐다.</b> 뗌(0x0002/0x0008/…)을 넣으면 한 번
+    /// 클릭이 두 번 세지고, 휠(0x0400)·가로휠(0x0800)은 한 번 굴릴 때 여러 번
+    /// 터져서 횟수가 부푼다.
+    ///
+    /// <b>이 마스크는 통째로만 쓴다.</b> 개별 비트를 꺼내면 "어느 버튼인지" 를 아는
+    /// 코드가 되므로, <c>!= 0</c> 비교 한 번으로 끝낸다 - 아래 <see cref="HandleRawInput"/> 참고.
+    /// </summary>
+    private const ushort AnyButtonDown = 0x0155;
 
     // 창 스타일. **메시지 전용 창(HWND_MESSAGE)을 쓰면 안 되고, WS_VISIBLE 이
     // 있어야 한다.** 둘 다 실측으로 확인했다 — 메시지 전용 창에는 WM_INPUT 이
@@ -49,12 +70,14 @@ internal sealed class RawKeyboardCounter : IDisposable
     private const int ErrorClassAlreadyExists = 1410;
     private const nuint TimerId = 1;
 
-    // RAWINPUT 버퍼의 바이트 배치 (x64):
+    // RAWINPUT 버퍼의 바이트 배치 (x64). 헤더 24바이트는 공통이고 그 뒤가 갈린다:
     //
-    //   offset  0  RAWINPUTHEADER.dwType        (4)   <- 읽는다 (키보드인가)
+    //   offset  0  RAWINPUTHEADER.dwType        (4)   <- 읽는다 (키보드인가 마우스인가)
     //           4  RAWINPUTHEADER.dwSize        (4)
     //           8  RAWINPUTHEADER.hDevice       (8)
     //          16  RAWINPUTHEADER.wParam        (8)
+    //
+    //   [키보드]
     //          24  RAWKEYBOARD.MakeCode         (2)   <- 읽지 않는다 (스캔 코드)
     //          26  RAWKEYBOARD.Flags            (2)   <- 읽는다 (누름/뗌)
     //          28  RAWKEYBOARD.Reserved         (2)
@@ -62,12 +85,22 @@ internal sealed class RawKeyboardCounter : IDisposable
     //          32  RAWKEYBOARD.Message          (4)
     //          36  RAWKEYBOARD.ExtraInformation (4)
     //
-    // RAWKEYBOARD 를 통째로 마샬링하는 구조체를 만들지 않은 이유가 이것이다 —
-    // 구조체를 만들면 키 코드가 필드로 존재하게 되고 "안 읽는다" 가 규율의 문제가
-    // 된다. 오프셋 두 개만 읽으면 구조적으로 못 읽는다.
+    //   [마우스]
+    //          24  RAWMOUSE.usFlags             (2)   <- 읽지 않는다
+    //          28  RAWMOUSE.usButtonFlags       (2)   <- 읽는다 (버튼이 눌렸는가)
+    //          30  RAWMOUSE.usButtonData        (2)   <- 읽지 않는다 (휠 회전량)
+    //          32  RAWMOUSE.ulRawButtons        (4)   <- 읽지 않는다
+    //          36  RAWMOUSE.lLastX              (4)   <- 읽지 않는다 (이동량)
+    //          40  RAWMOUSE.lLastY              (4)   <- 읽지 않는다 (이동량)
+    //          44  RAWMOUSE.ulExtraInformation  (4)
+    //
+    // RAWKEYBOARD/RAWMOUSE 를 통째로 마샬링하는 구조체를 만들지 않은 이유가
+    // 이것이다 — 구조체를 만들면 키 코드와 좌표가 필드로 존재하게 되고
+    // "안 읽는다" 가 규율의 문제가 된다. 오프셋 세 개만 읽으면 구조적으로 못 읽는다.
     private const int RawInputHeaderSize = 24;
     private const int TypeOffset = 0;
     private const int FlagsOffset = 26;
+    private const int ButtonFlagsOffset = 28;
     private const int BufferSize = 64;
 
     // --- 어뷰징 방어 수치 (§6) -------------------------------------------
@@ -180,11 +213,28 @@ internal sealed class RawKeyboardCounter : IDisposable
     private long _lastSecondStamp;
     private int _thisSecond;
 
-    private double _lastKeyAtMs = double.NegativeInfinity;
-    private double _intervalAvg;
-    private int _metronomeRun;
+    /// <summary>
+    /// 규칙성 판정에 쓰는 상태. <b>키보드와 마우스가 따로 들고 간다.</b>
+    ///
+    /// 한 덩어리로 합치면 두 스트림이 섞여 간격이 불규칙해지고, 타자를 치는 동안
+    /// 같이 도는 오토클리커가 감쇠를 그냥 빠져나간다 - 감쇠를 둔 이유가 바로
+    /// 그 경우다. 초당 캡(<see cref="_thisSecond"/>)은 반대로 <b>공유</b>한다.
+    /// 총 획득 속도는 안 올라야 §2-2 경제가 그대로이기 때문이다.
+    /// </summary>
+    private struct Rhythm
+    {
+        public double LastAtMs;
+        public double IntervalAvg;
+        public int Run;
+    }
+
+    private Rhythm _keyboardRhythm = new() { LastAtMs = double.NegativeInfinity };
+    private Rhythm _mouseRhythm = new() { LastAtMs = double.NegativeInfinity };
 
     public long TotalCount { get; private set; }
+
+    /// <summary><see cref="TotalCount"/> 중 마우스 버튼이 낸 몫. 진단용이다.</summary>
+    public long MouseCount { get; private set; }
 
     public long DroppedByCap { get; private set; }
 
@@ -267,20 +317,25 @@ internal sealed class RawKeyboardCounter : IDisposable
         }
     }
 
+    /// <summary>우리가 받는 기기 두 종류. 등록·확인·해제가 같은 목록을 본다.</summary>
+    private static readonly ushort[] Usages = { UsageKeyboard, UsageMouse };
+
     private bool Register()
     {
-        var devices = new[]
+        var devices = new RawInputDevice[Usages.Length];
+        for (int i = 0; i < Usages.Length; i++)
         {
-            new RawInputDevice
+            devices[i] = new RawInputDevice
             {
                 UsagePage = UsagePageGeneric,
-                Usage = UsageKeyboard,
+                Usage = Usages[i],
                 Flags = RidevInputSink,
                 Target = _hwnd,
-            },
-        };
+            };
+        }
 
-        return RegisterRawInputDevices(devices, 1, (uint)Marshal.SizeOf<RawInputDevice>());
+        return RegisterRawInputDevices(
+            devices, (uint)devices.Length, (uint)Marshal.SizeOf<RawInputDevice>());
     }
 
     /// <summary>
@@ -302,15 +357,24 @@ internal sealed class RawKeyboardCounter : IDisposable
             uint got = GetRegisteredRawInputDevices(list, ref count, size);
             if (got != unchecked((uint)-1))
             {
+                // **둘 다 있어야 통과다.** 하나만 보고 빠져나가면 마우스 등록이
+                // 조용히 빠진 채로 계속 돈다 - 키는 세지는데 클릭만 안 세지는,
+                // 원인 찾기 고약한 상태가 된다.
+                int found = 0;
                 for (int i = 0; i < got; i++)
                 {
                     if (list[i].UsagePage == UsagePageGeneric
-                        && list[i].Usage == UsageKeyboard
+                        && Array.IndexOf(Usages, list[i].Usage) >= 0
                         && (list[i].Flags & RidevInputSink) != 0
                         && list[i].Target == _hwnd)
                     {
-                        return;
+                        found++;
                     }
+                }
+
+                if (found >= Usages.Length)
+                {
+                    return;
                 }
             }
         }
@@ -324,17 +388,20 @@ internal sealed class RawKeyboardCounter : IDisposable
         {
             // 등록을 풀 때 Target 은 반드시 IntPtr.Zero 여야 한다.
             // 창 핸들을 넣으면 RIDEV_REMOVE 가 조용히 실패한다.
-            var remove = new[]
+            var remove = new RawInputDevice[Usages.Length];
+            for (int i = 0; i < Usages.Length; i++)
             {
-                new RawInputDevice
+                remove[i] = new RawInputDevice
                 {
                     UsagePage = UsagePageGeneric,
-                    Usage = UsageKeyboard,
+                    Usage = Usages[i],
                     Flags = RidevRemove,
                     Target = IntPtr.Zero,
-                },
-            };
-            RegisterRawInputDevices(remove, 1, (uint)Marshal.SizeOf<RawInputDevice>());
+                };
+            }
+
+            RegisterRawInputDevices(
+                remove, (uint)remove.Length, (uint)Marshal.SizeOf<RawInputDevice>());
 
             DestroyWindow(_hwnd);
             _hwnd = IntPtr.Zero;
@@ -376,38 +443,68 @@ internal sealed class RawKeyboardCounter : IDisposable
     }
 
     /// <summary>
-    /// <b>키 코드를 읽지 않는다는 것이 여기서 증명된다.</b>
+    /// <b>무엇을 눌렀는지 읽지 않는다는 것이 여기서 증명된다.</b>
     ///
-    /// 버퍼에서 읽는 값은 딱 둘이다:
-    ///   - offset 0  : 이게 키보드 입력인가 (마우스·HID 를 걸러내려고)
-    ///   - offset 26 : 누른 것인가 뗀 것인가 (안 그러면 한 타가 두 번 세진다)
+    /// 버퍼에서 읽는 값은 딱 셋이다:
+    ///   - offset 0  : 키보드인가 마우스인가 (그 외 HID 를 걸러내려고)
+    ///   - offset 26 : (키보드) 누른 것인가 뗀 것인가 — 안 그러면 한 타가 두 번 세진다
+    ///   - offset 28 : (마우스) 버튼이 눌렸는가 — 뗌·휠을 걸러내려고
     ///
-    /// 스캔 코드(offset 24)와 가상 키 코드(offset 30)는 어느 경로에서도 읽지
-    /// 않는다. 변수에 담지도, 로그에 남기지도, 비교하지도 않는다.
+    /// 스캔 코드(24)·가상 키 코드(30)·마우스 좌표(36/40)·휠 회전량(30)은 어느
+    /// 경로에서도 읽지 않는다. 변수에 담지도, 로그에 남기지도, 비교하지도 않는다.
+    ///
+    /// <b>마우스 버튼도 "어느 버튼인지" 는 모른다.</b> <see cref="AnyButtonDown"/>
+    /// 마스크와 <c>!= 0</c> 비교 한 번만 하고 개별 비트를 꺼내지 않는다. 키보드에서
+    /// 키 코드를 안 읽는 것과 같은 수준이고, 이 성질이 §7-6 개인정보 문구를
+    /// 떠받친다.
     /// </summary>
     private void HandleRawInput(IntPtr hRawInput)
     {
         uint size = BufferSize;
         uint read = GetRawInputData(hRawInput, RidInput, _buffer, ref size, RawInputHeaderSize);
 
-        if (read == unchecked((uint)-1) || size < FlagsOffset + 2)
+        if (read == unchecked((uint)-1))
         {
             return;
         }
 
-        if ((uint)Marshal.ReadInt32(_buffer, TypeOffset) != RimTypeKeyboard)
+        var type = (uint)Marshal.ReadInt32(_buffer, TypeOffset);
+
+        if (type == RimTypeKeyboard)
         {
+            if (size < FlagsOffset + 2)
+            {
+                return;
+            }
+
+            ushort flags = (ushort)Marshal.ReadInt16(_buffer, FlagsOffset);
+            if ((flags & RiKeyBreak) != 0)
+            {
+                // 키를 뗀 것이다. 누른 것만 센다.
+                return;
+            }
+
+            Count(ref _keyboardRhythm, mouse: false);
             return;
         }
 
-        ushort flags = (ushort)Marshal.ReadInt16(_buffer, FlagsOffset);
-        if ((flags & RiKeyBreak) != 0)
+        if (type == RimTypeMouse)
         {
-            // 키를 뗀 것이다. 누른 것만 센다.
-            return;
-        }
+            if (size < ButtonFlagsOffset + 2)
+            {
+                return;
+            }
 
-        CountKeyDown();
+            // 마우스 이동만 있는 패킷은 버튼 비트가 0 이라 여기서 걸러진다.
+            // 이동 패킷이 훨씬 많으므로 이 분기가 사실상 대부분이다.
+            ushort buttons = (ushort)Marshal.ReadInt16(_buffer, ButtonFlagsOffset);
+            if ((buttons & AnyButtonDown) == 0)
+            {
+                return;
+            }
+
+            Count(ref _mouseRhythm, mouse: true);
+        }
     }
 
     /// <summary>
@@ -422,9 +519,10 @@ internal sealed class RawKeyboardCounter : IDisposable
     /// 매크로·키 홀드 자동 반복은 메트로놈처럼 규칙적이다. 키 코드를 안 봐도
     /// 갈리고, <b>서로 다른 키를 번갈아 누르는 매크로까지 잡힌다</b> —
     /// 원래 규칙으로는 못 잡던 것이다. 자동 반복(키 홀드)도 고정 주기라 같은
-    /// 장치에 걸린다.
+    /// 장치에 걸린다. <b>오토클리커도 같은 장치에 그대로 걸린다</b> - 마우스가
+    /// 자기 <see cref="Rhythm"/> 을 따로 들고 가는 이유다.
     /// </summary>
-    private void CountKeyDown()
+    private void Count(ref Rhythm rhythm, bool mouse)
     {
         long now = GetTickCount64();
 
@@ -434,32 +532,34 @@ internal sealed class RawKeyboardCounter : IDisposable
             _thisSecond = 0;
         }
 
-        double gap = now - _lastKeyAtMs;
-        _lastKeyAtMs = now;
+        double gap = now - rhythm.LastAtMs;
+        rhythm.LastAtMs = now;
 
         if (gap < MinHumanIntervalMs)
         {
             // 사람이 낼 수 없는 간격이다. 판정할 것도 없다.
-            _metronomeRun++;
+            rhythm.Run++;
         }
         else if (double.IsInfinity(gap) || gap > IdleResetMs)
         {
-            // 첫 타이거나 한참 쉬었다. 규칙성 판정을 새로 시작한다.
-            _metronomeRun = 0;
-            _intervalAvg = double.IsInfinity(gap) ? 0.0 : gap;
+            // 첫 입력이거나 한참 쉬었다. 규칙성 판정을 새로 시작한다.
+            rhythm.Run = 0;
+            rhythm.IntervalAvg = double.IsInfinity(gap) ? 0.0 : gap;
         }
         else
         {
-            bool regular = _intervalAvg > 0.0
-                && Math.Abs(gap - _intervalAvg) <= _intervalAvg * MetronomeTolerance;
+            bool regular = rhythm.IntervalAvg > 0.0
+                && Math.Abs(gap - rhythm.IntervalAvg) <= rhythm.IntervalAvg * MetronomeTolerance;
 
-            _metronomeRun = regular ? _metronomeRun + 1 : 0;
+            rhythm.Run = regular ? rhythm.Run + 1 : 0;
 
             // 지수 이동 평균. 사람이 점점 빨라지는 것까지 매크로로 보면 안 된다.
-            _intervalAvg = _intervalAvg > 0.0 ? (_intervalAvg * 0.7) + (gap * 0.3) : gap;
+            rhythm.IntervalAvg = rhythm.IntervalAvg > 0.0
+                ? (rhythm.IntervalAvg * 0.7) + (gap * 0.3)
+                : gap;
         }
 
-        if (_metronomeRun >= MetronomeRunLimit)
+        if (rhythm.Run >= MetronomeRunLimit)
         {
             DroppedByDecay++;
             return;
@@ -473,5 +573,10 @@ internal sealed class RawKeyboardCounter : IDisposable
 
         _thisSecond++;
         TotalCount++;
+
+        if (mouse)
+        {
+            MouseCount++;
+        }
     }
 }

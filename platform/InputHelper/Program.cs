@@ -103,6 +103,7 @@ internal static class Program
         _view.Write(InputBridge.OffsetTotal, _counter.TotalCount);
         _view.Write(InputBridge.OffsetDroppedCap, _counter.DroppedByCap);
         _view.Write(InputBridge.OffsetDroppedDecay, _counter.DroppedByDecay);
+        _view.Write(InputBridge.OffsetMouseTotal, _counter.MouseCount);
         _view.Write(InputBridge.OffsetHeartbeat, Environment.TickCount64);
 
         _parent.Refresh();

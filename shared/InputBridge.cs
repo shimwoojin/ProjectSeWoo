@@ -34,6 +34,12 @@ public static class InputBridge
     public const int OffsetHeartbeat = 32;
 
     /// <summary>
+    /// <see cref="OffsetTotal"/> 중 마우스 버튼이 낸 몫. <b>총합에서 빼야 하는 값이
+    /// 아니라 그 안에 이미 들어 있는 내역</b>이고, 진단 표시 말고는 쓰지 않는다.
+    /// </summary>
+    public const int OffsetMouseTotal = 40;
+
+    /// <summary>
     /// 헬퍼가 제대로 붙었는지 확인하는 표식. 0 이면 아직 아무도 안 썼다는 뜻이고,
     /// 그걸 "헬퍼가 죽었다" 와 구분하려고 둔다.
     /// </summary>

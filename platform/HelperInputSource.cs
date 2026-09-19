@@ -55,6 +55,12 @@ public sealed class HelperInputSource : IInputSource, IDisposable
 
     public long DroppedByDecay { get; private set; }
 
+    /// <summary>
+    /// <see cref="TotalCount"/> 중 마우스 버튼이 낸 몫 (2026-09-19). 총합에서 빼야
+    /// 하는 값이 아니라 그 안에 들어 있는 내역이고, 진단 표시 말고는 쓰지 않는다.
+    /// </summary>
+    public long MouseCount { get; private set; }
+
     /// <summary>헬퍼를 다시 띄운 횟수. 0 이 아니면 헬퍼가 불안정하다는 뜻이다.</summary>
     public int Restarts => _restarts;
 
@@ -226,6 +232,7 @@ public sealed class HelperInputSource : IInputSource, IDisposable
 
         DroppedByCap = _view.ReadInt64(InputBridge.OffsetDroppedCap);
         DroppedByDecay = _view.ReadInt64(InputBridge.OffsetDroppedDecay);
+        MouseCount = _view.ReadInt64(InputBridge.OffsetMouseTotal);
 
         long total = _view.ReadInt64(InputBridge.OffsetTotal);
         long diff = total - _lastTotal;
@@ -273,6 +280,7 @@ public sealed class HelperInputSource : IInputSource, IDisposable
     /// <summary>리포트용 한 줄. ASCII 전용.</summary>
     public string StatusLine() =>
         $"input {(IsAvailable ? "on" : "off")} [{Status}],"
-        + $" total {TotalCount}, dropped cap {DroppedByCap} / decay {DroppedByDecay},"
+        + $" total {TotalCount} (mouse {MouseCount}),"
+        + $" dropped cap {DroppedByCap} / decay {DroppedByDecay},"
         + $" restarts {_restarts}";
 }

@@ -143,7 +143,8 @@ public partial class OverlayShell
             $"rend  {RenderingServer.GetCurrentRenderingMethod()} / {RenderingServer.GetCurrentRenderingDriverName()}",
             "",
             $"pass  {OnOff(_settings.PositionLocked)}   update {(_updateEveryFrame ? "every-frame" : "on-change")}   writes {_regionWrites}",
-            $"in    total {_input.TotalCount}  cap-drop {_input.DroppedByCap}"
+            $"in    total {_input.TotalCount}  mouse {_input.MouseCount}"
+                + $"  cap-drop {_input.DroppedByCap}"
                 + $"  decay-drop {_input.DroppedByDecay}  [{_input.Status}]",
             $"      available {OnOff(_input.IsAvailable)}  restarts {_input.Restarts}",
             $"ontop {OnOff(_win.AlwaysOnTop)}   outline {OnOff(_showOutline)}"
