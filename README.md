@@ -20,10 +20,10 @@ Windows 데스크톱 컴패니언 방치형 게임. Godot 4.7 + C#, 스팀 출�
 | [docs/A3-SHELL-MODULE.md](docs/A3-SHELL-MODULE.md) | 셸 모듈화, `IShell` 실물, 세이브 파일 I/O |
 | [docs/A4-GLOBAL-INPUT.md](docs/A4-GLOBAL-INPUT.md) | 글로벌 입력 (RawInput, 별도 헬퍼 프로세스) |
 | [docs/A5-CURSOR-COSMETICS.md](docs/A5-CURSOR-COSMETICS.md) | 커서 꾸미기 정식화, `ICursorLayer` 실물, 3슬롯 장착 |
-| [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2 |
+| [docs/A6-TRAY-OPTIONS.md](docs/A6-TRAY-OPTIONS.md) | 트레이 아이콘, 자동 시작, 옵션 창, 세이브 스키마 v2/v3, 창 숨김 버그 |
 | [docs/A7-PERF.md](docs/A7-PERF.md) | 저부하 최종 실측(커서 창 포함), .NET 런타임 튜닝 한계, 메모리 게이트 판단 |
 | [docs/SCENE-ARCHITECTURE.md](docs/SCENE-ARCHITECTURE.md) | `IInteractiveArea` 계약, 씬/폴더 배치 (B1 착수 전 필독) |
-| [docs/B-TRACK-START.md](docs/B-TRACK-START.md) | **을 시작 가이드.** 목 4종 쓰는 법, B1 착수 순서, `GameRoot` 스캐폴딩 예시 |
+| [docs/B-TRACK-START.md](docs/B-TRACK-START.md) | **을 시작 가이드.** 실물을 받는 법(`IPlatformConsumer`), 목 쓰는 법, B1 착수 순서 |
 | [docs/DEVLOG.md](docs/DEVLOG.md) | 개발 로그 · 결정 사항 · 밟은 함정 |
 
 ## 실행
@@ -47,12 +47,15 @@ dotnet build ProjectSeWoo.csproj
 ```
 project.godot              투명/무테/항상위/per-pixel 투명 + 스트레치 1:1 고정
 ProjectSeWoo.csproj        Godot.NET.Sdk 4.7.2, net8.0
-shared/Contracts/          갑/을 인터페이스 5종 (IInputSource, ICursorLayer, INetSession, IShell, IInteractiveArea)
-shared/Save/               세이브 스키마 v2 + 마이그레이션 훅
+shared/Contracts/          갑/을 인터페이스 8종. IPlatformServices 가 나머지를 묶어 game/ 에 넘긴다
+shared/Save/               세이브 스키마 v3 + 마이그레이션 훅
+shared/Mocks/              목 6종. 갑이 만들고 을이 쓴다 (실물 없이 game/ 을 돌리는 용도)
 platform/                  갑 담당. OS와 붙는 전부
-  Shell.tscn                 씬 루트 (scenes/ 에서 이동). 나머지는 코드로 구성
-  OverlayShell.cs            창 설정, 클릭 통과, 드래그, 핫키, 리포트. IShell 실물
-  PlaceholderMascot.cs       IInteractiveArea 자리표시자 - game/GameRoot 나오면 대체됨
+  Shell.tscn                 씬 루트. game/GameRoot.tscn 을 자식으로 문다
+  OverlayShell.cs            창 설정, 클릭 통과, 드래그. IShell + IPlatformServices 실물
+  OverlayShell.Visibility.cs   표시/숨김 · 트레이 · 옵션 창 (A6)
+  OverlayShell.Diagnostics.cs  HUD 통계 · F9 리포트 · --report= 무인 측정 · selftest
+  OverlayShell.DebugKeys.cs    디버그 키 (F1~F12, 1~4, [ ] - = O H, Esc). 전부 임시
   CursorLayer.cs             A2 커서 추종 창. ICursorLayer 실물, 3슬롯 장착
   HelperInputSource.cs       IInputSource 실물 (별도 헬퍼 프로세스 IPC)
   InputHelper/               별도 exe. RawInput 으로 타건 수만 센다
@@ -62,10 +65,13 @@ platform/                  갑 담당. OS와 붙는 전부
   Autostart.cs               시작 프로그램 등록 (HKCU Run 키)
   FullscreenWatcher.cs       전체화면 앱 위 자동 숨김 휴리스틱
   PerfProbe.cs               CPU%/메모리 샘플링
-  DebugHud.cs                HUD (ASCII 전용 — 기본 폰트에 한글 글리프 없음)
-  Mocks/                     4개 인터페이스의 목 구현 (을이 갑을 안 기다리고 쓴다)
-game/                      을 담당. 게임 안에서 도는 전부 (아직 착수 전)
-  entities/ ui/ effects/ multiplayer/   골격만 잡아 둔 빈 폴더 (docs/SCENE-ARCHITECTURE.md §2)
+  DebugHud.cs                HUD (ASCII 전용 — 제약이 아니라 관성. DAY1-2-SPIKE.md §1 참고)
+game/                      을 담당. 게임 안에서 도는 전부
+  GameRoot.tscn/.cs          IInteractiveArea + IPlatformConsumer. 갑과 맞닿는 유일한 지점
+  KeystrokeLevel.cs          누적 타수 -> 레벨 환산 (§6). 순수 함수, 상태 없음
+  entities/                  Tree · TreeSlot · Monkey (B1)
+  ui/StatusHud.*             레벨 · 누적 타수 · 바나나 표시 (B3)
+  effects/ multiplayer/      아직 빈 폴더 (docs/SCENE-ARCHITECTURE.md §2)
 tools/VsLauncher/          Visual Studio F5 디버깅용 런처 (게임 아님, 배포 제외)
 ```
 

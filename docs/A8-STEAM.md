@@ -12,7 +12,7 @@
 | Steam 초기화 + 콜백 펌프 | `platform/SteamService.cs` | ☑ 실행 확인 |
 | `IAchievements` 계약 (6번째) | `shared/Contracts/IAchievements.cs` | ☑ 커밋 |
 | 도전과제 API Name 스텁 | `AchievementIds` (같은 파일) | ☑ 이름만. 파트너 사이트 등록은 A15 |
-| 목 구현 | `platform/Mocks/MockAchievements.cs` | ☑ 커밋 |
+| 목 구현 | `shared/Mocks/MockAchievements.cs` | ☑ 커밋 (2026-09-17 이동) |
 | 네이티브 `steam_api64.dll` | 저장소 루트 | ☑ 커밋 (SDK 1.60) |
 | 자체 검사 | `--steam-selftest` | ☑ PASS (§4) |
 | 진짜 앱 ID | `SteamService.DefaultAppId` | ☑ **`5281130`** (2026-09-16 수수료 결제 후 발급, §2-2) |

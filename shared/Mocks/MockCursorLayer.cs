@@ -1,7 +1,7 @@
 using Godot;
 using ProjectSeWoo.Shared;
 
-namespace ProjectSeWoo.Platform.Mocks;
+namespace ProjectSeWoo.Shared.Mocks;
 
 /// <summary>
 /// <see cref="ICursorLayer"/> 목 구현. 장착 상태만 들고 있고 아무것도 그리지 않는다.

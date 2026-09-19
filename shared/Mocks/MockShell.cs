@@ -1,7 +1,7 @@
 using Godot;
 using ProjectSeWoo.Shared;
 
-namespace ProjectSeWoo.Platform.Mocks;
+namespace ProjectSeWoo.Shared.Mocks;
 
 /// <summary>
 /// <see cref="IShell"/> 목 구현. 값을 기억만 하고 창은 건드리지 않는다.

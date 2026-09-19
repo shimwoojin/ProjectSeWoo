@@ -21,8 +21,9 @@ namespace ProjectSeWoo.Shared;
 /// 타입 의존 없이(그룹으로) 찾아서 쓴다 — platform/이 game/의 타입을 컴파일
 /// 타임에 참조하는 일이 없다.
 ///
-/// 지금은 `platform/PlaceholderMascot.cs`가 유일한 구현체다. `game/GameRoot`가
-/// 생기는 날 자리표시자를 대체한다.
+/// `game/GameRoot`가 유일한 구현체다. B1 전까지 쓰던 자리표시자
+/// (`platform/PlaceholderMascot.cs`)는 2026-09-17 에 지웠다 — 못 찾으면 이제
+/// 폴백하지 않고 에러를 찍는다(`OverlayShell.BuildScene`).
 /// </summary>
 public interface IInteractiveArea
 {

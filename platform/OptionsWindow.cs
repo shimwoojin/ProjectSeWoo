@@ -22,6 +22,7 @@ public partial class OptionsWindow : CanvasLayer
     private CheckBox _sound;
     private CheckBox _notifications;
     private CheckBox _cursorEnabled;
+    private CheckBox _cursorIndependent;
     private CheckBox _hideOnFullscreen;
     private CheckBox _keystrokeCounting;
     private CheckBox _autostart;
@@ -41,6 +42,7 @@ public partial class OptionsWindow : CanvasLayer
     public event Action<bool> SoundChanged;
     public event Action<bool> NotificationsChanged;
     public event Action<bool> CursorEnabledChanged;
+    public event Action<bool> CursorIndependentChanged;
     public event Action<bool> HideOnFullscreenChanged;
     public event Action<bool> KeystrokeCountingChanged;
     public event Action<bool> AutostartChanged;
@@ -82,6 +84,8 @@ public partial class OptionsWindow : CanvasLayer
         _sound.ButtonPressed = s.Sound;
         _notifications.ButtonPressed = s.Notifications;
         _cursorEnabled.ButtonPressed = s.CursorEnabled;
+        _cursorIndependent.ButtonPressed = s.CursorIndependent;
+        _cursorIndependent.Disabled = !s.CursorEnabled;
         _hideOnFullscreen.ButtonPressed = s.HideOnFullscreen;
         _keystrokeCounting.ButtonPressed = s.KeystrokeCounting;
 
@@ -136,7 +140,17 @@ public partial class OptionsWindow : CanvasLayer
         _notifications.Toggled += on => Relay(() => NotificationsChanged?.Invoke(on));
 
         rows.AddChild(MakeCheckRow("커서 장식", out _cursorEnabled));
-        _cursorEnabled.Toggled += on => Relay(() => CursorEnabledChanged?.Invoke(on));
+        _cursorEnabled.Toggled += on =>
+        {
+            // 커서 자체를 끄면 "숨겨도 유지" 는 물어볼 것이 없어진다. 값은 그대로
+            // 두고 조작만 막는다 - 체크를 강제로 풀면 다시 켰을 때 유저가 정해 둔
+            // 값이 사라진다.
+            _cursorIndependent.Disabled = !on;
+            Relay(() => CursorEnabledChanged?.Invoke(on));
+        };
+
+        rows.AddChild(MakeCheckRow("숨겨도 커서 장식은 유지", out _cursorIndependent));
+        _cursorIndependent.Toggled += on => Relay(() => CursorIndependentChanged?.Invoke(on));
 
         rows.AddChild(MakeCheckRow("전체화면 앱 위에서 숨김", out _hideOnFullscreen));
         _hideOnFullscreen.Toggled += on => Relay(() => HideOnFullscreenChanged?.Invoke(on));

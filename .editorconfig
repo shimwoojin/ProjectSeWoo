@@ -2,3 +2,19 @@ root = true
 
 [*]
 charset = utf-8
+
+# 들여쓰기는 4칸 공백이다. 프로젝트 전체가 그렇게 돼 있다.
+#
+# 주의: Godot 은 이 파일을 안 읽는다. 에디터로 씬을 열거나 --import 를 돌리면
+# 그 씬의 스크립트만 탭으로 바뀌어 돌아온다 (2026-09-17 에 game/GameRoot.cs 에서
+# 세 번 겪었다). 각자 Godot 에서 한 번 꺼 두는 것이 유일한 예방책이다:
+#
+#   에디터 설정 > Text Editor > Behavior > Indent > Type = Spaces (Size 4)
+#
+# 이 파일이 잡아 주는 것은 VS / VS Code / dotnet format 쪽이다.
+[*.cs]
+indent_style = space
+indent_size = 4
+
+[*.{tscn,godot,cfg}]
+indent_style = tab

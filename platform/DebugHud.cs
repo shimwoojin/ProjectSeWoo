@@ -60,6 +60,7 @@ public partial class DebugHud : CanvasLayer
             "F11 cursor on/off  F12 cursor interval  1 cursor follow mode",
             "2/3/4 cycle equip hang/trail/base (demo)  O options window",
             "[ ] shell scale   - = shell opacity",
+            "H hide shell for 3s (auto-returns)",
         });
         rows.AddChild(_keys);
     }
