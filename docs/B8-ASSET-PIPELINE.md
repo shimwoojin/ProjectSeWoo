@@ -18,7 +18,7 @@
 | 후처리 (알파 정리 → 크롭 → 리사이즈 → 피벗) | `tools/assetgen/postprocess.py` | ☑ |
 | Godot 임포트 자동화 | `tools/build-assets.ps1` §3 | ☑ |
 | 엔티티 아트 (원숭이 펀치 8프레임, 나무, 바나나, 잎) | `assets/entities/` | ☑ |
-| 커서 장식 16종 | `assets/cursor/` | ☐ **B9** |
+| 커서 장식 16종 | `assets/cursor/` | ☑ **B9 완료** (hang 6 / trail 6 / base 4, 315KB) |
 
 ---
 
@@ -162,6 +162,11 @@ overhead, legs hanging loose downward, dangling in mid air" 처럼 몸이 어떤
 커밋된다. `build-assets.ps1` §3 이 임포트 후에 이걸 검사해서 알려준다(자동으로
 되돌리지는 않는다 — 진짜 공백만 고친 작업과 구분할 방법이 없다).
 
+> **예방책은 저장소 루트 `.editorconfig` 에 이미 적혀 있었다** (2026-09-17, B3):
+> Godot 에디터 설정 > Text Editor > Behavior > Indent > Type = **Spaces (Size 4)**.
+> 각자 한 번 꺼 두면 끝난다. `.editorconfig` 자체는 Godot 이 안 읽는다 — 여기
+> 검출은 그 설정을 안 해 둔 사람을 위한 그물이다.
+
 **테마가 아직 임포트 안 된 폰트를 가리키면 Godot 이 죽는다.** `project.godot` 의
 `gui/theme/custom` 을 켠 채로 폰트를 처음 임포트하면 세그폴트가 난다. 폰트를 먼저
 임포트하고 테마를 켜면 된다.
@@ -173,10 +178,7 @@ overhead, legs hanging loose downward, dangling in mid air" 처럼 몸이 어떤
 
 ## 6. 남은 것
 
-1. **B9 — 커서 장식 16종.** 매니페스트에 프롬프트·시드가 이미 다 적혀 있다.
-   `tools\build-assets.ps1 -Only cursor` 한 줄이면 약 6분(16장 × 22초)에 나온다.
-   나온 뒤 눈으로 골라 마음에 안 드는 것만 `-Id <id> -Force` 로 다시 뽑는다.
-2. **LoRA 라이선스 확인** (§4 의 ☐ 둘). 스토어 페이지 공개 전에 닫아야 한다.
-3. **엔티티 시트의 바닥 그림자.** 받은 `Monkey.png` 각 프레임 밑에 회색 타원이
+1. **LoRA 라이선스 확인** (§4 의 ☐ 둘). 스토어 페이지 공개 전에 닫아야 한다.
+2. **엔티티 시트의 바닥 그림자.** 받은 `Monkey.png` 각 프레임 밑에 회색 타원이
    들어 있다. §3 이 말한 바로 그 문제인데 **생성이 아니라 받아온 것이라 프롬프트로
    못 막는다.** 지금은 그대로 두고 있다 — 지울지 말지는 눈으로 보고 정할 일이다.

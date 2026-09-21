@@ -44,6 +44,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private Tree _tree;
     private Monkey _monkey;
     private StatusHud _hud;
+    private ShopWindow _shop;
+    private Button _shopButton;
+
+    /// <summary>
+    /// 구매·장착 규칙 (B6). <see cref="AttachPlatform"/> 전까지는 널이다 -
+    /// 세이브와 커서 레이어가 둘 다 있어야 만들 수 있다.
+    /// </summary>
+    private Inventory _inventory;
 
     /// <summary>
     /// 아직 안 딴 가장 낮은 타수 마일스톤의 인덱스 (§6,
@@ -85,6 +93,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _tree = GetNode<Tree>("Tree");
         _monkey = GetNode<Monkey>("Monkey");
         _hud = GetNode<StatusHud>("StatusHud");
+        _shop = GetNode<ShopWindow>("ShopWindow");
+        _shopButton = GetNode<Button>("ShopButton");
+
+        _shopButton.Pressed += () => _shop.Toggle();
+        _shop.BuyRequested += OnBuyRequested;
+        _shop.EquipRequested += OnEquipRequested;
 
         // **여기서 세이브를 읽거나 입력을 구독하면 안 된다.** Godot 은 자식의
         // _Ready 를 부모보다 먼저 부르는데 실물을 만드는 것은 부모(OverlayShell)라,
@@ -121,6 +135,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     {
         _tree.Configure(Save.Tree);
 
+        // **세이브의 장착 상태를 커서 레이어에 처음으로 밀어 넣는 자리다.** B9 까지
+        // 이걸 부르는 코드가 없어서, 세이브에 hang:monkey_01 이 있어도 켜면 아무
+        // 장식도 안 붙었다 (docs/A5-CURSOR-COSMETICS.md §2-1).
+        _inventory = new Inventory(Save, _platform.Cursor);
+        _inventory.ApplyEquippedToCursor();
+        _shop.Bind(_inventory);
+
         int ripened = _tree.AdvanceOffline(OfflineMs());
 
         // 이미 넘어선 마일스톤은 세션 시작 시점에 지나간 것으로 잡는다. 안 그러면
@@ -137,7 +158,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _hud.SetKeystrokes(Save.TotalKeystrokes);
 
         GD.Print($"[game] 세이브 로드 - 바나나 {Save.Bananas}, 누적 {Save.TotalKeystrokes}타"
-            + $" (Lv.{_level}), 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림");
+            + $" (Lv.{_level}), 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림"
+            + $", 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
 
         // 오프라인 성장분을 바로 한 번 받아 적는다. 안 해도 다음 실행이 같은 계산을
         // 다시 하므로 손해는 없지만, 세이브 파일만 열어 봐도 지금 상태가 보이는 편이
@@ -219,6 +241,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         if (key.Keycode == Key.G)
         {
             _tree.DebugAdvance(DebugGrowMs);
+            return;
+        }
+
+        // 상점. 셸이 쓰는 키(F1~F12 / 1~4 / [ ] - = O H / Esc)와 안 겹치는 자리다.
+        // **목 먹이기보다 먼저 가로챈다** - 안 그러면 상점을 여는 키가 타건으로도
+        // 세어져서, 창을 열 때마다 원숭이가 한 대씩 친다.
+        if (key.Keycode == Key.B)
+        {
+            _shop?.Toggle();
+            return;
+        }
+
+        if (key.Keycode == Key.Escape && _shop is { IsOpen: true })
+        {
+            _shop.Close();
             return;
         }
 
@@ -370,5 +407,100 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _store.FlushNow();
     }
 
-    public Rect2 GetClickableBounds() => Transform * _tree.GetBounds().Merge(_monkey.GetBounds());
+    /// <summary>
+    /// 구매 (§3-2). <b>세이브를 고치는 것은 여기다</b> - 화면은 무엇을 할지만
+    /// 정해서 올려보낸다.
+    ///
+    /// 즉시 저장한다. §7-5 가 자동 저장을 "60초 주기 + 수확/구매 시 즉시" 로
+    /// 못 박았다 - 재화가 줄어든 직후에 앱이 죽으면 유저는 돈만 잃는다.
+    /// </summary>
+    private void OnBuyRequested(ShopCatalog.Item item)
+    {
+        if (!_inventory.TryBuy(item))
+        {
+            // 화면이 버튼을 잠가 두므로 정상 경로로는 여기 안 온다. 연타로 같은
+            // 요청이 두 번 들어온 경우가 남는다 - 두 번째는 조용히 버린다.
+            return;
+        }
+
+        GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {Save.Bananas}");
+
+        _hud.SetBananas(Save.Bananas);
+        _shop.Refresh();
+        PersistNow();
+    }
+
+    /// <summary>장착/해제. 커서 레이어에 미는 것은 <see cref="Inventory"/> 가 한다.</summary>
+    private void OnEquipRequested(CursorSlot slot, string id)
+    {
+        if (!_inventory.Equip(slot, id))
+        {
+            return;
+        }
+
+        GD.Print($"[game] 장착 {slot} = {id ?? "(비움)"}");
+        _shop.Refresh();
+        PersistNow();
+    }
+
+    /// <summary>
+    /// 지금 상태를 세이브에 반영하고 디스크 쓰기를 요청한다. 실제로 언제 쓸지는
+    /// 플랫폼이 정한다 (<see cref="ISaveStore"/>).
+    /// </summary>
+    private void PersistNow()
+    {
+        SyncToSave();
+        _store.MarkDirty();
+    }
+
+    /// <summary>
+    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>).
+    ///
+    /// <b>상점이 열린 동안은 창 전체를 신고한다.</b> 셸은 옵션 창을 열 때
+    /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임
+    /// 레이어는 이 계약으로만 말할 수 있다 - 그래서 "창 전체" 를 이 좌표계로
+    /// 옮겨서 돌려준다. 플랫폼 코드는 한 줄도 안 바뀐다.
+    /// </summary>
+    public Rect2 GetClickableBounds()
+    {
+        if (_shop is { IsOpen: true })
+        {
+            return ViewportInParentSpace();
+        }
+
+        Rect2 bounds = _tree.GetBounds().Merge(_monkey.GetBounds());
+
+        // 상점 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 둔 이유가
+        // 이것이다 - Rect2.Merge 는 외접 사각형이라, 버튼이 화면 반대편에 있으면
+        // 그 사이의 빈 공간까지 전부 클릭을 먹는다.
+        bounds = bounds.Merge(new Rect2(_shopButton.Position, _shopButton.Size));
+
+        return Transform * bounds;
+    }
+
+    /// <summary>
+    /// 창 전체를 <see cref="IInteractiveArea"/> 가 요구하는 좌표계(부모 로컬)로 옮긴다.
+    ///
+    /// 셸 루트에 배율이 걸려 있고 플랫폼이 그 배율을 다시 곱하므로
+    /// (<c>OverlayShell.CurrentHitRect</c>), 여기서는 역변환으로 되돌려야 값이
+    /// 한 바퀴 돌아 제자리에 온다. 네 모서리를 각각 옮겨 감싸는 것은 회전이
+    /// 걸렸을 때도 축에 정렬된 사각형을 얻기 위해서다.
+    /// </summary>
+    private Rect2 ViewportInParentSpace()
+    {
+        Rect2 viewport = GetViewportRect();
+
+        if (GetParent() is not Node2D parent)
+        {
+            return viewport;
+        }
+
+        Transform2D toLocal = parent.GlobalTransform.AffineInverse();
+
+        var rect = new Rect2(toLocal * viewport.Position, Vector2.Zero);
+        rect = rect.Expand(toLocal * new Vector2(viewport.End.X, viewport.Position.Y));
+        rect = rect.Expand(toLocal * new Vector2(viewport.Position.X, viewport.End.Y));
+        rect = rect.Expand(toLocal * viewport.End);
+        return rect;
+    }
 }

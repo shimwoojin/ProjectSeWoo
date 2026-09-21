@@ -93,9 +93,11 @@ B9가 `res://assets/cursor/hang/monkey_01.png` 같은 파일을 채우는 순간
 자리표시자로 떨어졌을 때만 물들이도록 고쳤다 (`ResolveTexture` 가 `out bool
 isPlaceholder` 로 알린다). 슬롯별 알파(Trail 0.6)는 양쪽 다 그대로 간다.
 
-> **아직 세이브의 `equipped` 를 읽어 `Equip` 을 부르는 코드가 없다.** 호출부는
-> 디버그 키(2/3/4)와 `--cursor-equip=` 뿐이다. 이 문서 §2 가 예고한 대로 **B6
-> (상점/장착 UI)이 그 자리를 채운다** — B9 의 몫은 아니다.
+> **2026-09-21 (B6) 에 닫혔다.** 그 전까지는 세이브의 `equipped` 를 읽어 `Equip`
+> 을 부르는 코드가 없어서, 세이브에 `hang: monkey_01` 이 있어도 켜면 아무것도 안
+> 붙었다(호출부가 디버그 키와 `--cursor-equip=` 뿐이었다). 이제
+> `game/shop/Inventory.ApplyEquippedToCursor()` 가 로드 시 한 번 밀어 넣고,
+> 상점에서 장착할 때마다 같은 경로로 간다.
 
 ---
 

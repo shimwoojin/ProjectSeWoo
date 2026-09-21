@@ -5,10 +5,9 @@ namespace ProjectSeWoo.Game;
 /// <summary>
 /// 게임 내 상태 표시 — 레벨 · 누적 타수 · 바나나 (§6 "화면 표시", §2-3 "타수 카운터").
 ///
-/// <b>표시 문자열은 전부 ASCII 다.</b> Godot 기본 테마 폰트에 한글 글리프가 없어서
-/// 한글을 넣으면 두부(□)로 나온다 - platform/DebugHud.cs 가 Week 0 에 확인해 둔
-/// 그 제약이고, 게임 UI 도 한글 폰트를 번들하기 전까지는 같은 제약을 받는다.
-/// 폰트 번들은 B4(씬 정리) / B9(1차 에셋)에서 다룬다.
+/// <b>한글을 쓴다 (B4 이후).</b> 그전에는 Godot 기본 테마 폰트에 한글 글리프가
+/// 없어서 전부 ASCII 였는데, B4 가 Pretendard 를 번들하고 <c>gui/theme/custom</c>
+/// 으로 걸면서 제약이 풀렸다 (assets/ui/theme.tres).
 ///
 /// <b>글자에 외곽선을 넣는 이유</b>는 폴리싱이 아니라 기능이다. 이 창 뒤는 유저의
 /// 바탕화면이라 배경색을 우리가 못 정한다 - 흰 글자만 놓으면 밝은 배경에서 아예
@@ -41,7 +40,7 @@ public partial class StatusHud : VBoxContainer
     /// <summary>보유 바나나. 유일한 재화다 (§3-2).</summary>
     public void SetBananas(long bananas)
     {
-        _bananas.Text = $"bananas {bananas:N0}";
+        _bananas.Text = $"바나나 {bananas:N0}";
     }
 
     /// <summary>바나나가 늘어난 순간 숫자를 한 번 튕긴다 (§2-3 "카운터 숫자 증가 애니").</summary>
@@ -66,6 +65,6 @@ public partial class StatusHud : VBoxContainer
     {
         _level.Text = $"Lv.{KeystrokeLevel.LevelFor(total)}";
         _levelBar.Value = KeystrokeLevel.ProgressInLevel(total) * 100.0;
-        _keystrokes.Text = $"{total:N0} keys";
+        _keystrokes.Text = $"{total:N0}타";
     }
 }

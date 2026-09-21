@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
 [ext_resource type="PackedScene" path="res://game/entities/Monkey.tscn" id="3_monkey"]
 [ext_resource type="PackedScene" path="res://game/effects/FallingBanana.tscn" id="4_banana"]
 [ext_resource type="PackedScene" path="res://game/ui/StatusHud.tscn" id="5_statushud"]
+[ext_resource type="Script" path="res://game/ui/ShopWindow.cs" id="6_shop"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
@@ -17,3 +18,13 @@ position = Vector2(210, 170)
 position = Vector2(140, 360)
 
 [node name="StatusHud" parent="." instance=ExtResource("5_statushud")]
+
+[node name="ShopButton" type="Button" parent="."]
+offset_left = 118.0
+offset_top = 424.0
+offset_right = 196.0
+offset_bottom = 450.0
+text = "상점"
+
+[node name="ShopWindow" type="CanvasLayer" parent="."]
+script = ExtResource("6_shop")
