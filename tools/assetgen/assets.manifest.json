@@ -84,36 +84,36 @@
         "out": "assets/cursor/hang/monkey_01.png",
         "px": 128,
         "pivot": "center",
-        "seed": 101,
-        "prompt": "a tiny cute brown monkey hanging by one arm, dangling, full body, simple silhouette",
-        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+        "seed": 111,
+        "prompt": "a tiny cute brown monkey dangling in mid air, both arms stretched straight up overhead, legs hanging loose downward, full body, front view",
+        "neg_extra": "standing, standing pose, feet on ground, sitting, branch, tree, rope, bar, vine, ground, grass, shadow"
       },
       {
         "id": "monkey_02",
         "out": "assets/cursor/hang/monkey_02.png",
         "px": 128,
         "pivot": "center",
-        "seed": 102,
-        "prompt": "a tiny cute golden yellow monkey hanging by one arm, dangling, full body, simple silhouette",
-        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+        "seed": 112,
+        "prompt": "a tiny cute golden yellow monkey dangling in mid air, both arms stretched straight up overhead, legs hanging loose downward, full body, front view",
+        "neg_extra": "standing, standing pose, feet on ground, sitting, branch, tree, rope, bar, vine, ground, grass, shadow"
       },
       {
         "id": "monkey_03",
         "out": "assets/cursor/hang/monkey_03.png",
         "px": 128,
         "pivot": "center",
-        "seed": 103,
-        "prompt": "a tiny cute grey monkey with big round eyes hanging by one arm, dangling, full body",
-        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+        "seed": 123,
+        "prompt": "a tiny cute grey monkey with big round eyes dangling in mid air, both arms stretched straight up overhead, legs hanging loose downward, full body, nothing else in frame",
+        "neg_extra": "ring, hoop, circle, object, prop, standing, feet on ground, branch, tree, rope, bar, vine, ground, grass, shadow"
       },
       {
         "id": "monkey_04",
         "out": "assets/cursor/hang/monkey_04.png",
         "px": 128,
         "pivot": "center",
-        "seed": 104,
-        "prompt": "a tiny cute white monkey with a happy grin hanging by one arm, dangling, full body",
-        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+        "seed": 114,
+        "prompt": "a tiny cute white monkey with a happy grin dangling in mid air, both arms stretched straight up overhead, legs hanging loose downward, full body",
+        "neg_extra": "standing, standing pose, feet on ground, sitting, branch, tree, rope, bar, vine, ground, grass, shadow, pedestal"
       },
       {
         "id": "monkey_05",
@@ -129,9 +129,9 @@
         "out": "assets/cursor/hang/monkey_06.png",
         "px": 128,
         "pivot": "center",
-        "seed": 106,
-        "prompt": "a tiny cute orange orangutan with long arms hanging by one arm, dangling, full body",
-        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+        "seed": 116,
+        "prompt": "a tiny cute orange orangutan with long arms dangling in mid air, both arms stretched straight up overhead, legs hanging loose downward, full body",
+        "neg_extra": "standing, standing pose, feet on ground, sitting, branch, tree, rope, bar, vine, ground, grass, shadow"
       },
       {
         "id": "leaf_01",
@@ -147,18 +147,18 @@
         "out": "assets/cursor/trail/leaf_02.png",
         "px": 96,
         "pivot": "center",
-        "seed": 202,
-        "prompt": "a single small yellow autumn leaf, simple flat shape, game particle icon",
-        "neg_extra": "stem cluster, branch, ground, shadow, multiple"
+        "seed": 212,
+        "prompt": "one single yellow autumn leaf, exactly one leaf, centered, simple flat shape, game item icon",
+        "neg_extra": "multiple, several, many, group, collection, set, sprite sheet, scattered, variations, branch, stem cluster, ground, shadow"
       },
       {
         "id": "chunk_01",
         "out": "assets/cursor/trail/chunk_01.png",
         "px": 96,
         "pivot": "center",
-        "seed": 203,
-        "prompt": "a small peeled banana slice, round yellow piece, game particle icon",
-        "neg_extra": "face, eyes, whole banana, ground, shadow"
+        "seed": 233,
+        "prompt": "a small yellow crescent shaped fruit slice, plain simple shape, flat game item icon",
+        "neg_extra": "face, eyes, mouth, smile, character, mascot, anthropomorphic, creature, cartoon character, plate, dish, bowl, circle background, multiple, several, group, set, scattered, ground, shadow"
       },
       {
         "id": "chunk_02",
@@ -183,9 +183,9 @@
         "out": "assets/cursor/trail/spark_02.png",
         "px": 96,
         "pivot": "center",
-        "seed": 206,
-        "prompt": "a small cyan blue sparkle twinkle, glowing, game particle icon",
-        "neg_extra": "ground, shadow, multiple, background glow"
+        "seed": 216,
+        "prompt": "a small cyan blue four pointed sparkle star, glowing, simple flat shape, game particle icon",
+        "neg_extra": "face, eyes, mouth, smile, character, creature, multiple, ground, shadow, background glow"
       },
       {
         "id": "halo_01",
@@ -201,9 +201,9 @@
         "out": "assets/cursor/base/halo_02.png",
         "px": 128,
         "pivot": "center",
-        "seed": 302,
-        "prompt": "a soft round glowing light disc, warm orange, flat top down circle, game icon",
-        "neg_extra": "character, ground, shadow, perspective, lens flare"
+        "seed": 322,
+        "prompt": "a flat round green lily pad seen from directly above, simple leaf disc, bold outline, game icon",
+        "neg_extra": "wheel, spokes, rays, shield, machine, cut off, cropped, half, character, water, pond, ground, shadow, perspective"
       },
       {
         "id": "ring_01",

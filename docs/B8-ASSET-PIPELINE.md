@@ -98,6 +98,44 @@ SDXL base + StickersRedmond LoRA (1024²·25스텝) → INSPYRENET 배경 제거
 
 ---
 
+## 3-1. 프롬프트가 반복해서 실패하는 세 가지 (B9 1차 검수, 2026-09-21)
+
+16장을 처음 뽑았을 때 **9장이 못 쓸 물건이었다.** 실패가 세 종류로 갈렸고, 셋 다
+"negative 에 단어 하나 넣으면 되겠지" 가 안 통했다.
+
+### ① 사물에 얼굴이 붙는다
+
+바나나에 눈·입이 달려 나왔고(엔티티), `spark_02` 별에도 똑같이 달렸다. 스타일
+LoRA 가 캐릭터 쪽으로 학습돼 있어서 **둥근 사물이면 의인화한다.**
+
+→ 사물 항목에는 `face, eyes, mouth, smile, character, creature` 를 **항목별로**
+넣는다. 스타일 공통에 넣으면 원숭이가 얼굴 없이 나온다.
+
+### ② 낱개를 시켰는데 흩어진 세트가 나온다
+
+`chunk_01`(바나나 조각), `leaf_02`(잎)가 한 장에 조각 여러 개가 흩어진 **스프라이트
+시트처럼** 나왔다. `multiple` 하나로는 안 막힌다.
+
+→ `multiple, several, many, group, collection, set, sprite sheet, scattered,
+variations` 를 한 묶음으로 넣고, positive 에도 `exactly one ..., centered` 를 박는다.
+
+### ③ 자세는 "무엇에" 를 빼야 나온다
+
+hang 슬롯 6종 중 3종이 **매달리지 않고 그냥 서 있었다.** `hanging by one arm` 은
+매달릴 대상이 없으면 무시되고, 대상(`branch`/`rope`)을 주면 **그 대상을 같이
+그려 버린다** — 나머지 2종이 나뭇가지를 달고 나온 이유다. negative 에 `branch` 가
+있는데도 그랬다.
+
+→ **대상을 아예 언급하지 않고 자세만 묘사한다.** "both arms stretched straight up
+overhead, legs hanging loose downward, dangling in mid air" 처럼 몸이 어떤
+모양인지를 적고, negative 로 `standing, feet on ground, branch, rope, bar, vine`
+을 막는다.
+
+> **프롬프트를 고칠 때 시드도 같이 바꾼다.** 같은 시드를 두면 원래 구도에 끌려가서
+> 프롬프트를 고쳐도 잘 안 벗어난다.
+
+---
+
 ## 4. 라이선스 — 출시 전 확인 항목 (§7-2 · C2)
 
 | 구성요소 | 라이선스 | 상용 |

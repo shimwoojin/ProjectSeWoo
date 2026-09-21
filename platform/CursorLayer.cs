@@ -337,8 +337,17 @@ public sealed class CursorLayer : ICursorLayer
             return;
         }
 
-        visual.Sprite.Texture = ResolveTexture(slot, assetId);
-        visual.Sprite.Modulate = TintFor(assetId, SlotAlpha[(int)slot]);
+        visual.Sprite.Texture = ResolveTexture(slot, assetId, out bool isPlaceholder);
+
+        // **자리표시자일 때만 물들인다.** 해시 색은 "실물이 없을 때도 아이템을
+        // 구분해 보이게" 하려고 둔 것이라, 실물 아트에 곱하면 그림이 통째로 그
+        // 색이 된다 - B9 로 실물 16종이 들어온 뒤 원숭이도 나무 단면도 전부
+        // 분홍으로 나왔다. 알파(슬롯별 투명도)는 양쪽 다 그대로 간다.
+        float alpha = SlotAlpha[(int)slot];
+        visual.Sprite.Modulate = isPlaceholder
+            ? TintFor(assetId, alpha)
+            : new Color(1f, 1f, 1f, alpha);
+
         visual.Sprite.Visible = Enabled;
 
         GD.Print($"[cursor] {slot} = {assetId}");
@@ -347,14 +356,20 @@ public sealed class CursorLayer : ICursorLayer
     /// <summary>
     /// 슬롯+에셋id 를 텍스처로 바꾼다. 실제 파일이 있으면 그걸, 없으면 자리표시자를 쓴다.
     /// </summary>
-    private Texture2D ResolveTexture(CursorSlot slot, string assetId)
+    /// <param name="isPlaceholder">
+    /// 자리표시자로 떨어졌는가. 호출부가 이 값으로 해시 색을 걸지 말지 정한다 -
+    /// 실물에 걸면 그림이 통째로 그 색이 된다.
+    /// </param>
+    private Texture2D ResolveTexture(CursorSlot slot, string assetId, out bool isPlaceholder)
     {
         string realPath = $"res://assets/cursor/{slot.ToString().ToLowerInvariant()}/{assetId}.png";
         if (ResourceLoader.Exists(realPath))
         {
+            isPlaceholder = false;
             return GD.Load<Texture2D>(realPath);
         }
 
+        isPlaceholder = true;
         return _placeholderTexture;
     }
 
