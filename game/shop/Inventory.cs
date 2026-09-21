@@ -151,6 +151,43 @@ public sealed class Inventory
         }
     }
 
+    /// <summary>
+    /// [디버그] 값을 안 치르고 넣는다. <see cref="GameRoot"/> 의 Shift+B 전용이고,
+    /// 릴리스 빌드에서는 호출부가 아예 안 돈다.
+    /// </summary>
+    public bool DebugGrant(string id)
+    {
+        if (ShopCatalog.Find(id) == null || !_owned.Add(id))
+        {
+            return false;
+        }
+
+        WriteOwned();
+        return true;
+    }
+
+    /// <summary>
+    /// [디버그] 첫 실행 상태로 되돌린다. 구매 흐름과 도감 100% 발화를 다시
+    /// 시험하려면 되돌릴 방법이 있어야 한다.
+    ///
+    /// <b>장착도 같이 푼다.</b> 안 그러면 안 가진 것이 끼워진 채로 남고, 다음
+    /// 실행에서 <see cref="ApplyEquippedToCursor"/> 가 그걸 경고로 뱉는다.
+    /// </summary>
+    public void DebugResetToStarter()
+    {
+        _owned.Clear();
+        _owned.Add(ShopCatalog.StarterId);
+        WriteOwned();
+
+        foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
+        {
+            if (!Owns(EquippedIn(slot)))
+            {
+                Equip(slot, null);
+            }
+        }
+    }
+
     private void WriteOwned()
     {
         // 표 순서대로 저장한다. 세이브 파일을 눈으로 볼 때 순서가 매번 달라지면

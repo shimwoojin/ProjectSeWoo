@@ -81,6 +81,17 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private bool _collectionDone;
 
+    /// <summary>
+    /// 이 세션에서 디버그 지급(Shift+B)을 썼는가.
+    ///
+    /// <b>썼으면 도전과제를 해금하지 않는다.</b> 스팀은 이미 붙어 있고(A8), A15 로
+    /// 스키마가 등록되는 순간 치트로 받은 도감 100% 가 **진짜 도전과제로 나간다** -
+    /// 되돌릴 수 없는 종류의 사고다. 릴리스 빌드에는 키 자체가 없지만
+    /// (<see cref="OS.IsDebugBuild"/>), 개발 중에 스팀을 켜 놓고 있는 시간이 길어서
+    /// 그것만으로는 부족하다.
+    /// </summary>
+    private bool _cheated;
+
     /// <summary>직전 프레임의 레벨. 레벨업 순간을 잡는 데만 쓴다.</summary>
     private int _level = 1;
 
@@ -175,6 +186,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             + $" (Lv.{_level}), 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림"
             + $", 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
 
+        if (OS.IsDebugBuild())
+        {
+            GD.Print("[game] 디버그 키 - G 성장 앞당기기 / B 상점"
+                + " / Shift+B 전 상품 지급 / Shift+R 인벤토리 초기화");
+        }
+
         // 오프라인 성장분을 바로 한 번 받아 적는다. 안 해도 다음 실행이 같은 계산을
         // 다시 하므로 손해는 없지만, 세이브 파일만 열어 봐도 지금 상태가 보이는 편이
         // 디버깅에 낫다.
@@ -263,7 +280,23 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 세어져서, 창을 열 때마다 원숭이가 한 대씩 친다.
         if (key.Keycode == Key.B)
         {
-            _shop?.Toggle();
+            if (key.ShiftPressed && OS.IsDebugBuild())
+            {
+                DebugGrantAll();
+            }
+            else
+            {
+                _shop?.Toggle();
+            }
+
+            return;
+        }
+
+        // [디버그] 첫 실행 상태로 되돌린다. 구매 흐름과 도감 100% 발화를 다시
+        // 보려면 되돌릴 길이 있어야 한다.
+        if (key.Keycode == Key.R && key.ShiftPressed && OS.IsDebugBuild())
+        {
+            DebugResetInventory();
             return;
         }
 
@@ -446,6 +479,58 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         PersistNow();
     }
 
+    /// <summary>
+    /// [디버그, Shift+B] 전 상품 지급 + 바나나. C1 스크린샷처럼 장식 조합을
+    /// 이것저것 갈아끼워 봐야 할 때 쓴다. 정상 플레이로 16종을 다 모으려면
+    /// 6,600 바나나(기본 획득량 기준 약 300시간)가 든다.
+    ///
+    /// <b>릴리스 빌드에는 이 경로가 없다</b> (<see cref="OS.IsDebugBuild"/>).
+    /// 그리고 이걸 쓴 세션은 도전과제를 해금하지 않는다 - 위 <see cref="_cheated"/> 참고.
+    /// </summary>
+    private void DebugGrantAll()
+    {
+        _cheated = true;
+
+        int granted = 0;
+        foreach (ShopCatalog.Item item in ShopCatalog.All)
+        {
+            if (_inventory.DebugGrant(item.Id))
+            {
+                granted++;
+            }
+        }
+
+        Save.Bananas += 10_000;
+
+        _hud.SetBananas(Save.Bananas);
+        RefreshCollectionHud();
+        _shop.Refresh();
+        PersistNow();
+
+        GD.Print($"[game][디버그] 전 상품 지급 - 새로 {granted}개"
+            + $" (보유 {_inventory.OwnedCount}/{ShopCatalog.All.Length}),"
+            + $" 바나나 {Save.Bananas:N0}."
+            + " **이 세션은 도전과제를 해금하지 않는다.**");
+    }
+
+    /// <summary>[디버그, Shift+R] 인벤토리를 첫 실행 상태로 되돌린다.</summary>
+    private void DebugResetInventory()
+    {
+        _inventory.DebugResetToStarter();
+
+        // 해금 처리 상태도 같이 되돌린다. 안 그러면 되돌린 뒤 다시 모아도
+        // 100% 가 안 뜬다.
+        _collectionDone = false;
+
+        RefreshCollectionHud();
+        _shop.Refresh();
+        PersistNow();
+
+        GD.Print($"[game][디버그] 인벤토리 초기화 - 보유"
+            + $" {_inventory.OwnedCount}/{ShopCatalog.All.Length}"
+            + (_cheated ? " (이 세션은 여전히 도전과제를 해금하지 않는다)" : string.Empty));
+    }
+
     private void RefreshCollectionHud() =>
         _hud.SetCollection(_inventory.OwnedCount, ShopCatalog.All.Length);
 
@@ -463,6 +548,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     {
         if (_collectionDone)
         {
+            return;
+        }
+
+        if (_cheated)
+        {
+            // 디버그로 받은 것이라 진행도조차 올리지 않는다 - 스팀 통계에 남는다.
             return;
         }
 
