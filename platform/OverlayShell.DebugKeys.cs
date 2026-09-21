@@ -13,9 +13,11 @@ namespace ProjectSeWoo.Platform;
 ///   폴링·추종 방식). Week 0 의 Go/No-Go 를 눈으로 가르려고 만든 것이고,
 ///   판정이 끝난 지금도 재측정에 쓰이므로 남긴다.</item>
 ///   <item><b>UI 대역</b> (F2 위치 잠금, F11 커서 장식, <c>[</c>/<c>]</c> 크기,
-///   <c>-</c>/<c>=</c> 투명도, O 옵션 창, 2/3/4 커서 슬롯 장착).
+///   <c>-</c>/<c>=</c> 투명도, O 옵션 창).
 ///   <b>이쪽은 주인이 생기면 지운다</b> - 옵션 창(A6)이 이미 F2/F11/크기/투명도의
-///   주인이고, 2/3/4 는 B6 상점·장착 UI 가 가져간다.</item>
+///   주인이다. <b>2/3/4(커서 슬롯 장착)는 2026-09-21 에 B6 이 가져갔다</b> -
+///   예고대로 <c>game/GameRoot</c> 로 옮겼고, 이제 인벤토리를 거치므로 세이브와
+///   상점 화면이 같이 따라간다.</item>
 /// </list>
 ///
 /// 키가 겹치면 게임 레이어가 먼저 죽는다. Godot 은 <c>_UnhandledKeyInput</c> 을
@@ -30,11 +32,6 @@ public partial class OverlayShell
 
     /// <summary>H(debug 숨김)의 남은 시간. 0 이하면 쉬는 중이다.</summary>
     private double _debugHideRemaining;
-
-    // --- A5 커서 장착 debug 데모. B6(상점/장착 UI)가 나오기 전까지 Key2/3/4로
-    // 슬롯별 자리표시자 에셋을 순환한다. null 은 "빈 슬롯". ---
-    private static readonly string[] DemoAssetIds = { null, "demo_a", "demo_b", "demo_c" };
-    private readonly int[] _demoEquipIndex = new int[3];
 
     public override void _UnhandledKeyInput(InputEvent @event)
     {
@@ -123,19 +120,8 @@ public partial class OverlayShell
                 _perf.Reset();
                 break;
 
-            // A5 의 3슬롯 장착을 옵션/상점 UI(B6) 없이 시험하기 위한 debug 키.
-            // 을이 상점 화면을 만들면 이 자리를 그 UI가 대신 호출한다.
-            case Key.Key2:
-                CycleDemoEquip(CursorSlot.Hang);
-                break;
-
-            case Key.Key3:
-                CycleDemoEquip(CursorSlot.Trail);
-                break;
-
-            case Key.Key4:
-                CycleDemoEquip(CursorSlot.Base);
-                break;
+            // 2/3/4 는 여기 없다. B6 이 가져가 game/GameRoot 가 처리한다 -
+            // **여기서 잡으면 SetInputAsHandled 때문에 게임에 아예 도달하지 않는다.**
 
             // IShell 실물을 옵션 창 없이 빠르게 시험하기 위한 debug 키.
             // 옵션 창의 슬라이더와 정확히 같은 SetScale/SetOpacity를 부른다.
@@ -177,18 +163,6 @@ public partial class OverlayShell
         }
 
         GetViewport().SetInputAsHandled();
-    }
-
-
-    /// <summary>
-    /// A5 커서 장착 debug 데모. 슬롯 하나를 자리표시자 목록에서 순환시킨다.
-    /// B6이 상점/장착 UI를 만들면 이 자리를 그 UI가 대신 호출한다.
-    /// </summary>
-    private void CycleDemoEquip(CursorSlot slot)
-    {
-        int i = (int)slot;
-        _demoEquipIndex[i] = (_demoEquipIndex[i] + 1) % DemoAssetIds.Length;
-        _cursor.Equip(slot, DemoAssetIds[_demoEquipIndex[i]]);
     }
 
 }

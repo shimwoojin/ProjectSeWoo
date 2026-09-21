@@ -188,7 +188,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         if (OS.IsDebugBuild())
         {
-            GD.Print("[game] 디버그 키 - G 성장 앞당기기 / B 상점"
+            GD.Print("[game] 디버그 키 - G 성장 앞당기기 / B 상점 / 2·3·4 슬롯 장착 순환"
                 + " / Shift+B 전 상품 지급 / Shift+R 인벤토리 초기화");
         }
 
@@ -289,6 +289,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
                 _shop?.Toggle();
             }
 
+            return;
+        }
+
+        // 커서 슬롯 장착 순환. **셸에서 옮겨 온 키다** (2026-09-21) - 예전에는
+        // platform/OverlayShell.DebugKeys 가 ICursorLayer.Equip 을 직접 불러서
+        // 세이브도 인벤토리도 모르는 채 커서만 바뀌었고, 그래서 상점에는 이전
+        // 것이 "장착 중" 으로 남아 있었다. 이제 인벤토리를 거친다.
+        if (key.Keycode is Key.Key2 or Key.Key3 or Key.Key4)
+        {
+            CycleEquip(key.Keycode switch
+            {
+                Key.Key2 => CursorSlot.Hang,
+                Key.Key3 => CursorSlot.Trail,
+                _ => CursorSlot.Base,
+            });
             return;
         }
 
@@ -477,6 +492,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _shop.Refresh();
         CheckCollection();
         PersistNow();
+    }
+
+    /// <summary>슬롯 하나의 장착을 가진 것들 사이에서 한 칸 돌린다 (2/3/4 키).</summary>
+    private void CycleEquip(CursorSlot slot)
+    {
+        if (_inventory == null)
+        {
+            return;
+        }
+
+        string now = _inventory.CycleEquipped(slot);
+        _shop.Refresh();
+        PersistNow();
+
+        GD.Print($"[game] 장착 순환 {ShopCatalog.SlotName(slot)} = {now ?? "(비움)"}");
     }
 
     /// <summary>

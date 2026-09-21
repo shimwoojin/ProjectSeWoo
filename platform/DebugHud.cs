@@ -58,7 +58,7 @@ public partial class DebugHud : CanvasLayer
             "F7 next screen             F8 hit outline",
             "F9 copy report  F10 reset  ESC quit/close options",
             "F11 cursor on/off  F12 cursor interval  1 cursor follow mode",
-            "2/3/4 cycle equip hang/trail/base (demo)  O options window",
+            "O options window          (2/3/4 equip -> game layer)",
             "[ ] shell scale   - = shell opacity",
             "H hide shell for 3s (auto-returns)",
         });

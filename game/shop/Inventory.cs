@@ -152,6 +152,32 @@ public sealed class Inventory
     }
 
     /// <summary>
+    /// 슬롯의 장착을 한 칸 돌린다 - "비움 → 가진 것들 → 다시 비움" 순서다.
+    ///
+    /// 셸의 2/3/4 debug 키가 쓰던 자리를 B6 이 가져온 것이다(2026-09-21).
+    /// 예전에는 <see cref="ICursorLayer.Equip"/> 을 직접 불러서 **세이브도
+    /// 인벤토리도 모르는 채로 커서만 바뀌었다** - 커서 모양은 바뀌는데 상점에는
+    /// 이전 것이 "장착 중" 으로 남아 있었다. 이제 <see cref="Equip"/> 을 거치므로
+    /// 세이브·상점·커서가 같이 간다.
+    ///
+    /// <b>가진 것만 돈다.</b> 안 가진 것을 끼울 길을 debug 키로 열어 두면 그게
+    /// 곧 상점을 건너뛰는 경로다.
+    /// </summary>
+    /// <returns>새로 장착된 id. 빈 슬롯이면 null.</returns>
+    public string CycleEquipped(CursorSlot slot)
+    {
+        var options = new List<string> { null };
+        options.AddRange(ShopCatalog.ForSlot(slot).Where(i => Owns(i.Id)).Select(i => i.Id));
+
+        // 지금 낀 것이 목록에 없으면(손으로 고친 세이브) IndexOf 가 -1 이라
+        // 다음이 0번(비움)이 된다 - 그게 안전한 쪽이다.
+        int next = (options.IndexOf(EquippedIn(slot)) + 1) % options.Count;
+
+        Equip(slot, options[next]);
+        return options[next];
+    }
+
+    /// <summary>
     /// [디버그] 값을 안 치르고 넣는다. <see cref="GameRoot"/> 의 Shift+B 전용이고,
     /// 릴리스 빌드에서는 호출부가 아예 안 돈다.
     /// </summary>
