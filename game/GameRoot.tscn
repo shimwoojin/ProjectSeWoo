@@ -24,6 +24,7 @@ offset_left = 118.0
 offset_top = 424.0
 offset_right = 196.0
 offset_bottom = 450.0
+custom_minimum_size = Vector2(78, 26)
 text = "상점"
 
 [node name="ShopWindow" type="CanvasLayer" parent="."]

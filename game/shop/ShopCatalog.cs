@@ -82,7 +82,22 @@ public static class ShopCatalog
     public static IEnumerable<Item> ForSlot(CursorSlot slot) =>
         All.Where(i => i.Slot == slot);
 
-    /// <summary>도감 수집률 (§3-3). B7 이 화면을 붙이기 전에도 숫자는 여기서 나온다.</summary>
+    /// <summary>도감 수집률 (§3-3). 0.0 ~ 1.0.</summary>
     public static float CollectionRate(ICollection<string> owned) =>
         All.Length == 0 ? 0f : (float)All.Count(i => owned.Contains(i.Id)) / All.Length;
+
+    /// <summary>슬롯 하나의 수집 수 (B7 도감의 슬롯별 진행도).</summary>
+    public static int OwnedInSlot(CursorSlot slot, ICollection<string> owned) =>
+        All.Count(i => i.Slot == slot && owned.Contains(i.Id));
+
+    public static int CountInSlot(CursorSlot slot) => All.Count(i => i.Slot == slot);
+
+    /// <summary>슬롯의 사람 말 이름. 도감·탭 라벨이 같은 문자열을 봐야 한다.</summary>
+    public static string SlotName(CursorSlot slot) => slot switch
+    {
+        CursorSlot.Hang => "매달림",
+        CursorSlot.Trail => "잔상",
+        CursorSlot.Base => "바닥",
+        _ => slot.ToString(),
+    };
 }

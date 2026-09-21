@@ -55,6 +55,12 @@ public sealed class Inventory
 
     public int OwnedCount => _owned.Count;
 
+    /// <summary>도감이 슬롯별 진행도를 그릴 때 쓴다 (B7).</summary>
+    public int OwnedInSlot(CursorSlot slot) => ShopCatalog.OwnedInSlot(slot, _owned);
+
+    /// <summary>16종을 전부 모았는가 (§3-3, <see cref="AchievementIds.Collection100"/>).</summary>
+    public bool IsComplete => _owned.Count >= ShopCatalog.All.Length;
+
     public string EquippedIn(CursorSlot slot) => slot switch
     {
         CursorSlot.Hang => _save.Inventory.Equipped.Hang,

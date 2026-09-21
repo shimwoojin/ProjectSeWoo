@@ -27,6 +27,7 @@ public partial class StatusHud : VBoxContainer
     private ProgressBar _levelBar;
     private Label _keystrokes;
     private Label _bananas;
+    private Label _collection;
     private Tween _bananaPop;
 
     public override void _Ready()
@@ -35,12 +36,27 @@ public partial class StatusHud : VBoxContainer
         _levelBar = GetNode<ProgressBar>("LevelBar");
         _keystrokes = GetNode<Label>("Keystrokes");
         _bananas = GetNode<Label>("Bananas");
+        _collection = GetNode<Label>("Collection");
     }
 
     /// <summary>보유 바나나. 유일한 재화다 (§3-2).</summary>
     public void SetBananas(long bananas)
     {
         _bananas.Text = $"바나나 {bananas:N0}";
+    }
+
+    /// <summary>
+    /// 도감 수집률 (§3-3 "수집률 %를 메인 화면 구석에 표시", B7).
+    ///
+    /// <b>구석의 작은 숫자로 둔다.</b> 이 창은 바탕화면 위에 상시로 떠 있는
+    /// 것이라 크게 넣으면 일하는 내내 거슬린다 - 자랑 지표는 상점의 도감 탭이
+    /// 맡고, 여기는 "아직 다 안 모았다" 만 알려 주면 된다.
+    /// </summary>
+    public void SetCollection(int owned, int total)
+    {
+        _collection.Text = total <= 0
+            ? string.Empty
+            : $"도감 {owned}/{total} ({owned * 100 / total}%)";
     }
 
     /// <summary>바나나가 늘어난 순간 숫자를 한 번 튕긴다 (§2-3 "카운터 숫자 증가 애니").</summary>

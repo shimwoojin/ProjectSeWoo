@@ -71,6 +71,16 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>진행도 토스트를 몇 구간으로 끊을지. 20 = 5%마다 한 번.</summary>
     private const int ProgressBuckets = 20;
 
+    /// <summary>
+    /// 도감 100% 도전과제를 이 세션에 이미 처리했는가 (§3-3, B7).
+    ///
+    /// 세이브가 이미 100% 인 채로 켜지면 <b>해금을 부르지 않고 이 값만 세운다</b> -
+    /// 마일스톤(<see cref="_nextMilestone"/>)과 같은 규칙이다. 스팀이 중복 해금을
+    /// 무시하기는 하지만, 켤 때마다 예전에 딴 것을 다시 부를 이유가 없고 진행도
+    /// 토스트가 엉뚱하게 뜬다.
+    /// </summary>
+    private bool _collectionDone;
+
     /// <summary>직전 프레임의 레벨. 레벨업 순간을 잡는 데만 쓴다.</summary>
     private int _level = 1;
 
@@ -156,6 +166,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         _hud.SetBananas(Save.Bananas);
         _hud.SetKeystrokes(Save.TotalKeystrokes);
+        RefreshCollectionHud();
+
+        // 이미 다 모은 세이브면 해금은 건너뛰고 상태만 맞춘다 (위 주석 참고).
+        _collectionDone = _inventory.IsComplete;
 
         GD.Print($"[game] 세이브 로드 - 바나나 {Save.Bananas}, 누적 {Save.TotalKeystrokes}타"
             + $" (Lv.{_level}), 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림"
@@ -426,8 +440,44 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {Save.Bananas}");
 
         _hud.SetBananas(Save.Bananas);
+        RefreshCollectionHud();
         _shop.Refresh();
+        CheckCollection();
         PersistNow();
+    }
+
+    private void RefreshCollectionHud() =>
+        _hud.SetCollection(_inventory.OwnedCount, ShopCatalog.All.Length);
+
+    /// <summary>
+    /// 도감 100% 도전과제 (§3-3). <b>기획서가 유일하게 명시한 도전과제다.</b>
+    ///
+    /// 해금 조건을 아는 것은 게임 레이어이고 스팀에 쓰는 것은 플랫폼이다 -
+    /// <see cref="CheckMilestones"/> 와 같은 경계다. 스팀이 안 붙어 있으면 호출이
+    /// 조용히 버려지므로 분기하지 않는다.
+    ///
+    /// 진행도는 구매마다 한 번씩만 움직인다(16종이라 한 칸이 6.25%다). 그래서
+    /// 마일스톤처럼 구간을 따로 끊지 않고 그대로 올린다.
+    /// </summary>
+    private void CheckCollection()
+    {
+        if (_collectionDone)
+        {
+            return;
+        }
+
+        int owned = _inventory.OwnedCount;
+        int total = ShopCatalog.All.Length;
+
+        if (!_inventory.IsComplete)
+        {
+            _platform.Achievements.IndicateProgress(AchievementIds.Collection100, owned, total);
+            return;
+        }
+
+        _collectionDone = true;
+        _platform.Achievements.Unlock(AchievementIds.Collection100);
+        GD.Print($"[game] 도감 100% 해금 ({owned}/{total})");
     }
 
     /// <summary>장착/해제. 커서 레이어에 미는 것은 <see cref="Inventory"/> 가 한다.</summary>
@@ -473,7 +523,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 상점 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 둔 이유가
         // 이것이다 - Rect2.Merge 는 외접 사각형이라, 버튼이 화면 반대편에 있으면
         // 그 사이의 빈 공간까지 전부 클릭을 먹는다.
-        bounds = bounds.Merge(new Rect2(_shopButton.Position, _shopButton.Size));
+        //
+        // **Size 를 그대로 믿으면 안 된다.** 레이아웃이 돌기 전에는 (0,0) 이라
+        // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
+        // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
+        // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
+        Vector2 buttonSize = _shopButton.Size.Max(_shopButton.GetCombinedMinimumSize());
+        bounds = bounds.Merge(new Rect2(_shopButton.Position, buttonSize));
 
         return Transform * bounds;
     }

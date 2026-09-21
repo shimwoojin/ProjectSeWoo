@@ -44,6 +44,13 @@ public partial class ShopWindow : CanvasLayer
     private Label _bananas;
     private Label _collection;
 
+    // 도감 탭 (B7)
+    private Label _collectionTotal;
+    private ProgressBar _collectionBar;
+    private readonly Dictionary<CursorSlot, Label> _slotHeads = new();
+    private readonly Dictionary<string, TextureRect> _collectionCells =
+        new(StringComparer.Ordinal);
+
     /// <summary>상품 id → 그 줄의 컨트롤들. <see cref="Refresh"/> 가 여기만 훑는다.</summary>
     private readonly Dictionary<string, Row> _rows = new(StringComparer.Ordinal);
 
@@ -101,8 +108,10 @@ public partial class ShopWindow : CanvasLayer
         }
 
         _bananas.Text = $"바나나 {_inventory.Bananas:N0}";
+        // 퍼센트는 **내림**이다. HUD(StatusHud.SetCollection)와 같은 식이어야
+        // 한 화면에 15/16 이 93% 와 94% 로 동시에 보이는 일이 없다.
         _collection.Text = $"수집 {_inventory.OwnedCount}/{ShopCatalog.All.Length}"
-            + $" ({_inventory.CollectionRate * 100f:0}%)";
+            + $" ({_inventory.OwnedCount * 100 / ShopCatalog.All.Length}%)";
 
         foreach (ShopCatalog.Item item in ShopCatalog.All)
         {
@@ -140,6 +149,8 @@ public partial class ShopWindow : CanvasLayer
                 row.Action.Disabled = !affordable;
             }
         }
+
+        RefreshCollection();
     }
 
     // ------------------------------------------------------------------ UI 구성
@@ -147,6 +158,9 @@ public partial class ShopWindow : CanvasLayer
     private static readonly Color Accent = new(0.55f, 0.85f, 0.55f);
     private static readonly Color Gold = new(0.98f, 0.82f, 0.30f);
     private static readonly Color Dim = new(0.62f, 0.66f, 0.72f);
+
+    /// <summary>아직 안 가진 도감 칸. 알파는 그대로 두고 색만 죽인다.</summary>
+    private static readonly Color Silhouette = new(0.10f, 0.12f, 0.16f, 0.85f);
 
     private void BuildUi()
     {
@@ -179,9 +193,10 @@ public partial class ShopWindow : CanvasLayer
         };
         rows.AddChild(tabs);
 
-        AddSlotTab(tabs, CursorSlot.Hang, "매달림");
-        AddSlotTab(tabs, CursorSlot.Trail, "잔상");
-        AddSlotTab(tabs, CursorSlot.Base, "바닥");
+        AddSlotTab(tabs, CursorSlot.Hang);
+        AddSlotTab(tabs, CursorSlot.Trail);
+        AddSlotTab(tabs, CursorSlot.Base);
+        AddCollectionTab(tabs);
     }
 
     private Control MakeHeader()
@@ -211,11 +226,11 @@ public partial class ShopWindow : CanvasLayer
         return header;
     }
 
-    private void AddSlotTab(TabContainer tabs, CursorSlot slot, string title)
+    private void AddSlotTab(TabContainer tabs, CursorSlot slot)
     {
         var scroll = new ScrollContainer
         {
-            Name = title,
+            Name = ShopCatalog.SlotName(slot),
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
         tabs.AddChild(scroll);
@@ -235,6 +250,96 @@ public partial class ShopWindow : CanvasLayer
         foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
         {
             list.AddChild(MakeItemRow(item));
+        }
+    }
+
+    /// <summary>
+    /// 도감 (§3-3, B7). <b>상점 목록과 일부러 다르게 그린다</b> - 목록은 "무엇을
+    /// 살까" 를 위한 것이고, 도감은 "얼마나 모았나" 를 위한 것이다. 같은 정보를
+    /// 같은 모양으로 두 번 보여 주면 탭을 하나 더 둘 이유가 없다.
+    ///
+    /// 안 가진 것은 <b>실루엣</b>으로 둔다. 무엇이 남았는지는 보이되 그림은 안
+    /// 보여 주는 쪽이 모으고 싶게 만든다 - 기획서가 "유저가 다음 목표를 눈으로 볼
+    /// 수 있어야" 라고 한 것과 같은 결이다.
+    /// </summary>
+    private void AddCollectionTab(TabContainer tabs)
+    {
+        var scroll = new ScrollContainer
+        {
+            Name = "도감",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        tabs.AddChild(scroll);
+
+        var column = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        column.AddThemeConstantOverride("separation", 6);
+        scroll.AddChild(column);
+
+        _collectionTotal = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        _collectionTotal.AddThemeFontSizeOverride("font_size", 15);
+        column.AddChild(_collectionTotal);
+
+        _collectionBar = new ProgressBar
+        {
+            MaxValue = ShopCatalog.All.Length,
+            ShowPercentage = false,
+            CustomMinimumSize = new Vector2(0, 8),
+        };
+        column.AddChild(_collectionBar);
+        column.AddChild(new HSeparator());
+
+        foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
+        {
+            var head = new Label();
+            head.AddThemeFontSizeOverride("font_size", 12);
+            head.AddThemeColorOverride("font_color", Dim);
+            column.AddChild(head);
+            _slotHeads[slot] = head;
+
+            var grid = new GridContainer { Columns = 6 };
+            grid.AddThemeConstantOverride("h_separation", 4);
+            grid.AddThemeConstantOverride("v_separation", 4);
+            column.AddChild(grid);
+
+            foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
+            {
+                var cell = (TextureRect)MakeThumb(item, ThumbSize);
+                cell.TooltipText = item.Name;
+                grid.AddChild(cell);
+                _collectionCells[item.Id] = cell;
+            }
+        }
+    }
+
+    /// <summary>도감 칸의 소유 여부를 다시 칠한다.</summary>
+    private void RefreshCollection()
+    {
+        int owned = _inventory.OwnedCount;
+        _collectionTotal.Text = $"{owned} / {ShopCatalog.All.Length}"
+            + $"  ({owned * 100 / ShopCatalog.All.Length}%)";
+        _collectionTotal.AddThemeColorOverride(
+            "font_color", _inventory.IsComplete ? Accent : Colors.White);
+        _collectionBar.Value = owned;
+
+        foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
+        {
+            if (_slotHeads.TryGetValue(slot, out Label head))
+            {
+                head.Text = $"{ShopCatalog.SlotName(slot)}"
+                    + $"  {_inventory.OwnedInSlot(slot)}/{ShopCatalog.CountInSlot(slot)}";
+            }
+        }
+
+        foreach (ShopCatalog.Item item in ShopCatalog.All)
+        {
+            if (!_collectionCells.TryGetValue(item.Id, out TextureRect cell))
+            {
+                continue;
+            }
+
+            // 실루엣: 알파는 살리고 색만 죽인다. Modulate 를 곱하는 것이라
+            // 투명한 배경은 그대로 투명하게 남는다.
+            cell.Modulate = _inventory.Owns(item.Id) ? Colors.White : Silhouette;
         }
     }
 
@@ -296,11 +401,11 @@ public partial class ShopWindow : CanvasLayer
     /// 빈 칸으로 두되 줄 높이는 유지한다 - 줄마다 높이가 들쭉날쭉하면 목록이
     /// 읽히지 않는다.
     /// </summary>
-    private static Control MakeThumb(ShopCatalog.Item item)
+    private static Control MakeThumb(ShopCatalog.Item item, int size = ThumbSize)
     {
         var thumb = new TextureRect
         {
-            CustomMinimumSize = new Vector2(ThumbSize, ThumbSize),
+            CustomMinimumSize = new Vector2(size, size),
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
         };
