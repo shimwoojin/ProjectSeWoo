@@ -12,7 +12,23 @@ public partial class Tree : Node2D
     /// <summary>강화 상한 (§2-2, §5). 슬롯 배치 반경도 이 수를 기준으로 잡았다.</summary>
     private const int MaxSlots = 8;
 
-    private const float SlotRingRadius = 62f;
+    /// <summary>
+    /// 슬롯이 놓이는 타원 호의 반지름. <b>원이 아니라 납작한 타원이고, 위쪽이
+    /// 아니라 아래쪽 호에만 깐다</b> (B4).
+    ///
+    /// 자리표시자 시절에는 캐노피가 그냥 초록 원이라 정원(正圓)에 고르게 돌려도
+    /// 됐다. 실물 야자수로 바꾸니 **바나나가 잎 사이에 파묻혀 안 보였다** -
+    /// 초록 위에 초록(덜 익은 색)이라 더 그랬다. 실제로도 바나나는 잎 위가
+    /// 아니라 잎이 갈라지는 밑동에 매달린다.
+    /// </summary>
+    private const float SlotRadiusX = 82f;
+
+    private const float SlotRadiusY = 30f;
+
+    /// <summary>슬롯을 까는 호의 양 끝(도). 0 이 오른쪽, 시계방향이 아래다.</summary>
+    private const float SlotArcFromDeg = 20f;
+
+    private const float SlotArcToDeg = 160f;
 
     /// <summary>
     /// 성장 표시를 몇 단으로 끊어 갱신할지. 8분 주기면 약 7초에 한 번 다시 그린다 -
@@ -22,10 +38,9 @@ public partial class Tree : Node2D
 
     [Export] private PackedScene _slotScene;
 
-    private Node2D _crown;
+    private Node2D _sway;
     private Node2D _slotRoot;
-    private Polygon2D _trunk;
-    private Polygon2D _canopy;
+    private Sprite2D _body;
     private CpuParticles2D _leaves;
     private Tween _shake;
 
@@ -51,14 +66,13 @@ public partial class Tree : Node2D
 
     public override void _Ready()
     {
-        _crown = GetNode<Node2D>("Crown");
-        _slotRoot = GetNode<Node2D>("Crown/Slots");
-        _canopy = GetNode<Polygon2D>("Crown/Canopy");
-        _leaves = GetNode<CpuParticles2D>("Crown/Leaves");
-        _trunk = GetNode<Polygon2D>("Trunk");
+        _sway = GetNode<Node2D>("Sway");
+        _slotRoot = GetNode<Node2D>("Sway/Slots");
+        _body = GetNode<Sprite2D>("Sway/Body");
+        _leaves = GetNode<CpuParticles2D>("Sway/Leaves");
 
-        Rect2 crownBounds = _crown.Transform * Shapes.Bounds(_canopy);
-        _restBounds = Transform * Shapes.Bounds(_trunk).Merge(crownBounds);
+        // 나무가 한 장이라 밑동과 잎을 따로 잴 것이 없어졌다 (B4).
+        _restBounds = Transform * (_sway.Transform * Shapes.Bounds(_body));
     }
 
     /// <summary>세이브 스키마를 그대로 받는다 (§4-4). 파일 I/O 는 B5 가 붙인다.</summary>
@@ -78,9 +92,13 @@ public partial class Tree : Node2D
                 _timers[i] = state.SlotTimers[i];
             }
 
-            float angle = -Mathf.Pi / 2f + Mathf.Tau * i / count;
+            // 슬롯이 1개뿐이면 호의 한가운데에 둔다 - (i / (count-1)) 은 0으로 나눈다.
+            float t = count == 1 ? 0.5f : (float)i / (count - 1);
+            float angle = Mathf.DegToRad(Mathf.Lerp(SlotArcFromDeg, SlotArcToDeg, t));
+
             TreeSlot slot = _slotScene.Instantiate<TreeSlot>();
-            slot.Position = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * SlotRingRadius;
+            slot.Position = new Vector2(Mathf.Cos(angle) * SlotRadiusX,
+                                        Mathf.Sin(angle) * SlotRadiusY);
             _slotRoot.AddChild(slot);
 
             _slots[i] = slot;
@@ -121,11 +139,11 @@ public partial class Tree : Node2D
         _leaves.Restart();
 
         _shake?.Kill();
-        _crown.Rotation = 0f;
+        _sway.Rotation = 0f;
         _shake = CreateTween();
-        _shake.TweenProperty(_crown, "rotation", 0.028f, 0.05).SetTrans(Tween.TransitionType.Sine);
-        _shake.TweenProperty(_crown, "rotation", -0.018f, 0.08).SetTrans(Tween.TransitionType.Sine);
-        _shake.TweenProperty(_crown, "rotation", 0.0f, 0.12).SetTrans(Tween.TransitionType.Sine);
+        _shake.TweenProperty(_sway, "rotation", 0.028f, 0.05).SetTrans(Tween.TransitionType.Sine);
+        _shake.TweenProperty(_sway, "rotation", -0.018f, 0.08).SetTrans(Tween.TransitionType.Sine);
+        _shake.TweenProperty(_sway, "rotation", 0.0f, 0.12).SetTrans(Tween.TransitionType.Sine);
     }
 
     /// <summary>열린 바나나가 있으면 하나 수확하고 그 슬롯을 비운다.</summary>
@@ -139,7 +157,7 @@ public partial class Tree : Node2D
                 continue;
             }
 
-            fruitPosition = Transform * (_crown.Transform * _slots[i].Position);
+            fruitPosition = Transform * (_sway.Transform * (_slotRoot.Position + _slots[i].Position));
             _timers[i] = 0;
             Redraw(i, flashOnRipe: false);
             return true;

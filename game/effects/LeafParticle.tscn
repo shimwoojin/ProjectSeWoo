@@ -1,8 +1,11 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/entities/leaf_01.png" id="1_leaf"]
 
 [node name="LeafParticle" type="CPUParticles2D"]
 emitting = false
 amount = 2
+texture = ExtResource("1_leaf")
 lifetime = 1.4
 one_shot = true
 explosiveness = 1.0
@@ -16,6 +19,5 @@ initial_velocity_min = 18.0
 initial_velocity_max = 46.0
 angular_velocity_min = -160.0
 angular_velocity_max = 160.0
-scale_amount_min = 3.0
-scale_amount_max = 5.0
-color = Color(0.36, 0.6, 0.27, 1)
+scale_amount_min = 0.09
+scale_amount_max = 0.15

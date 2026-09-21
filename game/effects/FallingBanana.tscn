@@ -1,10 +1,11 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://game/effects/FallingBanana.cs" id="1_banana"]
+[ext_resource type="Texture2D" path="res://assets/entities/banana_02.png" id="2_banana"]
 
 [node name="FallingBanana" type="Node2D"]
 script = ExtResource("1_banana")
 
-[node name="Fruit" type="Polygon2D" parent="."]
-color = Color(0.98, 0.82, 0.22, 1)
-polygon = PackedVector2Array(14, 0, 9.9, 9.9, 0, 14, -9.9, 9.9, -14, 0, -9.9, -9.9, 0, -14, 9.9, -9.9)
+[node name="Fruit" type="Sprite2D" parent="."]
+scale = Vector2(0.145, 0.145)
+texture = ExtResource("2_banana")

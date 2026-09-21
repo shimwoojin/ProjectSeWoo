@@ -1,0 +1,229 @@
+{
+  "$comment": [
+    "B8 에셋 매니페스트 — 이 파일 하나가 프로젝트의 모든 생성 에셋을 정의한다.",
+    "",
+    "왜 매니페스트인가: 프롬프트와 시드가 일회용 배치 스크립트에 박혀 있으면 '한 장만",
+    "다시 뽑기' 가 불가능하다. 여기에 시드를 고정해 두면 같은 입력이 같은 그림을 내고,",
+    "마음에 안 드는 한 장만 시드를 바꿔 22초에 다시 뽑는다. 나머지는 안 흔들린다.",
+    "",
+    "out 은 res:// 기준 경로다. 커서 장식의 경로 규약은 A5 가 이미 정했다",
+    "(platform/CursorLayer.cs ResolveTexture: res://assets/cursor/{slot}/{assetId}.png, 소문자).",
+    "파이프라인이 그 자리에 직접 떨구므로 A5 호출부는 한 글자도 안 바뀐다.",
+    "",
+    "pivot: bottom = 바닥중앙(땅에 서는 것), center = 정중앙(공중에 뜨는 것).",
+    "neg_extra: 이 항목에만 추가로 막을 것. 스타일 공통 negative 는 gen.py 에 있다.",
+    "  스타일 공통에만 두면 안 되는 이유 — 바나나에는 'face, eyes' 를 막아야 하는데",
+    "  원숭이에 같은 것을 막으면 얼굴 없는 원숭이가 나온다."
+  ],
+  "style": "cartoon",
+  "$sheets_comment": [
+    "외부에서 받은 스프라이트 시트를 자르는 단계 (slice.py).",
+    "",
+    "왜 생성(gen.py)과 따로 두는가: 2D 애니메이션 스프라이트는 GPT 쪽 산출물이 로컬",
+    "ComfyUI 보다 낫다는 판단이 있었다(2026-09-21). 그래서 엔티티 아트는 '생성' 이",
+    "아니라 '받아서 자르기' 가 정식 경로다. gen.py 는 커서 장식 16종(B9)처럼 낱장이",
+    "필요한 쪽에 남는다.",
+    "",
+    "**이미지는 언제든 갈아끼울 수 있어야 한다.** 그래서 프레임 위치를 숫자로 박지",
+    "않고 알파 투영으로 찾는다 - 새 시트의 여백이 달라도 같은 명령이 그대로 돈다.",
+    "",
+    "strip: 가로 1행 n프레임 애니메이션. 균등 그리드로 다시 조판해 hframes 로 쓴다.",
+    "  원본이 정확히 균등하지 않아(프레임마다 팔이 칸을 9px 넘는다) 그대로 hframes",
+    "  를 걸면 옆 프레임의 팔이 비쳐 들어온다. 그렇다고 프레임마다 bbox 로 자르면",
+    "  몸 위치가 프레임마다 달라져 애니메이션이 덜덜 떤다. 그래서 **칸 기준 상대",
+    "  위치를 보존한 채 칸만 넓혀서** 다시 조판한다.",
+    "atlas: 행/열로 흩어진 부품 모음. 행마다 이름을 주면 낱장으로 뽑는다."
+  ],
+  "sheets": [
+    {
+      "src": "assets/_source/Monkey.png",
+      "kind": "strip",
+      "frames": 8,
+      "margin": 8,
+      "out": "assets/entities/monkey_punch.png",
+      "note": "펀치 8프레임. Monkey.tscn 의 Sprite2D(hframes=8) 가 이걸 쓴다."
+    },
+    {
+      "src": "assets/_source/Tree2.png",
+      "kind": "atlas",
+      "margin": 6,
+      "rows": [
+        [
+          "tree_empty",
+          "tree_full"
+        ],
+        [
+          "banana_01",
+          "banana_02",
+          "banana_03",
+          "banana_04"
+        ],
+        [
+          "leaf_01",
+          "leaf_02",
+          "leaf_03",
+          "leaf_04"
+        ]
+      ],
+      "out_dir": "assets/entities",
+      "note": "부품 아틀라스. 1행 나무 2종, 2행 바나나 송이 4종, 3행 잎 4종."
+    },
+    {
+      "src": "assets/_source/Tree1.png",
+      "kind": "strip",
+      "frames": 8,
+      "margin": 6,
+      "out": "assets/entities/tree_growth.png",
+      "note": "바나나 성장 8단계. 지금 씬은 슬롯 3개를 따로 키우므로 아직 안 쓴다 - 통짜 나무로 갈 때의 예비."
+    }
+  ],
+  "groups": {
+    "cursor": [
+      {
+        "id": "monkey_01",
+        "out": "assets/cursor/hang/monkey_01.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 101,
+        "prompt": "a tiny cute brown monkey hanging by one arm, dangling, full body, simple silhouette",
+        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+      },
+      {
+        "id": "monkey_02",
+        "out": "assets/cursor/hang/monkey_02.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 102,
+        "prompt": "a tiny cute golden yellow monkey hanging by one arm, dangling, full body, simple silhouette",
+        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+      },
+      {
+        "id": "monkey_03",
+        "out": "assets/cursor/hang/monkey_03.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 103,
+        "prompt": "a tiny cute grey monkey with big round eyes hanging by one arm, dangling, full body",
+        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+      },
+      {
+        "id": "monkey_04",
+        "out": "assets/cursor/hang/monkey_04.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 104,
+        "prompt": "a tiny cute white monkey with a happy grin hanging by one arm, dangling, full body",
+        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+      },
+      {
+        "id": "monkey_05",
+        "out": "assets/cursor/hang/monkey_05.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 105,
+        "prompt": "a tiny cute dark brown monkey wearing a small red cap, hanging by one arm, dangling, full body",
+        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+      },
+      {
+        "id": "monkey_06",
+        "out": "assets/cursor/hang/monkey_06.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 106,
+        "prompt": "a tiny cute orange orangutan with long arms hanging by one arm, dangling, full body",
+        "neg_extra": "ground, grass, tree, branch, rope, shadow"
+      },
+      {
+        "id": "leaf_01",
+        "out": "assets/cursor/trail/leaf_01.png",
+        "px": 96,
+        "pivot": "center",
+        "seed": 201,
+        "prompt": "a single small green tropical leaf, simple flat shape, game particle icon",
+        "neg_extra": "stem cluster, branch, ground, shadow, multiple"
+      },
+      {
+        "id": "leaf_02",
+        "out": "assets/cursor/trail/leaf_02.png",
+        "px": 96,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a single small yellow autumn leaf, simple flat shape, game particle icon",
+        "neg_extra": "stem cluster, branch, ground, shadow, multiple"
+      },
+      {
+        "id": "chunk_01",
+        "out": "assets/cursor/trail/chunk_01.png",
+        "px": 96,
+        "pivot": "center",
+        "seed": 203,
+        "prompt": "a small peeled banana slice, round yellow piece, game particle icon",
+        "neg_extra": "face, eyes, whole banana, ground, shadow"
+      },
+      {
+        "id": "chunk_02",
+        "out": "assets/cursor/trail/chunk_02.png",
+        "px": 96,
+        "pivot": "center",
+        "seed": 204,
+        "prompt": "a small banana peel, yellow, game particle icon",
+        "neg_extra": "face, eyes, ground, shadow"
+      },
+      {
+        "id": "spark_01",
+        "out": "assets/cursor/trail/spark_01.png",
+        "px": 96,
+        "pivot": "center",
+        "seed": 205,
+        "prompt": "a small bright yellow four pointed sparkle star, glowing, game particle icon",
+        "neg_extra": "ground, shadow, multiple, background glow"
+      },
+      {
+        "id": "spark_02",
+        "out": "assets/cursor/trail/spark_02.png",
+        "px": 96,
+        "pivot": "center",
+        "seed": 206,
+        "prompt": "a small cyan blue sparkle twinkle, glowing, game particle icon",
+        "neg_extra": "ground, shadow, multiple, background glow"
+      },
+      {
+        "id": "halo_01",
+        "out": "assets/cursor/base/halo_01.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 301,
+        "prompt": "a simple flat golden ring halo, top down circle, game icon",
+        "neg_extra": "character, head, ground, shadow, perspective"
+      },
+      {
+        "id": "halo_02",
+        "out": "assets/cursor/base/halo_02.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 302,
+        "prompt": "a soft round glowing light disc, warm orange, flat top down circle, game icon",
+        "neg_extra": "character, ground, shadow, perspective, lens flare"
+      },
+      {
+        "id": "ring_01",
+        "out": "assets/cursor/base/ring_01.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 303,
+        "prompt": "a circle of small green leaves arranged in a flat wreath ring, top down, game icon",
+        "neg_extra": "character, ground, shadow, perspective, ribbon"
+      },
+      {
+        "id": "ring_02",
+        "out": "assets/cursor/base/ring_02.png",
+        "px": 128,
+        "pivot": "center",
+        "seed": 304,
+        "prompt": "a flat circular wooden slice platform seen from above, brown wood grain rings, game icon",
+        "neg_extra": "character, ground, grass, shadow, perspective"
+      }
+    ]
+  },
+  "$entities_removed": "2026-09-21: 엔티티 아트(원숭이/나무/바나나)를 ComfyUI 생성에서 **시트 슬라이스**로 바꿨다. 애니메이션 스프라이트는 GPT 쪽 산출물이 나았고, 무엇보다 펀치 8프레임처럼 '같은 캐릭터가 여러 포즈로' 나오는 것은 시드만 바꾸는 단발 생성으로는 안 된다. 생성 경로(gen.py)는 커서 장식 16종(B9)처럼 낱장이 필요한 쪽에 그대로 남는다. 지웠던 프롬프트가 필요하면 git 이력의 이 파일을 봐라."
+}
