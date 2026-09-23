@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -56,6 +56,11 @@ public static class SaveSchema
                     version = 3;
                     break;
 
+                case 3:
+                    MigrateV3ToV4(root);
+                    version = 4;
+                    break;
+
                 default:
                     // 모르는 버전은 조용히 통과시키지 않는다. 세이브가 깨진 채로
                     // 게임이 돌면 유저는 나중에야 알아차린다.
@@ -95,6 +100,27 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v3 -> v4 (2026-09-23, docs/ECONOMY-SERVER.md): <c>bananas</c>, <c>tree</c>,
+    /// <c>upgrades</c>, <c>inventory.owned</c> 를 걷어냈다 - 바나나로 산 커서
+    /// 장식을 스팀 인벤토리로 옮기고 커뮤니티 마켓 거래를 노리기로 하면서,
+    /// 이 값들의 진실이 로컬 세이브에서 서버(<see cref="IEconomyService"/>)/
+    /// 스팀(<see cref="IInventoryService"/>)으로 넘어갔다.
+    ///
+    /// <b>이전 마이그레이션과 방향이 반대다.</b> v1~v3 는 전부 필드를
+    /// "추가"했고 additive 라 버전 태그만 올리면 됐다. 이번엔 필드를
+    /// "제거"하는데, 그런데도 여기서 값을 지우는 코드가 없는 이유는
+    /// <see cref="JsonSerializer"/>가 기본적으로 모르는 프로퍼티를 무시하기
+    /// 때문이다 - <c>SaveData</c>에 없는 필드는 역직렬화 시점에 저절로
+    /// 버려진다. **출시 전이라 실사용
+    /// 세이브가 없으므로** 값을 다른 곳으로 옮기는 마이그레이션(예: 남은
+    /// 바나나를 서버 원장에 반영)도 필요 없다고 판단했다.
+    /// </summary>
+    private static void MigrateV3ToV4(JsonNode root)
+    {
+        root["version"] = 4;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -113,13 +139,13 @@ public static class SaveSchema
             return "역직렬화 결과가 null 이다";
         }
 
-        // 기획서 §7-5 에 실린 필드 이름 전부. 하나라도 빠지면 계약 위반이다.
+        // v4(docs/ECONOMY-SERVER.md) 이후 남은 필드 이름 전부. 하나라도 빠지면
+        // 계약 위반이다. bananas/tree/upgrades/inventory.owned 는 v4 에서
+        // 서버·스팀으로 옮겨가서 더 이상 여기 없다 (SaveSchema.MigrateV3ToV4).
         string[] required =
         {
-            "version", "bananas", "totalKeystrokes",
-            "tree", "slots", "growthMs", "slotTimers",
-            "upgrades", "power", "cycle",
-            "inventory", "owned", "equipped", "hang", "trail", "base",
+            "version", "totalKeystrokes",
+            "inventory", "equipped", "hang", "trail", "base",
             "settings", "scale", "opacity", "pos", "sound", "autostart",
             "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen", "keystrokeCounting",
             "cursorIndependent",
@@ -137,11 +163,6 @@ public static class SaveSchema
         if (back.Version != CurrentVersion)
         {
             return $"version 이 {back.Version} 로 돌아왔다. {CurrentVersion} 이어야 한다";
-        }
-
-        if (back.Tree.Slots != back.Tree.SlotTimers.Length)
-        {
-            return $"slots({back.Tree.Slots}) 와 slotTimers 길이({back.Tree.SlotTimers.Length})가 다르다";
         }
 
         // lastQuitUtc 가 'Z' 표기로 나가는지. 기획서 예시가 Z 표기이고,

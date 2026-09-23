@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using ProjectSeWoo.Shared;
 using ProjectSeWoo.Shared.Mocks;
@@ -12,15 +13,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     /// <summary>수확한 바나나가 떨어져 착지하는 높이. 원숭이 발치다.</summary>
     private const float GroundY = 404f;
-
-    /// <summary>
-    /// 아무 일이 없어도 이 간격으로 세이브 객체를 한 번 갱신한다.
-    ///
-    /// 나무는 수확이 없어도 계속 자라므로, 변경이 있을 때만 알리면 성장 진행이
-    /// 오래 안 실린다. 실제 디스크 쓰기는 플랫폼이 또 한 번 묶으므로
-    /// (<see cref="ISaveStore"/>) 이 간격이 곧 쓰기 주기는 아니다.
-    /// </summary>
-    private const double SyncIntervalSec = 5.0;
 
     /// <summary>
     /// 플랫폼 실물 묶음. 셸이 <see cref="AttachPlatform"/> 으로 넘긴다.
@@ -105,8 +97,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     private SaveData Save => _store.Data;
 
-    private double _sinceSync;
-
     public override void _Ready()
     {
         AddToGroup(SceneGroups.GameRoot);
@@ -145,25 +135,45 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _platform = platform;
         _store = platform.Save;
         _platform.Input.OnKeystrokes += OnKeystrokes;
+        _platform.Economy.OnStateChanged += OnEconomyStateChanged;
+
+        LoadGameStateAsync();
+    }
+
+    /// <summary>
+    /// 실물이면 서버/스팀에서 최신 상태를 받아온 뒤 <see cref="LoadGameState"/>
+    /// 로 넘긴다 - 목은 이미 채워져 있어서 <c>Sync</c>/<c>Refresh</c> 둘 다
+    /// 즉시 끝난다(<c>Task.CompletedTask</c>).
+    ///
+    /// <b>순서가 중요하다.</b> <see cref="Inventory.ApplyEquippedToCursor"/> 는
+    /// <see cref="IInventoryService.Owns"/> 로 소유권을 확인하는데, 실물이
+    /// 아직 <see cref="IInventoryService.Refresh"/> 전이면 전부 "안 가진 것"으로
+    /// 오판해서 세이브에 남은 장착을 전부 풀어 버린다 - 그래서 <c>Refresh</c>
+    /// 완료를 기다린 뒤에 <see cref="LoadGameState"/> 를 부른다.
+    /// </summary>
+    private async void LoadGameStateAsync()
+    {
+        await _platform.Economy.Sync();
+        await _platform.Inventory.Refresh();
 
         LoadGameState();
     }
 
     /// <summary>
-    /// 세이브에서 게임 상태를 세우고, 꺼져 있던 동안 자란 만큼을 반영한다 (B5, §2-2).
+    /// 세이브에서 게임 상태를 세운다 (B5). 나무 슬롯의 오프라인 성장은 더 이상
+    /// 여기서 계산하지 않는다 - <see cref="IEconomyService"/> 쪽(서버/목)이
+    /// 이미 경과 시간을 반영한 값을 들고 있다 (docs/ECONOMY-SERVER.md).
     /// </summary>
     private void LoadGameState()
     {
-        _tree.Configure(Save.Tree);
+        _tree.SyncSlots(_platform.Economy.Slots);
 
         // **세이브의 장착 상태를 커서 레이어에 처음으로 밀어 넣는 자리다.** B9 까지
         // 이걸 부르는 코드가 없어서, 세이브에 hang:monkey_01 이 있어도 켜면 아무
         // 장식도 안 붙었다 (docs/A5-CURSOR-COSMETICS.md §2-1).
-        _inventory = new Inventory(Save, _platform.Cursor);
+        _inventory = new Inventory(Save.Inventory.Equipped, _platform.Economy, _platform.Inventory, _platform.Cursor);
         _inventory.ApplyEquippedToCursor();
         _shop.Bind(_inventory);
-
-        int ripened = _tree.AdvanceOffline(OfflineMs());
 
         // 이미 넘어선 마일스톤은 세션 시작 시점에 지나간 것으로 잡는다. 안 그러면
         // 켤 때마다 예전에 딴 도전과제를 다시 Unlock 한다 - 스팀이 무시하긴 하지만
@@ -175,15 +185,15 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             _nextMilestone++;
         }
 
-        _hud.SetBananas(Save.Bananas);
+        _hud.SetBananas(_platform.Economy.Balance);
         _hud.SetKeystrokes(Save.TotalKeystrokes);
         RefreshCollectionHud();
 
         // 이미 다 모은 세이브면 해금은 건너뛰고 상태만 맞춘다 (위 주석 참고).
         _collectionDone = _inventory.IsComplete;
 
-        GD.Print($"[game] 세이브 로드 - 바나나 {Save.Bananas}, 누적 {Save.TotalKeystrokes}타"
-            + $" (Lv.{_level}), 슬롯 {Save.Tree.Slots}개, 오프라인에 {ripened}개 열림"
+        GD.Print($"[game] 세이브 로드 - 바나나 {_platform.Economy.Balance}, 누적 {Save.TotalKeystrokes}타"
+            + $" (Lv.{_level}), 슬롯 {_platform.Economy.Slots.Count}개"
             + $", 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
 
         if (OS.IsDebugBuild())
@@ -191,36 +201,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             GD.Print("[game] 디버그 키 - G 성장 앞당기기 / B 상점 / 2·3·4 슬롯 장착 순환"
                 + " / Shift+B 전 상품 지급 / Shift+R 인벤토리 초기화");
         }
-
-        // 오프라인 성장분을 바로 한 번 받아 적는다. 안 해도 다음 실행이 같은 계산을
-        // 다시 하므로 손해는 없지만, 세이브 파일만 열어 봐도 지금 상태가 보이는 편이
-        // 디버깅에 낫다.
-        SyncToSave();
     }
 
     /// <summary>
-    /// 앱이 꺼져 있던 시간(ms). 기준점은 <see cref="SaveData.LastQuitUtc"/> 이고,
-    /// 실제 의미는 "마지막으로 저장한 시각" 이다 (platform/SaveStore.cs 참고) -
-    /// 그래서 정상 종료와 강제 종료가 같은 경로를 탄다.
-    ///
-    /// 두 경우를 막는다. 첫 실행(<c>lastQuitUtc</c> 가 UnixEpoch)이면 0이고,
-    /// <b>시계를 뒤로 돌렸으면</b>(음수) 역시 0이다 - 음수를 그대로 더하면
-    /// 자라던 나무가 거꾸로 간다.
-    ///
-    /// 상한은 성장 주기 하나다. 어차피 슬롯마다 주기에서 상한에 걸리므로
-    /// (<see cref="Tree.AdvanceOffline"/>) 그 이상은 의미가 없고, 몇 년 된 세이브의
-    /// 거대한 차이가 <c>long</c> 범위를 넘는 것도 여기서 막힌다.
+    /// <see cref="IEconomyService.OnStateChanged"/>. 잔액이 서버 확인이든 로컬
+    /// 낙관적 갱신이든 구분 없이 HUD 를 다시 그린다 - 계약이 그렇게 합쳐서
+    /// 부르기로 돼 있다 (shared/Contracts/IEconomyService.cs).
     /// </summary>
-    private long OfflineMs()
-    {
-        if (Save.LastQuitUtc <= DateTime.UnixEpoch)
-        {
-            return 0;
-        }
-
-        double ms = (DateTime.UtcNow - Save.LastQuitUtc).TotalMilliseconds;
-        return (long)Math.Clamp(ms, 0.0, Save.Tree.GrowthMs);
-    }
+    private void OnEconomyStateChanged() => _hud.SetBananas(_platform.Economy.Balance);
 
     /// <summary>
     /// 셸이 실물을 안 넘겼으면 목으로 돈다. <see cref="_Ready"/> 가 프레임 끝으로
@@ -243,25 +231,17 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 실물의 폴링은 셸이 돌린다. 목일 때만 우리가 굴린다.
         _standalone?.Tick(delta);
 
-        _tree.Tick(delta);
-
-        if (_store == null)
+        // 나무 시각은 매 프레임 서버(또는 목) 값을 그대로 받아 그린다 - 진실이
+        // 여기 없으므로 로컬 틱이 없다 (docs/ECONOMY-SERVER.md, game/entities/Tree.cs).
+        if (_platform != null)
         {
-            return;
-        }
-
-        _sinceSync += delta;
-        if (_sinceSync >= SyncIntervalSec)
-        {
-            _sinceSync = 0.0;
-            SyncToSave();
-            _store.MarkDirty();
+            _tree.SyncSlots(_platform.Economy.Slots);
         }
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+        if (@event is not InputEventKey { Pressed: true, Echo: false } key || _platform == null)
         {
             return;
         }
@@ -269,9 +249,20 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 8분을 기다리지 않고 수확까지 확인하려고 둔 debug 키다. 셸이 쓰는 키
         // (F1~F12 / 1~4 / [ ] - = O H / Esc)와 겹치지 않는 자리를 골랐다.
         // 강화 UI(B7)가 생기면 그쪽이 이 자리를 대신한다.
+        //
+        // **실물 경제 서버에는 없다.** 성장 시계의 진실이 서버에 있으므로
+        // (IEconomyService), 앞당기는 것도 서버(목)의 일이다 - 목일 때만 동작한다.
         if (key.Keycode == Key.G)
         {
-            _tree.DebugAdvance(DebugGrowMs);
+            if (_platform.Economy is MockEconomyService mockEconomy)
+            {
+                mockEconomy.DebugAdvanceAll(DebugGrowMs);
+            }
+            else
+            {
+                GD.PushWarning("[game][디버그] 실물 경제 서버에는 성장 앞당기기가 없다 - 목일 때만 동작한다");
+            }
+
             return;
         }
 
@@ -342,17 +333,34 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 수확을 애니메이션 타이밍이 아니라 입력에 직접 건다. §2-3 검토 노트의
         // "키 입력과 애니메이션을 1:1 고정 대응시키지 말 것"이 이 뜻이고,
         // 연출이 끊기거나 겹쳐도 수확 개수가 흔들리지 않는다.
+        //
+        // **재화는 여기서 직접 더하지 않는다.** §2-2: 펀치 1회당 열린 바나나 1개.
+        // <see cref="IEconomyService.RequestHarvest"/> 가 낙관적으로 잔액을 올리고
+        // <see cref="OnEconomyStateChanged"/> 가 HUD 를 다시 그린다
+        // (docs/ECONOMY-SERVER.md) - 그래서 이 메서드는 "어느 슬롯을 땄는가"만
+        // 정하고 재화 계산은 서버(또는 목)에 맡긴다.
         int harvested = 0;
-        while (harvested < count && _tree.TryHarvest(out Vector2 fruitPosition))
+        IReadOnlyList<SlotState> slots = _platform.Economy.Slots;
+        while (harvested < count)
         {
+            int readyIndex = FindReadySlot(slots);
+            if (readyIndex < 0)
+            {
+                break;
+            }
+
+            Vector2 fruitPosition = _tree.PositionOf(readyIndex);
+            _platform.Economy.RequestHarvest(readyIndex);
             DropBanana(fruitPosition, contact);
             harvested++;
+
+            // 낙관적 갱신을 즉시 다시 읽는다 - 방금 딴 슬롯이 이번 배치의 다음
+            // 반복에서 또 "열려 있다"로 잡히면 같은 슬롯이 중복 수확된다.
+            slots = _platform.Economy.Slots;
         }
 
         if (harvested > 0)
         {
-            Save.Bananas += harvested;   // §2-2: 펀치 1회당 열린 바나나 1개
-            _hud.SetBananas(Save.Bananas);
             _hud.PopBananas();
         }
 
@@ -361,8 +369,20 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         CheckMilestones();
 
         // 수확이 없어도 누적 타수가 늘었으므로 저장 대상이다.
-        SyncToSave();
         _store.MarkDirty();
+    }
+
+    private static int FindReadySlot(IReadOnlyList<SlotState> slots)
+    {
+        for (int i = 0; i < slots.Count; i++)
+        {
+            if (slots[i].Ready)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>
@@ -427,16 +447,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     }
 
     /// <summary>
-    /// 지금 상태를 세이브 객체에 반영한다. <b>디스크를 건드리지 않는다</b> -
-    /// 언제 쓸지는 <see cref="ISaveStore"/> 쪽이 정한다.
-    ///
-    /// 재화와 누적 타수는 이미 <see cref="Save"/> 를 직접 고치고 있으므로 여기서
-    /// 할 일은 나무 타이머를 받아 적는 것뿐이다. 나무가 자기 타이머를 들고 있는
-    /// 것은 상태를 두 군데 두지 않기 위해서다 (game/entities/TreeSlot.cs 참고).
-    /// </summary>
-    private void SyncToSave() => _tree.WriteTo(Save.Tree);
-
-    /// <summary>
     /// 수확한 바나나가 떨어지는 연출 (§2-3). 재화는 이미 입력 시점에 더해졌고
     /// 이건 눈에 보이는 쪽만 한다.
     /// </summary>
@@ -460,34 +470,40 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 실물(HelperInputSource)은 이 노드보다 오래 살 수 있다 - 셸이 들고 있고
         // 셸은 _ExitTree 가 더 늦게 돈다. 구독을 남긴 채 나가지 않는다.
         _platform.Input.OnKeystrokes -= OnKeystrokes;
+        _platform.Economy.OnStateChanged -= OnEconomyStateChanged;
 
         // 마지막 상태를 써 넣는다. 디스크 쓰기는 셸의 _ExitTree 가 FlushNow 로
         // 마무리하지만, 그 순서를 가정하지 않으려고 여기서도 한 번 흘려보낸다 -
         // 이미 쓴 뒤라면 아무 일도 안 한다.
-        SyncToSave();
         _store.MarkDirty();
         _store.FlushNow();
     }
 
     /// <summary>
-    /// 구매 (§3-2). <b>세이브를 고치는 것은 여기다</b> - 화면은 무엇을 할지만
-    /// 정해서 올려보낸다.
+    /// 구매 (§3-2). <b>비동기다</b> - 서버가 잔액을 깎고 스팀 인벤토리에 지급하는
+    /// 것까지 한 트랜잭션으로 처리하므로(<see cref="Inventory.TryBuy"/>) 응답을
+    /// 기다려야 결과(성공/실패)를 안다.
     ///
-    /// 즉시 저장한다. §7-5 가 자동 저장을 "60초 주기 + 수확/구매 시 즉시" 로
-    /// 못 박았다 - 재화가 줄어든 직후에 앱이 죽으면 유저는 돈만 잃는다.
+    /// 성공하면 즉시 저장한다. §7-5 가 자동 저장을 "60초 주기 + 수확/구매 시
+    /// 즉시" 로 못 박았다 - 로컬 장착 상태가 구매 직후 세이브에 안 남으면
+    /// 강제 종료 시 잃는다.
     /// </summary>
-    private void OnBuyRequested(ShopCatalog.Item item)
+    private async void OnBuyRequested(ShopCatalog.Item item)
     {
-        if (!_inventory.TryBuy(item))
+        if (!await _inventory.TryBuy(item))
         {
             // 화면이 버튼을 잠가 두므로 정상 경로로는 여기 안 온다. 연타로 같은
             // 요청이 두 번 들어온 경우가 남는다 - 두 번째는 조용히 버린다.
             return;
         }
 
-        GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {Save.Bananas}");
+        // 목은 구매 성공과 소유권이 자동으로 연결돼 있다(MockEconomyService.LinkInventory).
+        // 실물(EconomyClient + SteamInventoryService)은 서로 남남이라 - 서버가 성공을
+        // 답해도 스팀 인벤토리 캐시는 다시 물어봐야 갱신된다 (docs/ECONOMY-SERVER.md §5-6).
+        await _platform.Inventory.Refresh();
 
-        _hud.SetBananas(Save.Bananas);
+        GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {_platform.Economy.Balance}");
+
         RefreshCollectionHud();
         _shop.Refresh();
         CheckCollection();
@@ -530,16 +546,22 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             }
         }
 
-        Save.Bananas += 10_000;
+        if (_platform.Economy is MockEconomyService mockEconomy)
+        {
+            mockEconomy.GrantBananas(10_000);
+        }
+        else
+        {
+            GD.PushWarning("[game][디버그] 실물 경제 서버에는 바나나 직접 지급이 없다 - 목일 때만 동작한다");
+        }
 
-        _hud.SetBananas(Save.Bananas);
         RefreshCollectionHud();
         _shop.Refresh();
         PersistNow();
 
         GD.Print($"[game][디버그] 전 상품 지급 - 새로 {granted}개"
             + $" (보유 {_inventory.OwnedCount}/{ShopCatalog.All.Length}),"
-            + $" 바나나 {Save.Bananas:N0}."
+            + $" 바나나 {_platform.Economy.Balance:N0}."
             + " **이 세션은 도전과제를 해금하지 않는다.**");
     }
 
@@ -615,14 +637,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     }
 
     /// <summary>
-    /// 지금 상태를 세이브에 반영하고 디스크 쓰기를 요청한다. 실제로 언제 쓸지는
-    /// 플랫폼이 정한다 (<see cref="ISaveStore"/>).
+    /// 디스크 쓰기를 요청한다. 실제로 언제 쓸지는 플랫폼이 정한다
+    /// (<see cref="ISaveStore"/>). 장착(로컬)이 바뀐 뒤에 부른다 - 바나나·소유권은
+    /// 이제 세이브에 없으므로 여기서 반영할 것이 없다.
     /// </summary>
-    private void PersistNow()
-    {
-        SyncToSave();
-        _store.MarkDirty();
-    }
+    private void PersistNow() => _store.MarkDirty();
 
     /// <summary>
     /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>).

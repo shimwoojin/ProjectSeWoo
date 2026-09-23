@@ -1,103 +1,107 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Godot;
 using ProjectSeWoo.Shared;
+using ProjectSeWoo.Shared.Mocks;
 
 namespace ProjectSeWoo.Game;
 
 /// <summary>
 /// 구매와 장착 규칙 (§3-2). <b>화면이 아니라 규칙만 안다</b> - UI 는
-/// <see cref="ShopWindow"/> 이고, 이 클래스는 세이브를 고치고 커서 레이어에
-/// 알리는 것까지만 한다.
+/// <see cref="ShopWindow"/> 이고, 이 클래스는 서버/스팀에 요청을 보내고 커서
+/// 레이어에 알리는 것까지만 한다.
 ///
-/// <b>세이브 객체를 직접 고친다.</b> 디스크에 언제 쓸지는 플랫폼이 정하므로
-/// (<see cref="ISaveStore"/>) 여기서는 <c>MarkDirty</c> 도 안 부른다 - 호출부인
-/// <see cref="GameRoot"/> 가 수확 때와 같은 자리에서 한 번에 처리한다.
+/// <b>2026-09-23, docs/ECONOMY-SERVER.md 피벗.</b> 예전에는 <c>SaveData</c> 를
+/// 직접 고쳤다 - 바나나도, 보유 목록도 전부 로컬 세이브 필드였다. 이제 잔액과
+/// 나무 슬롯의 진실은 <see cref="IEconomyService"/>(서버 원장)에, 커서 장식
+/// 소유권의 진실은 <see cref="IInventoryService"/>(스팀 인벤토리)에 있다.
+/// 이 클래스에 남은 로컬 상태는 **장착**(<see cref="SaveData.EquippedState"/>)
+/// 하나뿐이다 - 스팀은 "장착"을 모르는 개념이라 여기 남는다.
 ///
-/// <b>커서 레이어가 없어도 돈다.</b> <see cref="ICursorLayer.IsSupported"/> 가
-/// false 인 환경(A2 스파이크가 실패한 PC)에서도 구매·장착 상태는 세이브에 남아야
-/// 한다 - 나중에 되는 PC 에서 켜면 그대로 끼워져 있어야 하기 때문이다.
+/// <b>기본 지급품(<see cref="ShopCatalog.StarterId"/>)은 스팀 인벤토리에 없다.</b>
+/// 값이 0바나나라 마켓 거래 대상이 될 이유가 없고, 그래서 굳이 스팀에 그랜트를
+/// 걸지 않는다 - "가지고 있다"의 진실을 물을 필요 없이 <see cref="Owns"/> 가
+/// 항상 참으로 답한다.
 /// </summary>
 public sealed class Inventory
 {
-    private readonly SaveData _save;
+    private readonly SaveData.EquippedState _equipped;
+    private readonly IEconomyService _economy;
+    private readonly IInventoryService _steamInventory;
     private readonly ICursorLayer _cursor;
 
-    /// <summary>
-    /// 세이브의 <c>owned</c> 는 배열이라 추가할 때마다 새로 만들어야 한다.
-    /// 중복 검사도 자주 하므로 세션 동안은 집합으로 들고 있다가, 바뀔 때만
-    /// 배열로 되돌려 쓴다.
-    /// </summary>
-    private readonly HashSet<string> _owned;
-
-    public Inventory(SaveData save, ICursorLayer cursor)
+    public Inventory(
+        SaveData.EquippedState equipped,
+        IEconomyService economy,
+        IInventoryService steamInventory,
+        ICursorLayer cursor)
     {
-        _save = save ?? throw new ArgumentNullException(nameof(save));
+        _equipped = equipped ?? throw new ArgumentNullException(nameof(equipped));
+        _economy = economy ?? throw new ArgumentNullException(nameof(economy));
+        _steamInventory = steamInventory ?? throw new ArgumentNullException(nameof(steamInventory));
         _cursor = cursor;
-
-        _owned = new HashSet<string>(
-            _save.Inventory.Owned ?? Array.Empty<string>(), StringComparer.Ordinal);
-
-        // 기본 지급품이 빠진 세이브를 만나도 복구한다. 손으로 고친 파일이나
-        // 예전 스키마에서 올라온 경우다 - 없으면 hang 슬롯을 영영 못 채운다.
-        if (_owned.Add(ShopCatalog.StarterId))
-        {
-            WriteOwned();
-        }
     }
 
-    public long Bananas => _save.Bananas;
+    public long Bananas => _economy.Balance;
 
-    public bool Owns(string id) => id != null && _owned.Contains(id);
+    /// <summary>기본 지급품은 항상 가진 것으로 친다(위 클래스 주석). 그 외에는
+    /// 스팀 인벤토리 서비스가 답한다.</summary>
+    public bool Owns(string id)
+    {
+        ShopCatalog.Item item = ShopCatalog.Find(id);
+        return item != null && (item.IsStarter || _steamInventory.Owns(id));
+    }
 
-    public float CollectionRate => ShopCatalog.CollectionRate(_owned);
+    public float CollectionRate =>
+        ShopCatalog.All.Length == 0 ? 0f : (float)OwnedCount / ShopCatalog.All.Length;
 
-    public int OwnedCount => _owned.Count;
+    public int OwnedCount => ShopCatalog.All.Count(i => Owns(i.Id));
 
     /// <summary>도감이 슬롯별 진행도를 그릴 때 쓴다 (B7).</summary>
-    public int OwnedInSlot(CursorSlot slot) => ShopCatalog.OwnedInSlot(slot, _owned);
+    public int OwnedInSlot(CursorSlot slot) => ShopCatalog.ForSlot(slot).Count(i => Owns(i.Id));
 
     /// <summary>16종을 전부 모았는가 (§3-3, <see cref="AchievementIds.Collection100"/>).</summary>
-    public bool IsComplete => _owned.Count >= ShopCatalog.All.Length;
+    public bool IsComplete => ShopCatalog.All.All(i => Owns(i.Id));
 
     public string EquippedIn(CursorSlot slot) => slot switch
     {
-        CursorSlot.Hang => _save.Inventory.Equipped.Hang,
-        CursorSlot.Trail => _save.Inventory.Equipped.Trail,
-        CursorSlot.Base => _save.Inventory.Equipped.Base,
+        CursorSlot.Hang => _equipped.Hang,
+        CursorSlot.Trail => _equipped.Trail,
+        CursorSlot.Base => _equipped.Base,
         _ => null,
     };
 
-    /// <summary>살 수 있는가. 이미 가진 것과 기본 지급품은 false 다.</summary>
+    /// <summary>살 수 있는가. 이미 가진 것과 기본 지급품은 false 다.
+    /// <b>UI 힌트용이다</b> - 진짜 판정은 서버가 <see cref="TryBuy"/> 안에서 다시 한다.</summary>
     public bool CanBuy(ShopCatalog.Item item) =>
-        item != null && !item.IsStarter && !Owns(item.Id) && _save.Bananas >= item.Price;
+        item != null && !item.IsStarter && !Owns(item.Id) && _economy.Balance >= item.Price;
 
     /// <summary>
-    /// 구매. 성공하면 바나나가 줄고 인벤토리에 들어간다 (§3-2 "구매 즉시 인벤토리").
-    ///
-    /// <b>장착까지 하지는 않는다.</b> 기획서가 "구매 즉시 인벤토리에 들어가고,
-    /// 장착 화면에서 슬롯에 끼운다" 로 두 단계를 나눠 뒀다 - 산 것이 곧바로
-    /// 끼워지면 지금 끼운 것이 말없이 밀려난다.
+    /// 구매. 서버가 잔액을 깎고 스팀 인벤토리에 지급하는 것까지 한 트랜잭션으로
+    /// 처리한다 (docs/ECONOMY-SERVER-API.md §2-3) - 그래서 <b>비동기다</b>.
+    /// 성공하면 <see cref="IInventoryService.OnItemsChanged"/> 가 뒤따라 불려서
+    /// <see cref="Owns"/> 가 곧바로 참이 된다.
     /// </summary>
-    public bool TryBuy(ShopCatalog.Item item)
+    public async Task<bool> TryBuy(ShopCatalog.Item item)
     {
         if (!CanBuy(item))
         {
             return false;
         }
 
-        _save.Bananas -= item.Price;
-        _owned.Add(item.Id);
-        WriteOwned();
-        return true;
+        PurchaseResult result = await _economy.PurchaseItem(item.Id);
+        return result.Outcome == PurchaseOutcome.Success;
     }
 
     /// <summary>
-    /// 슬롯에 끼운다. <paramref name="id"/> 가 null 이면 비운다.
+    /// 슬롯에 끼운다. <paramref name="id"/> 가 null 이면 비운다. 로컬
+    /// (<see cref="SaveData.EquippedState"/>)에 적고 커서 레이어에 민다 -
+    /// 스팀에는 아무것도 쓰지 않는다(위 클래스 주석).
     ///
     /// <b>안 가진 것은 못 끼운다.</b> UI 가 막고 있지만 세이브 파일을 손으로 고친
-    /// 경우가 남는다 - 그때 조용히 끼워 주면 상점을 거치지 않는 길이 생긴다.
+    /// 경우가 남는다 - 그때 조용히 끼워 주면 상점을 건너뛰는 경로가 생긴다.
     /// </summary>
     public bool Equip(CursorSlot slot, string id)
     {
@@ -112,9 +116,9 @@ public sealed class Inventory
 
         switch (slot)
         {
-            case CursorSlot.Hang: _save.Inventory.Equipped.Hang = id; break;
-            case CursorSlot.Trail: _save.Inventory.Equipped.Trail = id; break;
-            case CursorSlot.Base: _save.Inventory.Equipped.Base = id; break;
+            case CursorSlot.Hang: _equipped.Hang = id; break;
+            case CursorSlot.Trail: _equipped.Trail = id; break;
+            case CursorSlot.Base: _equipped.Base = id; break;
             default: return false;
         }
 
@@ -123,14 +127,11 @@ public sealed class Inventory
     }
 
     /// <summary>
-    /// 세이브에 적힌 장착 상태를 커서 레이어에 한 번에 밀어 넣는다.
-    ///
-    /// <b>이게 없어서 B9 까지 장식이 화면에 안 나왔다.</b> <c>Equip</c> 을 부르는
-    /// 곳이 디버그 키와 <c>--cursor-equip=</c> 뿐이라, 세이브에 <c>hang: monkey_01</c>
-    /// 이 있어도 켜면 아무것도 안 붙었다 (docs/A5-CURSOR-COSMETICS.md §2-1).
-    ///
-    /// 못 끼우는 항목(안 가진 것, 지워진 에셋 id)은 **슬롯을 비우고 세이브도
-    /// 고친다** - 그대로 두면 켤 때마다 같은 실패를 반복한다.
+    /// 세이브에 적힌 장착 상태를 커서 레이어에 한 번에 밀어 넣는다. 켤 때 한 번
+    /// 부른다 - <see cref="IInventoryService"/> 가 아직 첫 <see cref="IInventoryService.Refresh"/>
+    /// 전이면(스팀 콜백이 늦게 올 수 있다) 안 가진 것으로 오판해 슬롯을 비울 수
+    /// 있다는 점은 알려진 한계다 - 실물 붙일 때 <c>Refresh</c> 완료를 기다린
+    /// 뒤 이 메서드를 부르도록 호출 순서를 맞출 것.
     /// </summary>
     public void ApplyEquippedToCursor()
     {
@@ -153,15 +154,7 @@ public sealed class Inventory
 
     /// <summary>
     /// 슬롯의 장착을 한 칸 돌린다 - "비움 → 가진 것들 → 다시 비움" 순서다.
-    ///
-    /// 셸의 2/3/4 debug 키가 쓰던 자리를 B6 이 가져온 것이다(2026-09-21).
-    /// 예전에는 <see cref="ICursorLayer.Equip"/> 을 직접 불러서 **세이브도
-    /// 인벤토리도 모르는 채로 커서만 바뀌었다** - 커서 모양은 바뀌는데 상점에는
-    /// 이전 것이 "장착 중" 으로 남아 있었다. 이제 <see cref="Equip"/> 을 거치므로
-    /// 세이브·상점·커서가 같이 간다.
-    ///
-    /// <b>가진 것만 돈다.</b> 안 가진 것을 끼울 길을 debug 키로 열어 두면 그게
-    /// 곧 상점을 건너뛰는 경로다.
+    /// <b>가진 것만 돈다</b> - 안 가진 것을 끼울 길을 열면 상점을 건너뛰는 경로가 된다.
     /// </summary>
     /// <returns>새로 장착된 id. 빈 슬롯이면 null.</returns>
     public string CycleEquipped(CursorSlot slot)
@@ -180,30 +173,47 @@ public sealed class Inventory
     /// <summary>
     /// [디버그] 값을 안 치르고 넣는다. <see cref="GameRoot"/> 의 Shift+B 전용이고,
     /// 릴리스 빌드에서는 호출부가 아예 안 돈다.
+    ///
+    /// <b>실물 스팀 인벤토리에는 이 경로가 없다.</b> 클라이언트가 스스로에게
+    /// 아이템을 지급하는 길을 여는 것은 정확히 docs/ECONOMY-SERVER-API.md §4 가
+    /// 막으려는 구멍이다 - 그래서 <see cref="MockInventoryService"/> 일 때만
+    /// 동작하고, 그 외에는 조용히 실패한다(경고만 남긴다).
     /// </summary>
     public bool DebugGrant(string id)
     {
-        if (ShopCatalog.Find(id) == null || !_owned.Add(id))
+        if (ShopCatalog.Find(id) == null || Owns(id))
         {
             return false;
         }
 
-        WriteOwned();
+        if (_steamInventory is not MockInventoryService mock)
+        {
+            GD.PushWarning("[game][디버그] 실물 스팀 인벤토리에는 DebugGrant 가 없다 - 목일 때만 동작한다");
+            return false;
+        }
+
+        mock.MockGrant(id);
         return true;
     }
 
     /// <summary>
     /// [디버그] 첫 실행 상태로 되돌린다. 구매 흐름과 도감 100% 발화를 다시
-    /// 시험하려면 되돌릴 방법이 있어야 한다.
+    /// 시험하려면 되돌릴 방법이 있어야 한다. 위 <see cref="DebugGrant"/> 와 같은
+    /// 이유로 목일 때만 동작한다.
     ///
     /// <b>장착도 같이 푼다.</b> 안 그러면 안 가진 것이 끼워진 채로 남고, 다음
     /// 실행에서 <see cref="ApplyEquippedToCursor"/> 가 그걸 경고로 뱉는다.
     /// </summary>
     public void DebugResetToStarter()
     {
-        _owned.Clear();
-        _owned.Add(ShopCatalog.StarterId);
-        WriteOwned();
+        if (_steamInventory is MockInventoryService mock)
+        {
+            mock.DebugClear();
+        }
+        else
+        {
+            GD.PushWarning("[game][디버그] 실물 스팀 인벤토리에는 DebugResetToStarter 가 없다");
+        }
 
         foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
         {
@@ -212,15 +222,5 @@ public sealed class Inventory
                 Equip(slot, null);
             }
         }
-    }
-
-    private void WriteOwned()
-    {
-        // 표 순서대로 저장한다. 세이브 파일을 눈으로 볼 때 순서가 매번 달라지면
-        // diff 가 의미 없어진다 - HashSet 은 순서를 보장하지 않는다.
-        _save.Inventory.Owned = ShopCatalog.All
-            .Select(i => i.Id)
-            .Where(_owned.Contains)
-            .ToArray();
     }
 }

@@ -19,19 +19,9 @@ public sealed class SaveData
     [JsonPropertyName("version")]
     public int Version { get; set; } = SaveSchema.CurrentVersion;
 
-    /// <summary>보유 바나나. 재화는 이것 하나뿐이다 (§3-2).</summary>
-    [JsonPropertyName("bananas")]
-    public long Bananas { get; set; }
-
     /// <summary>누적 타수. 재화가 아니라 기록이다 (§6).</summary>
     [JsonPropertyName("totalKeystrokes")]
     public long TotalKeystrokes { get; set; }
-
-    [JsonPropertyName("tree")]
-    public TreeState Tree { get; set; } = new();
-
-    [JsonPropertyName("upgrades")]
-    public UpgradeState Upgrades { get; set; } = new();
 
     [JsonPropertyName("inventory")]
     public InventoryState Inventory { get; set; } = new();
@@ -48,48 +38,15 @@ public sealed class SaveData
     [JsonPropertyName("lastQuitUtc")]
     public DateTime LastQuitUtc { get; set; } = DateTime.UnixEpoch;
 
-    public sealed class TreeState
-    {
-        /// <summary>나무 슬롯 수. 기본 3, 강화로 최대 8 (§2-2, §5).</summary>
-        [JsonPropertyName("slots")]
-        public int Slots { get; set; } = 3;
-
-        /// <summary>슬롯당 바나나 성장 주기(ms). 기본 8분, 강화로 최소 3분 (§2-2).</summary>
-        [JsonPropertyName("growthMs")]
-        public long GrowthMs { get; set; } = 480_000;
-
-        /// <summary>슬롯별 경과 시간(ms). 길이는 <see cref="Slots"/> 와 같아야 한다.</summary>
-        [JsonPropertyName("slotTimers")]
-        public long[] SlotTimers { get; set; } = { 0, 0, 0 };
-    }
-
     /// <summary>
-    /// 강화 3축 (§5). W3 에 시간이 남으면 넣고 안 남으면 1.1 로 뺀다.
-    ///
-    /// **기능을 안 넣어도 이 필드는 v1 에 둔다.** 나중에 붙일 때 스키마 버전을
-    /// 올리지 않아도 되고, W1 의 수치가 이미 강화가 붙는다는 전제로 설계돼 있다.
+    /// 커서 장식의 **로컬** 상태 - 어느 슬롯에 무엇을 끼웠는가. 소유권(어떤
+    /// 장식을 "가지고" 있는가)은 v4(2026-09-23)부터 여기 없다 -
+    /// docs/ECONOMY-SERVER.md 피벗으로 스팀 인벤토리 서비스가 그 진실을
+    /// 대신 들고 있다(<see cref="IInventoryService"/>). 장착은 스팀이 모르는
+    /// 개념이라 계속 로컬에 남는다.
     /// </summary>
-    public sealed class UpgradeState
-    {
-        /// <summary>원숭이 파워. 펀치 1회당 수확량 +1씩.</summary>
-        [JsonPropertyName("power")]
-        public int Power { get; set; }
-
-        /// <summary>나무 주기 단축 레벨.</summary>
-        [JsonPropertyName("cycle")]
-        public int Cycle { get; set; }
-
-        /// <summary>나무 슬롯 확장 레벨. 사실상 오프라인 저장고 확장이다.</summary>
-        [JsonPropertyName("slots")]
-        public int Slots { get; set; }
-    }
-
     public sealed class InventoryState
     {
-        /// <summary>구매한 커서 장식 에셋 id 목록.</summary>
-        [JsonPropertyName("owned")]
-        public string[] Owned { get; set; } = { "monkey_01" };
-
         [JsonPropertyName("equipped")]
         public EquippedState Equipped { get; set; } = new();
     }
