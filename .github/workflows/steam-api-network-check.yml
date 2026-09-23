@@ -1,0 +1,17 @@
+name: steam-api-network-check
+
+# 임시 진단용 워크플로 (docs/ECONOMY-SERVER.md §9). Cloudflare Workers / Deno
+# Deploy 에서 스팀 partner API 호출이 403 으로 막히는 것을 확인한 뒤, GitHub
+# Actions 러너(전통적인 CI VM, Azure 인프라)에서는 안 막히는지 비교하려고
+# 만들었다. 결과 확인 후 이 파일은 지운다.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: curl steam partner api
+        run: |
+          curl -s -i "https://partner.steam-api.com/ISteamUserAuth/AuthenticateUserTicket/v1/?key=test&appid=5281130&ticket=deadbeef"
