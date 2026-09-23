@@ -90,6 +90,24 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private IAchievements _achievements = new UnavailableAchievements();
 
+    /// <summary>
+    /// <see cref="IPlatformServices.Economy"/> 자리 (docs/ECONOMY-SERVER.md).
+    /// <see cref="ResolveEconomyMode"/> 가 실물(<see cref="EconomyClient"/>)과
+    /// 목(<see cref="MockEconomyService"/>) 중 무엇을 꽂을지 정한다 - 릴리스는
+    /// 항상 실물, 디버그는 기본 목(<c>--real-economy</c> 로 실물 강제)이다.
+    /// <see cref="_net"/> 이 A9~A11 전까지 목인 것과 같은 규칙으로, 어느 쪽이든
+    /// 게임 레이어에는 절대 널을 넘기지 않는다. <see cref="_Ready"/> 에서 채운다.
+    /// </summary>
+    private IEconomyService _economy;
+
+    /// <summary>
+    /// <see cref="IPlatformServices.Inventory"/> 자리. <see cref="_economy"/> 와
+    /// 항상 짝을 맞춰 같은 모드(실물/목)로 켠다 - 하나만 실물이면 "구매는 서버에서
+    /// 성공했는데 상점엔 안 가진 것으로 보인다"는 반쪽 상태가 된다(§5-6).
+    /// 목일 때는 <see cref="MockEconomyService.LinkInventory"/> 로 서로 링크한다.
+    /// </summary>
+    private IInventoryService _inventoryService;
+
     /// <summary>--steam-selftest 로 떴는가. 스팀 연결만 확인하고 바로 종료한다.</summary>
     private bool _steamSelftest;
 
@@ -182,6 +200,26 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             _achievements = _steam;
         }
 
+        // 경제(잔액·원장) + 인벤토리(스팀 소유권) - 항상 같은 모드로 짝을 맞춘다
+        // (§5-6, 필드 주석 참고). 릴리스는 실물, 디버그는 --real-economy 로만 실물.
+        if (ShouldUseRealEconomy())
+        {
+            _economy = new EconomyClient(ResolveEconomyUrl(), _steam);
+            _inventoryService = new SteamInventoryService(_steam);
+        }
+        else
+        {
+            var mockEconomy = new MockEconomyService();
+            var mockInventory = new MockInventoryService();
+
+            // 실물에서는 서버 한 트랜잭션인 "구매→지급"을 목 둘로 재현하려면
+            // 서로를 알아야 한다 (docs/ECONOMY-SERVER.md).
+            mockEconomy.LinkInventory(mockInventory);
+
+            _economy = mockEconomy;
+            _inventoryService = mockInventory;
+        }
+
         // 여기까지 와야 실물 5종이 전부 존재한다. 그래서 게임 레이어에 넘기는 것도
         // 여기가 처음 가능한 지점이다 - BuildScene() 에서 찾아둔 그 노드지만,
         // 그때는 _input/_cursor/_steam 이 아직 없었다.
@@ -230,6 +268,38 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 앞으로 --net-selftest 같은 게 늘어도 같은 실수가 반복되지 않게 접미사로 잡는다.
         return Array.Exists(args, a => a.EndsWith("selftest", StringComparison.Ordinal))
             || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// 경제(<see cref="EconomyClient"/>) + 인벤토리(<see cref="SteamInventoryService"/>)
+    /// 를 실물로 켤지 목으로 켤지 (docs/ECONOMY-SERVER.md §5-6).
+    ///
+    /// <b>릴리스 빌드는 항상 실물이다</b> - 출시본이 목(가짜 잔액·가짜 소유권)으로
+    /// 돌면 안 된다. <b>디버그 빌드는 기본이 목이다</b> - <c>game/GameRoot.cs</c>
+    /// 의 Shift+B(전 상품 지급)/Shift+R(초기화)/G(성장 앞당기기) 디버그 키가
+    /// 전부 목 전용 캐스팅이라, 기본을 실물로 두면 그 키들이 조용히 죽는다.
+    /// <c>--real-economy</c> 로 디버그 빌드에서도 실물을 강제로 켜서 배포된
+    /// 서버·스팀 인벤토리를 직접 시험할 수 있다.
+    /// </summary>
+    private static bool ShouldUseRealEconomy() =>
+        !OS.IsDebugBuild() || Array.IndexOf(OS.GetCmdlineUserArgs(), "--real-economy") >= 0;
+
+    /// <summary>
+    /// <c>--economy-url=</c> 로 배포 URL 을 덮는다 - <c>wrangler dev</c> 로 띄운
+    /// 로컬 서버를 겨냥할 때 쓴다. 없으면 <see cref="EconomyClient.DefaultBaseUrl"/>.
+    /// </summary>
+    private static string ResolveEconomyUrl()
+    {
+        const string Prefix = "--economy-url=";
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg.StartsWith(Prefix, StringComparison.Ordinal))
+            {
+                return arg[Prefix.Length..];
+            }
+        }
+
+        return EconomyClient.DefaultBaseUrl;
     }
 
     // ------------------------------------------------------------------ 씬 구성
@@ -286,6 +356,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     INetSession IPlatformServices.Net => _net;
 
+    IEconomyService IPlatformServices.Economy => _economy;
+
+    IInventoryService IPlatformServices.Inventory => _inventoryService;
+
     /// <summary>
     /// 게임 레이어에 실물을 물려준다 (shared/Contracts/IPlatformServices.cs).
     ///
@@ -316,7 +390,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // A9~A11 이 붙는 날 net 이 mock 에서 바뀌는 것을 여기서 확인하게 된다.
         GD.Print($"[shell] 실물 전달 완료 - input={_input.Status}"
             + $" cursor={(_cursor.IsSupported ? "실물" : "미지원")}"
-            + $" ach={(_steam == null ? "없음" : _steam.Status)} net=mock(A9~A11 대기)");
+            + $" ach={(_steam == null ? "없음" : _steam.Status)} net=mock(A9~A11 대기)"
+            + $" economy={(_economy is MockEconomyService ? "목" : "실물")}"
+            + $" inventory={(_inventoryService is MockInventoryService ? "목" : "실물")}");
     }
 
     // ------------------------------------------------------------------ IShell 실물
@@ -587,6 +663,13 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 스팀 콜백은 우리가 펌프를 돌려야 도착한다. 못 붙은 상태면 여기서 재시도까지 한다.
         _steam?.Tick(delta);
 
+        // 목일 때만 성장 시계를 우리가 돌린다 - 실물은 서버(요청 시점 재계산)가 시간의
+        // 주인이라 틱이 없다(IEconomyService 계약에 Tick 이 없는 이유와 같다).
+        if (_economy is MockEconomyService mockEconomy)
+        {
+            mockEconomy.Tick(delta);
+        }
+
         _save.Tick(delta);
 
         TickDiagnostics(delta);
@@ -718,5 +801,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
         // 스팀을 안 놓으면 친구 목록에 죽은 프로세스가 한동안 "게임 중"으로 남는다.
         _steam?.Dispose();
+
+        // 실물일 때만 놓을 게 있다 - HttpClient(EconomyClient), 스팀 콜백 핸들
+        // (SteamInventoryService). 목은 IDisposable 이 아니다.
+        (_economy as IDisposable)?.Dispose();
+        (_inventoryService as IDisposable)?.Dispose();
     }
 }
