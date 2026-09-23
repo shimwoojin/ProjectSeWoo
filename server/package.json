@@ -1,0 +1,21 @@
+{
+  "name": "punchmonkey-economy-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PunchMonkey 서버 권위 경제 백엔드 (docs/ECONOMY-SERVER-API.md). Cloudflare Workers + D1.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:create": "wrangler d1 create punchmonkey-economy",
+    "db:migrate:local": "wrangler d1 execute punchmonkey-economy --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute punchmonkey-economy --remote --file=./schema.sql",
+    "secret:steam-key": "wrangler secret put STEAM_PUBLISHER_WEB_API_KEY",
+    "secret:session-secret": "wrangler secret put SESSION_SIGNING_SECRET"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.90.0"
+  }
+}

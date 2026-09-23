@@ -1,0 +1,12 @@
+# wrangler dev 가 로컬 실행 시 읽는 파일. 이 이름 그대로 `.dev.vars`로 복사해서
+# 쓴다 - `.dev.vars`는 .gitignore 에 있으므로 저장소에 올라가지 않는다.
+#
+# 배포본(원격)은 이 파일을 안 쓴다 - `npm run secret:*` 로 Cloudflare 쪽에
+# 각각 넣는다.
+
+# 스팀 파트너 사이트에서 발급받는 Publisher Web API Key. 서버 전용 - 클라이언트
+# 코드 어디에도 이 값이 있으면 안 된다.
+STEAM_PUBLISHER_WEB_API_KEY=replace-with-partner-site-key
+
+# 세션 토큰 서명용 대칭키. 예: `openssl rand -hex 32` 로 생성.
+SESSION_SIGNING_SECRET=replace-with-random-32-byte-hex
