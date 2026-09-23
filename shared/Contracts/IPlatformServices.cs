@@ -68,6 +68,22 @@ public interface IPlatformServices
     /// 돌려주는 것만 바뀌고 <c>game/</c> 은 안 바뀐다.
     /// </summary>
     INetSession Net { get; }
+
+    /// <summary>
+    /// 서버 권위 경제 — 바나나 잔액, 나무 슬롯, 강화 레벨 (docs/ECONOMY-SERVER.md).
+    ///
+    /// <b>백엔드가 아직 없다.</b> <see cref="Net"/> 이 A9~A11 전까지 목인 것과
+    /// 같은 이유로, 서버 구현이 붙기 전까지는
+    /// <see cref="ProjectSeWoo.Shared.Mocks.MockEconomyService"/> 가 이 자리를
+    /// 채운다. 붙는 날 이 프로퍼티가 돌려주는 것만 바뀐다.
+    /// </summary>
+    IEconomyService Economy { get; }
+
+    /// <summary>
+    /// 스팀 인벤토리 서비스 (docs/ECONOMY-SERVER.md). 실물 전까지
+    /// <see cref="ProjectSeWoo.Shared.Mocks.MockInventoryService"/> 가 채운다.
+    /// </summary>
+    IInventoryService Inventory { get; }
 }
 
 /// <summary>

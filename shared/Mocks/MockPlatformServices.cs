@@ -33,6 +33,10 @@ public sealed class MockPlatformServices : IPlatformServices
 
     public MockNetSession Net { get; } = new();
 
+    public MockEconomyService Economy { get; } = new();
+
+    public MockInventoryService Inventory { get; } = new();
+
     IInputSource IPlatformServices.Input => Input;
 
     ISaveStore IPlatformServices.Save => Save;
@@ -45,16 +49,31 @@ public sealed class MockPlatformServices : IPlatformServices
 
     INetSession IPlatformServices.Net => Net;
 
+    IEconomyService IPlatformServices.Economy => Economy;
+
+    IInventoryService IPlatformServices.Inventory => Inventory;
+
+    public MockPlatformServices()
+    {
+        // 실물에서는 서버 한 트랜잭션인 "구매→지급"을 목 둘로 재현하려면
+        // 서로를 알아야 한다 (docs/ECONOMY-SERVER.md).
+        Economy.LinkInventory(Inventory);
+    }
+
     /// <summary>
     /// 매 프레임 부른다. <see cref="MockInputSource"/> 의 100ms 배치와 초당 캡
-    /// 창을 굴린다.
+    /// 창, <see cref="MockEconomyService"/> 의 나무 슬롯 성장 시계를 굴린다.
     ///
     /// <b>실물에는 이 호출이 없다.</b> 실물의 폴링은 셸이 돌리고, 계약
     /// (<see cref="IInputSource"/>)에는 틱이 아예 없다. 그래서 이 메서드는
     /// <see cref="IPlatformServices"/> 가 아니라 이 구체 타입에만 있다 —
     /// 게임 레이어가 목일 때만 틱을 돌리게 강제하는 것이 목적이다.
     /// </summary>
-    public void Tick(double delta) => Input.Tick(delta);
+    public void Tick(double delta)
+    {
+        Input.Tick(delta);
+        Economy.Tick(delta);
+    }
 
     /// <summary>
     /// 타건이 왔다고 흉내 낸다. 실물(A4)은 포커스 없이 전역으로 받으므로
