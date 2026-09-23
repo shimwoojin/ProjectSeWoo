@@ -12,6 +12,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: curl steam partner api
+      - name: curl steam partner api (real key via secret)
+        env:
+          STEAM_TEST_KEY: ${{ secrets.STEAM_TEST_KEY }}
         run: |
-          curl -s -i "https://partner.steam-api.com/ISteamUserAuth/AuthenticateUserTicket/v1/?key=test&appid=5281130&ticket=deadbeef"
+          curl -s -i "https://partner.steam-api.com/ISteamUserAuth/AuthenticateUserTicket/v1/?key=$STEAM_TEST_KEY&appid=5281130&ticket=deadbeef"
