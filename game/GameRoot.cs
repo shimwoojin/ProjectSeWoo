@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Godot;
 using ProjectSeWoo.Shared;
 using ProjectSeWoo.Shared.Mocks;
@@ -157,6 +158,38 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         await _platform.Inventory.Refresh();
 
         LoadGameState();
+
+        if (OS.IsDebugBuild())
+        {
+            await RunTestPurchaseIfRequestedAsync();
+        }
+    }
+
+    /// <summary>
+    /// [디버그] <c>--test-purchase=&lt;itemId&gt;</c> 로 실행하면 UI 클릭 없이
+    /// 구매 한 건을 곧바로 시도하고 결과를 로그로 남긴다 - 실물
+    /// (<c>server/src/steam.ts</c>의 <c>grantInventoryItem</c>)이 실제로
+    /// 아이템을 지급하는지 확인하려고 만들었다. <c>--steam-selftest</c>와
+    /// 같은 자리의 도구다 - 릴리스 빌드에는 없다.
+    /// </summary>
+    private async Task RunTestPurchaseIfRequestedAsync()
+    {
+        const string Prefix = "--test-purchase=";
+        string arg = Array.Find(OS.GetCmdlineUserArgs(), a => a.StartsWith(Prefix, StringComparison.Ordinal));
+        if (arg == null)
+        {
+            return;
+        }
+
+        string itemId = arg[Prefix.Length..];
+        GD.Print($"[game][테스트] 구매 시도 - {itemId} (잔액 {_platform.Economy.Balance})");
+
+        PurchaseResult result = await _platform.Economy.PurchaseItem(itemId);
+        GD.Print($"[game][테스트] 구매 결과 - {result.Outcome}, 잔액 {result.NewBalance}"
+            + (result.GrantedItemDefId != null ? $", 지급 {result.GrantedItemDefId}" : string.Empty));
+
+        await _platform.Inventory.Refresh();
+        GD.Print($"[game][테스트] 인벤토리 재조회 - Owns({itemId}) = {_platform.Inventory.Owns(itemId)}");
     }
 
     /// <summary>

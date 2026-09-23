@@ -38,7 +38,7 @@ PunchMonkey (저장소·어셈블리 이름은 `ProjectSeWoo`) 문서 목록과 
 |---|---|
 | [ECONOMY-SERVER.md](ECONOMY-SERVER.md) | 바나나·나무 슬롯·강화를 서버 권위로, 커서 장식을 스팀 인벤토리로 옮기는 결정. 스팀 커뮤니티 마켓 승인 게이트 |
 | [ECONOMY-SERVER-API.md](ECONOMY-SERVER-API.md) | 백엔드 REST 계약 + 비용 없이 가는 호스팅 구조 |
-| [../server/README.md](../server/README.md) | Cloudflare Workers 스캐폴딩 실행법. **배포 전 필수 확인 사항(스팀 API 미검증 등)이 §3 에 있다** |
+| [../server/README.md](../server/README.md) | Cloudflare Workers 실행법. 실배포·실구매까지 검증 완료(§3) |
 
 **기존 4주 일정·역할 분담·컷 라인(기획서 §8~§10)은 이 트랙에 적용하지 않는다.**
 일정은 자율로 관리한다.

@@ -8,8 +8,9 @@ Cloudflare Workers + D1. 계약 문서는 [../docs/ECONOMY-SERVER.md](../docs/EC
 ## 상태
 
 **2026-09-23 실배포 완료.** `https://punchmonkey-economy.shimwoojin627.workers.dev`
-- D1·세션·스팀 직접 호출(`/v1/session`)까지 실제 스팀 키로 확인됨.
-아이템 지급(`grantInventoryItem`)은 아직 §3 의 미검증 상태 그대로다.
+- D1·세션·스팀 직접 호출(`/v1/session`)·**아이템 지급(`grantInventoryItem`)**
+까지 실제 구매 한 건으로 끝까지 확인됨(§3 참고 - `itemdefid[0]` 배열 형식 +
+`itempropsjson` 필수 파라미터가 빠져 있던 게 원인이었다, 지금은 고쳐졌다).
 
 > ⚠️ **`wrangler secret put` 함정 (실측).** 이 값을 대화형 프롬프트로 넣을
 > 때, 특정 터미널 중계 환경에서는 "✨ Success!" 메시지가 떠도 **실제로는
@@ -60,12 +61,15 @@ npm run deploy
 
 ## 3. 실제로 쓰기 전에 반드시 확인할 것
 
-1. **`src/steam.ts` 의 `grantInventoryItem`.** 엔드포인트 경로·파라미터명·
-   응답 스키마가 전부 미검증 placeholder다. 스팀웍스 파트너 사이트의
-   Inventory Service 문서(파트너 로그인 필요)로 정확한 사양을 확인하고
-   고칠 것 — 함수 안 주석에 확인할 항목을 적어 뒀다.
-2. **아이템 정의(itemdef) 등록.** 커서 장식 16종을 파트너 사이트 Inventory
-   Service 에 먼저 등록해야 `grantInventoryItem`이 의미가 있다.
+1. ~~`src/steam.ts` 의 `grantInventoryItem`이 미검증 placeholder다~~ **2026-09-23
+   검증 완료** - 실제 구매 한 건으로 지급까지 확인했다. 처음엔 `itemdefid`를
+   단일값+`quantity`로 보냈는데 밸브가 `X-eresult: 8 "No items specified."`
+   로 거부했다 - 진짜 계약은 `itemdefid[0]`(배열) + `itempropsjson`(필수)
+   이고, 성공 판정은 HTTP 상태가 아니라 `X-eresult` 응답 헤더로 한다.
+2. ~~아이템 정의(itemdef) 등록~~ **완료** - 15종을 파트너 사이트에 등록·
+   게시했다(`steam-inventory/itemdefs.json`). 처음엔 스팀 인벤토리 조회가
+   `k_EResultFail`이었는데, 파트너 사이트에서 **"Inventory Service 활성화"**
+   체크박스를 따로 켜야 했다 - JSON 게시만으로는 부족했다.
 3. **`src/catalog.ts` 는 `game/shop/ShopCatalog.cs` 의 손 사본이다.** 가격표를
    클라이언트가 보내지 않고 서버가 자체 판정하기 위한 것인데, 두 표가 갈라지면
    조용히 갈라진다 — 클라이언트 카탈로그를 고치면 이 파일도 같이 고칠 것.
@@ -89,7 +93,7 @@ npm run deploy
 |---|---|
 | `src/index.ts` | HTTP 라우팅. 엔드포인트 목록은 ECONOMY-SERVER-API.md §2 |
 | `src/session.ts` | 스팀 티켓 검증 후 발급하는 자체 서명 세션 토큰 |
-| `src/steam.ts` | 스팀 Web API 호출 (`AuthenticateUserTicket` 검증됨 / `AddItem` **미검증**) |
+| `src/steam.ts` | 스팀 Web API 호출 (`AuthenticateUserTicket`·`AddItem` 둘 다 실측 검증됨) |
 | `src/economy.ts` | 잔액·슬롯 성장·강화의 핵심 로직. 순수 계산(`recomputeSlots`)과 DB I/O 를 분리했다 |
 | `src/catalog.ts` | 상품표 서버 사본 (§3-3) |
 | `src/db.ts` | D1 쿼리 |

@@ -79,23 +79,24 @@ async function grantItem({ appid, steamId, steamItemDefId }) {
     return json(400, { ok: false, error: "bad_request" });
   }
 
+  // 2026-09-23, server/src/steam.ts 에서 실측 검증된 형식 그대로 - itemdefid
+  // 는 배열([0], [1], ...)이고 itempropsjson 이 필수다. quantity 파라미터는
+  // 없다. 성공 판정은 HTTP 상태가 아니라 X-eresult 헤더(1 = OK)로 한다.
   const url = new URL("https://partner.steam-api.com/IInventoryService/AddItem/v1/");
   url.searchParams.set("key", STEAM_KEY);
   url.searchParams.set("appid", appid);
   url.searchParams.set("steamid", steamId);
-  url.searchParams.set("itemdefid", String(steamItemDefId));
-  url.searchParams.set("quantity", "1");
+  url.searchParams.set("itemdefid[0]", String(steamItemDefId));
+  url.searchParams.set("itempropsjson", "{}");
 
   const res = await fetch(url, { method: "POST" });
   if (!res.ok) {
     return json(200, { ok: false, error: `http_${res.status}` });
   }
 
-  // TODO: 실제 응답 스키마 확인 후 성공 판정 조건을 여기에 맞게 고칠 것
-  // (server/src/steam.ts 의 같은 TODO 참고 - 아직 미검증).
-  const data = await res.json().catch(() => null);
-  if (!data?.success) {
-    return json(200, { ok: false, error: "grant_failed" });
+  const eresult = res.headers.get("x-eresult");
+  if (eresult !== "1") {
+    return json(200, { ok: false, error: `eresult_${eresult ?? "missing"}` });
   }
 
   return json(200, { ok: true });

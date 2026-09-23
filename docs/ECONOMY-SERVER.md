@@ -34,10 +34,11 @@
 | 목 구현 2종 | `shared/Mocks/MockEconomyService.cs`, `MockInventoryService.cs` | ☑ 커밋 |
 | 플랫폼 실물 자리 (당장은 목) | `platform/OverlayShell.cs` | ☑ 커밋 — §5-3 |
 | 백엔드 API 계약 | [ECONOMY-SERVER-API.md](ECONOMY-SERVER-API.md) | ☑ 문서만. 구현 없음 |
-| 백엔드 스캐폴딩 (Cloudflare Workers + D1) | `server/` | ☑ 커밋. 타입체크·번들 통과. **배포 전 필수 확인 사항은 `server/README.md` §3** — 특히 아이템 지급 호출은 스팀웍스 파트너 문서로 미검증 |
-| `IEconomyService` 실물 (HTTP 클라이언트) | `platform/EconomyClient.cs` | ☑ 커밋. 빌드 확인됨(Steamworks.NET 실제 API로 컴파일 통과) — §5-4 |
-| `IInventoryService` 실물 (스팀 인벤토리 직접 조회) | `platform/SteamInventoryService.cs` | ☑ 커밋. 빌드 확인됨 — §5-5. id↔itemdefid 매핑을 `server/src/catalog.ts`와 손으로 맞췄다 |
-| `OverlayShell`에 실물 연결 | `platform/OverlayShell.cs` | ☑ 완료 (2026-09-23) — §5-6. 릴리스는 항상 실물, 디버그는 기본 목(`--real-economy`로 실물 강제). `--real-economy --steam`으로 실측: 세션 발급·`GET /v1/economy/state`(슬롯 3개 수신) 확인됨. 스팀 인벤토리 조회는 아직 `k_EResultFail`(itemdef 전파 대기 중으로 추정) |
+| 백엔드 스캐폴딩 (Cloudflare Workers + D1) | `server/` | ☑ 커밋 + 배포. **`grantInventoryItem` 포함 전부 실측 검증됨** — §10 |
+| `IEconomyService` 실물 (HTTP 클라이언트) | `platform/EconomyClient.cs` | ☑ 실측 검증됨 — §5-4 |
+| `IInventoryService` 실물 (스팀 인벤토리 직접 조회) | `platform/SteamInventoryService.cs` | ☑ 실측 검증됨 — §5-5. id↔itemdefid 매핑을 `server/src/catalog.ts`와 손으로 맞췄다 |
+| `OverlayShell`에 실물 연결 | `platform/OverlayShell.cs` | ☑ 완료 (2026-09-23) — §5-6. 릴리스는 항상 실물, 디버그는 기본 목(`--real-economy`로 실물 강제) |
+| **실제 구매 한 건 - 끝까지 검증** | `--test-purchase=<id>` (GameRoot) | ☑ **2026-09-23** — §10. 구매→서버 차감→스팀 지급→인벤토리 재조회까지 전부 확인됨 |
 | Cloudflare 계정 셋업 + 실제 배포 | `punchmonkey-economy.shimwoojin627.workers.dev` | ☑ 배포됨. D1·시크릿·라우팅·스팀 직접 호출까지 전부 정상 확인 — §9 |
 | ~~스팀 Web API 호출이 워커에서 막힘~~ | `server/src/steam.ts` | ✅ **오판이었다 (§9).** 진짜 원인은 `wrangler secret put`의 대화형 입력이 빈 값을 저장한 것 - IP 차단은 없었다. AWS Lambda 릴레이(`server/aws-relay/`)는 만들어서 검증까지 했지만 필요 없어서 다시 뺐다(코드는 참고용으로 남겨둠) |
 | 스팀 인벤토리 서비스 아이템 정의 등록 | `server/steam-inventory/itemdefs.json` | ☑ 15종(itemdefid 1~15) 등록·게시 완료. 아이콘은 GitHub raw URL(공개 저장소) 사용 — 더 안정적인 호스팅으로 나중에 옮기는 걸 고려할 것. `marketable: false`로 등록(§4 밸브 승인 전까지) |
@@ -389,3 +390,62 @@ docs/ECONOMY-SERVER-API.md §4 가 막으려는 구멍과 같은 모양이 된�
 정상이다. `server/src/steam.ts`는 최초 스캐폴딩 버전(직접 호출)으로 되돌아갔고,
 `server/src/types.ts`의 `Env`도 `STEAM_PUBLISHER_WEB_API_KEY` 하나로
 단순화된 원래 모양이다.
+
+---
+
+## 10. 실제 구매 한 건으로 끝까지 검증 (2026-09-23)
+
+`OverlayShell`에 실물을 연결한 뒤(§5-6), 실제로 하나 사 봐야 확인되는
+것들이 남아 있었다. `game/GameRoot.cs`에 `--test-purchase=<itemId>` 디버그
+플래그를 추가해서(UI 클릭 없이 구매 한 건을 바로 시도하고 로그를 남긴다 -
+`--steam-selftest`와 같은 자리의 도구, 릴리스 빌드에는 없다) 끝까지 확인했다.
+
+### 드러난 문제 2개, 둘 다 고쳤다
+
+**1. 스팀 인벤토리 조회가 `k_EResultFail`이었다.** 아이템 정의 15종을
+파트너 사이트에 올리고 게시(Publish)까지 했는데도 안 풀렸다 - 원인은
+**"Inventory Service 활성화" 체크박스를 따로 켜야 했던 것**이다(JSON
+게시와는 별개 스위치). 켜고 나니 바로 풀렸다.
+
+**2. `grantInventoryItem`(아이템 지급)이 항상 `rejected`로 거부됐다.**
+`server/src/steam.ts`의 최초 스캐폴딩 버전은 `itemdefid`를 단일 값으로,
+`quantity=1`을 같이 보냈다 - 밸브가 `HTTP 200` + `X-eresult: 8` +
+`X-error_message: No items specified.`로 조용히 거부했다(HTTP 상태만
+보면 성공처럼 보인다는 게 함정이었다). 스팀웍스 파트너 문서
+(`IInventoryService/AddItem`)로 확인한 진짜 계약:
+
+- `itemdefid`는 **배열**이다 - `itemdefid[0]`, `itemdefid[1]`, ... 로
+  이름 붙은 여러 파라미터로 보낸다
+- `itempropsjson`이 **필수** 파라미터다(빈 속성이면 `"{}"`)
+- `quantity`라는 파라미터 자체가 없다 - 여러 개를 주려면 같은 itemdefid 를
+  여러 인덱스에 반복한다
+- 성공 판정은 HTTP 상태가 아니라 **`X-eresult` 응답 헤더**(`1` = OK)로 한다
+
+고친 뒤 실제 계정에 curl로 직접 지급 성공을 먼저 확인하고
+(`item_json`에 새로 생긴 `itemid`가 찍힘), 그다음 `--test-purchase=`로
+게임을 통한 전체 경로를 확인했다:
+
+```
+[game] 세이브 로드 - ... 보유 장식 3/16       (curl 로 미리 지급한 2개가 실제로 조회됨)
+[game][테스트] 구매 시도 - monkey_03 (잔액 1003)
+[game][테스트] 구매 결과 - Success, 잔액 963, 지급 monkey_03   (티어2 가격 40 정확히 차감)
+[game][테스트] 인벤토리 재조회 - Owns(monkey_03) = True
+```
+
+**구매 → 서버 잔액 차감 → 스팀 지급 → 클라이언트 인벤토리 재조회까지
+전체 파이프라인이 실제로 검증됐다.**
+
+### 부수 효과 - 테스트 계정에 중복 아이템
+
+원인을 좁히는 과정에서 curl로 itemdefid 1·2 를 두 번 직접 지급했고, 그 뒤
+`--test-purchase=monkey_03`(itemdefid 2)으로 정식 구매도 했다 - 개발용
+스팀 계정의 실제 인벤토리에 monkey_03 이 2개 들어가 있다. 마켓 대상이
+아니라 문제는 없지만, 정리하려면 `ConsumeItem` 류의 API 나 파트너 사이트
+도구가 필요하다 - 지금은 안 건드렸다.
+
+### D1 원장에 남은 테스트 흔적
+
+같은 검증 과정에서 개발 계정(`76561198411431220`)의 D1 잔액을
+`UPDATE players SET balance = 1000 ...`로 손으로 올려서 테스트했다 - 이후
+실제 하베스트로 조금 더 올랐다(1003). 이것도 개발 계정 데이터라 문제는
+없지만, 실제 밸런스 감각을 보려면 언젠가 리셋할 것.

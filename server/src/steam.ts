@@ -51,18 +51,19 @@ export async function authenticateUserTicket(
 }
 
 /**
- * ⚠ **미검증 — 실제 구현 전에 반드시 스팀웍스 파트너 사이트(Inventory Service
- * 문서, 파트너 로그인 필요)에서 정확한 인터페이스/메서드명·파라미터를
- * 재확인할 것.** 여기 있는 엔드포인트 경로와 파라미터명은 스캐폴딩 단계의
- * 최선 추정치이지 검증된 사실이 아니다 - docs/ECONOMY-SERVER.md 가 이 문서를
- * 만들 때부터 그렇게 명시했다.
+ * ✅ **2026-09-23 실측 검증됨** - 실제 아이템 지급까지 확인했다
+ * (docs/ECONOMY-SERVER.md §9). 처음엔 `itemdefid`를 단일 값으로, `quantity`를
+ * 같이 보냈는데 밸브가 `X-eresult: 8 "No items specified."`로 거부했다.
+ * 스팀웍스 파트너 문서(IInventoryService/AddItem)로 확인한 진짜 계약:
  *
- * 확인해야 할 것:
- *   1. 정확한 인터페이스/메서드 이름과 버전 (`v1` 이 맞는지)
- *   2. 요청 파라미터 이름 (itemdefid/quantity/steamid 표기가 맞는지)
- *   3. 아이템 정의(itemdef)를 파트너 사이트에 먼저 등록해야 하는지, 등록
- *      안 된 id 로 호출하면 어떤 에러가 오는지
- *   4. 응답 스키마 (성공/실패를 어떤 필드로 구분하는지)
+ *   - `itemdefid`는 **배열**이다 - `itemdefid[0]`, `itemdefid[1]`, ... 로
+ *     이름 붙은 여러 파라미터로 보낸다. 같은 아이템 두 개를 주려면
+ *     `itemdefid[0]`과 `itemdefid[1]`에 같은 값을 반복한다 - `quantity`
+ *     파라미터 자체가 없다.
+ *   - `itempropsjson`이 **필수**다 (빈 아이템 속성이면 `"{}"`).
+ *   - 성공 여부는 HTTP 상태가 아니라 `X-eresult` 응답 헤더로 판정한다
+ *     (`1` = OK). `item_json`은 지급된 아이템 배열이 **JSON 문자열로 다시
+ *     인코딩된 것**이라 한 번 더 파싱해야 한다.
  */
 export async function grantInventoryItem(
   env: Env,
@@ -76,18 +77,20 @@ export async function grantInventoryItem(
   // 스팀은 우리 문자열 id 를 모른다 - 정수 itemdefid 만 받는다. 이 번호가
   // catalog.ts 의 steamItemDefId 이고, platform/SteamInventoryService.cs 가
   // 클라이언트에서 다시 문자열로 되돌린다.
-  url.searchParams.set("itemdefid", String(steamItemDefId));
-  url.searchParams.set("quantity", "1");
+  url.searchParams.set("itemdefid[0]", String(steamItemDefId));
+  url.searchParams.set("itempropsjson", "{}");
 
   const res = await fetch(url.toString(), { method: "POST" });
+
   if (!res.ok) {
     return { ok: false, error: `http_${res.status}` };
   }
 
-  // TODO: 실제 응답 스키마 확인 후 성공 판정 조건을 여기에 맞게 고칠 것.
-  const body = (await res.json().catch(() => null)) as { success?: boolean } | null;
-  if (!body?.success) {
-    return { ok: false, error: "grant_failed" };
+  // eresult 1 = k_EResultOK. HTTP 200 이어도 이 헤더가 1 이 아니면 실패다
+  // (예: "No items specified" 도 HTTP 200 으로 왔었다).
+  const eresult = res.headers.get("x-eresult");
+  if (eresult !== "1") {
+    return { ok: false, error: `eresult_${eresult ?? "missing"}` };
   }
 
   return { ok: true };
