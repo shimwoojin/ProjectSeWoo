@@ -536,7 +536,7 @@ public partial class RoomWindow : CanvasLayer
         box.AddChild(_info);
 
         box.AddChild(new HSeparator());
-        box.AddChild(MakeSectionLabel("로비 타수 랭킹 (들어온 뒤로 친 타수)"));
+        box.AddChild(MakeSectionLabel("로비 랭킹"));
 
         for (int i = 0; i < MaxMembers; i++)
         {
