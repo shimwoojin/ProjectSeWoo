@@ -7,5 +7,6 @@
 script = ExtResource("1_treeslot")
 
 [node name="Fruit" type="Sprite2D" parent="."]
-scale = Vector2(0.2, 0.2)
+scale = Vector2(0.32, 0.32)
 texture = ExtResource("2_banana")
+offset = Vector2(3, 104)

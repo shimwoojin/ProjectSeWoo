@@ -12,11 +12,27 @@ namespace ProjectSeWoo.Game;
 /// 하나로 합치면 반짝이는 동안 익은 정도의 색이 덮여서, 반짝임이 끝나면 색이
 /// 튄다. <c>Polygon2D</c> 일 때 <c>Color</c> 와 <c>Modulate</c> 가 따로였던 것을
 /// 그대로 옮긴 것이다.
+///
+/// <b>피벗은 꼭지(스프라이트 위쪽 끝)다</b> - 씬의 <c>Fruit.offset</c>. 슬롯 위치가
+/// 곧 가지에 붙는 점이라, 커질 때 가지에서 아래로 늘어진다. 가운데 피벗이면
+/// 사방으로 부풀어서 가지에서 떨어져 보였다.
 /// </summary>
 public partial class TreeSlot : Node2D
 {
-    private static readonly Color Growing = new(0.42f, 0.62f, 0.30f);
+    // SelfModulate 는 노란 텍스처에 곱해진다 - 초록을 곱하면 풋바나나 색이 된다.
+    private static readonly Color Unripe = new(0.30f, 0.50f, 0.22f);
+    private static readonly Color Green = new(0.45f, 0.72f, 0.30f);
+    private static readonly Color Turning = new(0.80f, 0.95f, 0.50f);
     private static readonly Color Ripe = new(1.0f, 1.0f, 1.0f);
+
+    /// <summary>
+    /// 색 구간 경계이자 "톡" 펄스가 나는 지점. 크기는 초반에 거의 다 자라므로
+    /// 후반의 변화는 색이 맡는다 - 경계를 넘을 때 펄스를 줘서 단계가 바뀐 것을
+    /// 눈치채게 한다. 성장은 몇 분에 걸쳐 일어나서 연속 변화만으로는 안 보인다.
+    /// </summary>
+    private const float GreenAt = 0.4f;
+
+    private const float TurningAt = 0.75f;
 
     private Sprite2D _fruit;
     private Tween _flash;
@@ -27,21 +43,48 @@ public partial class TreeSlot : Node2D
     /// </summary>
     private Vector2 _baseScale;
 
+    /// <summary>지난 <see cref="SetProgress"/> 의 단계. -1 = 아직 안 그림 (첫 그리기엔 펄스 없음).</summary>
+    private int _stage = -1;
+
     public override void _Ready()
     {
         _fruit = GetNode<Sprite2D>("Fruit");
         _baseScale = _fruit.Scale;
     }
 
+    /// <summary>다 자란 열매의 중심 (슬롯 로컬). 수확 때 떨어지는 바나나의 출발점.</summary>
+    public Vector2 FruitCenter => _fruit.Position + _fruit.Offset * _baseScale;
+
     /// <param name="t">0 = 갓 수확한 빈 슬롯, 1 = 바나나 열림.</param>
     public void SetProgress(float t)
     {
         _flash?.Kill();
 
-        _fruit.Scale = _baseScale * Mathf.Lerp(0.35f, 1.0f, t);
-        _fruit.SelfModulate = Growing.Lerp(Ripe, t * t)
-            with { A = Mathf.Lerp(0.5f, 1.0f, t) };
+        // 초반에 빠르게 커지고(ease-out) 뒤는 색이 익는다. 알파는 거의 건드리지 않는다 -
+        // 예전엔 0.5→1 로 페이드해서 "반투명한 게 옅어지기만" 하는 것처럼 보였다.
+        float grow = 1f - (1f - t) * (1f - t);
+        Vector2 scale = _baseScale * Mathf.Lerp(0.2f, 1.0f, grow);
+
+        Color tint = t < GreenAt
+            ? Unripe.Lerp(Green, t / GreenAt)
+            : t < TurningAt
+                ? Green.Lerp(Turning, (t - GreenAt) / (TurningAt - GreenAt))
+                : Turning.Lerp(Ripe, (t - TurningAt) / (1f - TurningAt));
+        _fruit.SelfModulate = tint with { A = t < 0.05f ? 0.85f : 1f };
         _fruit.Modulate = Colors.White;
+
+        int stage = t < GreenAt ? 0 : t < TurningAt ? 1 : 2;
+        bool advanced = _stage >= 0 && stage > _stage;
+        _stage = stage;
+
+        if (advanced)
+        {
+            Pulse(scale);
+        }
+        else
+        {
+            _fruit.Scale = scale;
+        }
     }
 
     /// <summary>바나나가 열린 순간의 반짝임 1회 (§2-3).</summary>
@@ -49,7 +92,7 @@ public partial class TreeSlot : Node2D
     {
         _flash?.Kill();
         _flash = CreateTween();
-        _flash.TweenProperty(_fruit, "scale", _baseScale * 1.45f, 0.09)
+        _flash.TweenProperty(_fruit, "scale", _baseScale * 1.25f, 0.09)
             .SetTrans(Tween.TransitionType.Back)
             .SetEase(Tween.EaseType.Out);
         _flash.Parallel()
@@ -58,5 +101,16 @@ public partial class TreeSlot : Node2D
             .SetTrans(Tween.TransitionType.Quad);
         _flash.Parallel()
             .TweenProperty(_fruit, "modulate", Colors.White, 0.22);
+    }
+
+    /// <summary>성장 단계가 바뀐 순간의 작은 "톡". 반짝임 없이 크기만 튄다.</summary>
+    private void Pulse(Vector2 target)
+    {
+        _flash = CreateTween();
+        _flash.TweenProperty(_fruit, "scale", target * 1.12f, 0.07)
+            .SetTrans(Tween.TransitionType.Back)
+            .SetEase(Tween.EaseType.Out);
+        _flash.TweenProperty(_fruit, "scale", target, 0.11)
+            .SetTrans(Tween.TransitionType.Quad);
     }
 }

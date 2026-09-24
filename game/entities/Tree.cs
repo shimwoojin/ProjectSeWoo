@@ -17,26 +17,29 @@ namespace ProjectSeWoo.Game;
 /// </summary>
 public partial class Tree : Node2D
 {
-    /// <summary>강화 상한 (§2-2, §5). 슬롯 배치 반경도 이 수를 기준으로 잡았다.</summary>
+    /// <summary>강화 상한 (§2-2, §5). <see cref="SlotAnchors"/> 도 이 수만큼 있다.</summary>
     private const int MaxSlots = 8;
 
     /// <summary>
-    /// 슬롯이 놓이는 타원 호의 반지름. <b>원이 아니라 납작한 타원이고, 위쪽이
-    /// 아니라 아래쪽 호에만 깐다</b> (B4).
+    /// 슬롯 i 의 바나나 꼭지가 붙는 점 - <b><c>tree_empty.png</c> 텍스처 픽셀 좌표</b>다
+    /// (그림을 열어 놓고 바로 고칠 수 있게). 채워지는 순서대로 적었다.
     ///
-    /// 자리표시자 시절에는 캐노피가 그냥 초록 원이라 정원(正圓)에 고르게 돌려도
-    /// 됐다. 실물 야자수로 바꾸니 **바나나가 잎 사이에 파묻혀 안 보였다** -
-    /// 초록 위에 초록(덜 익은 색)이라 더 그랬다. 실제로도 바나나는 잎 위가
-    /// 아니라 잎이 갈라지는 밑동에 매달린다.
+    /// 예전엔 납작한 타원 호(82×30)에 슬롯 수만큼 고르게 깔았는데, 바깥 슬롯은 잎
+    /// 끝에, 가운데 슬롯은 줄기 중간에 걸려 엉뚱해 보였다. 실제 바나나는
+    /// <c>tree_full.png</c> 처럼 **잎이 모이는 왕관 바로 아래, 줄기 양옆**에 매달린다.
+    /// 인덱스로 자리가 고정되니, 강화로 슬롯이 늘어도 이미 열린 바나나는 안 움직인다.
     /// </summary>
-    private const float SlotRadiusX = 82f;
-
-    private const float SlotRadiusY = 30f;
-
-    /// <summary>슬롯을 까는 호의 양 끝(도). 0 이 오른쪽, 시계방향이 아래다.</summary>
-    private const float SlotArcFromDeg = 20f;
-
-    private const float SlotArcToDeg = 160f;
+    private static readonly Vector2[] SlotAnchors =
+    {
+        new(160, 268), // ① 줄기 왼쪽 - tree_full 의 왼쪽 송이 자리
+        new(375, 268), // ② 줄기 오른쪽
+        new(267, 205), // ③ 왕관 가운데 (줄기 꼭대기 앞)
+        new(75, 240),  // ④ 바깥 왼쪽 잎 아래
+        new(460, 240), // ⑤ 바깥 오른쪽 잎 아래
+        new(190, 165), // ⑥ 왕관 안쪽 왼쪽
+        new(345, 165), // ⑦ 왕관 안쪽 오른쪽
+        new(267, 110), // ⑧ 왕관 위쪽 가운데
+    };
 
     /// <summary>
     /// 성장 표시를 몇 단으로 끊어 갱신할지. 8분 주기면 약 7초에 한 번 다시 그린다 -
@@ -125,13 +128,8 @@ public partial class Tree : Node2D
 
         for (int i = 0; i < count; i++)
         {
-            // 슬롯이 1개뿐이면 호의 한가운데에 둔다 - (i / (count-1)) 은 0으로 나눈다.
-            float t = count == 1 ? 0.5f : (float)i / (count - 1);
-            float angle = Mathf.DegToRad(Mathf.Lerp(SlotArcFromDeg, SlotArcToDeg, t));
-
             TreeSlot slot = _slotScene.Instantiate<TreeSlot>();
-            slot.Position = new Vector2(Mathf.Cos(angle) * SlotRadiusX,
-                                        Mathf.Sin(angle) * SlotRadiusY);
+            slot.Position = AnchorToSlotRoot(SlotAnchors[i]);
             _slotRoot.AddChild(slot);
 
             _slots[i] = slot;
@@ -161,7 +159,15 @@ public partial class Tree : Node2D
     /// 여기서 인스턴스한다.
     /// </summary>
     public Vector2 PositionOf(int index) =>
-        Transform * (_sway.Transform * (_slotRoot.Position + _slots[index].Position));
+        Transform * (_sway.Transform * (_slotRoot.Position + _slots[index].Position
+                                        + _slots[index].FruitCenter));
+
+    /// <summary>
+    /// 텍스처 픽셀 좌표 → <c>Sway/Slots</c> 로컬. <c>Body</c> 는 가운데 정렬
+    /// 스프라이트라 텍스처 중심이 원점이고, 배율·위치는 씬 값을 그대로 따른다.
+    /// </summary>
+    private Vector2 AnchorToSlotRoot(Vector2 texturePx) =>
+        _body.Transform * (texturePx - _body.Texture.GetSize() / 2f) - _slotRoot.Position;
 
     public Rect2 GetBounds() => _restBounds;
 
