@@ -714,6 +714,53 @@ public sealed class SteamNetSession : INetSession, IDisposable
         JoinFromSteam(lobby, "스팀 재연결");
     }
 
+    /// <summary>
+    /// 직접 연결(ICE)을 끄고 스팀 릴레이로만 P2P 한다 (전역 설정, 한 번).
+    ///
+    /// <b>기본값은 직접 연결을 시도할 수 있다</b> - 그러면 상대가 내 IP 를 알 수 있다. 1일차에
+    /// "릴레이를 거치므로 IP 가 안 보인다" 고 주석에 적었는데 기본 설정에선 보장이 아니었다.
+    /// 200ms 상태 전송이라 릴레이를 한 번 거치는 지연은 상관없다. 걸렸는지 되읽어서 남긴다 -
+    /// 개인정보 문구가 기대는 설정이라 "걸었다" 와 "걸렸다" 를 가른다.
+    /// </summary>
+    private static void ForceRelayOnly()
+    {
+        int[] value = { Constants.k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Disable };
+        GCHandle pin = GCHandle.Alloc(value, GCHandleType.Pinned);
+        try
+        {
+            bool set = SteamNetworkingUtils.SetConfigValue(
+                ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable,
+                ESteamNetworkingConfigScope.k_ESteamNetworkingConfig_Global,
+                IntPtr.Zero,
+                ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32,
+                pin.AddrOfPinnedObject());
+
+            value[0] = -99;
+            ulong size = sizeof(int);
+            SteamNetworkingUtils.GetConfigValue(
+                ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable,
+                ESteamNetworkingConfigScope.k_ESteamNetworkingConfig_Global,
+                IntPtr.Zero,
+                out _,
+                pin.AddrOfPinnedObject(),
+                ref size);
+
+            bool ok = set && value[0] == Constants.k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Disable;
+            if (ok)
+            {
+                GD.Print("[net] P2P 는 스팀 릴레이만 쓴다 (직접 연결 끔)");
+            }
+            else
+            {
+                GD.PushError($"[net] 직접 연결(ICE) 끄기 실패 (set {set}, 되읽음 {value[0]}) - 상대에게 IP 가 보일 수 있다");
+            }
+        }
+        finally
+        {
+            pin.Free();
+        }
+    }
+
     /// <summary>같은 로비 멤버가 보낸 연결 요청만 받는다. 모르는 사람의 요청은 무시하면 시간이 지나 닫힌다.</summary>
     private void OnSessionRequest(SteamNetworkingMessagesSessionRequest_t cb)
     {
@@ -783,8 +830,11 @@ public sealed class SteamNetSession : INetSession, IDisposable
         _sessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(OnSessionRequest);
         _sessionFailed = Callback<SteamNetworkingMessagesSessionFailed_t>.Create(OnSessionFailed);
 
+        // P2P 는 스팀 릴레이로만 한다. 그래야 공유기·방화벽 뒤에서도 붙고, 상대에게 내 IP 가
+        // 보이지 않는다 - 개인정보 안내(docs/C2-PRIVACY.md §2-5)가 이 문장을 약속한다.
+        ForceRelayOnly();
+
         // 스팀 릴레이(SDR) 준비를 미리 시작한다. 안 하면 첫 P2P 전송 때 시작해서 첫 몇 초가 빈다.
-        // 릴레이를 거치므로 공유기·방화벽 뒤에서도 붙고, 상대에게 내 IP 가 보이지 않는다.
         SteamNetworkingUtils.InitRelayNetworkAccess();
 
         _createResult = CallResult<LobbyCreated_t>.Create(OnLobbyCreated);

@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using ProjectSeWoo.Shared;
+using ProjectSeWoo.Shared.Mocks;
 
 namespace ProjectSeWoo.Platform;
 
@@ -194,6 +195,48 @@ public partial class OverlayShell
     /// 안 되기 때문이다. 워밍이 끝나는 순간 계측을 리셋하므로, 리포트의 <c>uptime</c>이
     /// 곧 실제 측정 구간이 된다.
     /// </summary>
+    /// <summary>
+    /// <c>--friends=N</c> (무인 측정 전용): 가짜 친구 N명(최대 3)이 든 로비로 시작한다 -
+    /// 친구 칸 창(B10)이 부하를 얼마나 더하는지 §7-3·메모리 기준으로 재려고 둔다.
+    /// 친구 창은 창마다 그리기 표면이 따로라 A7 때 잰 숫자에 안 들어 있다.
+    /// </summary>
+    private static int MeasureFriendCount()
+    {
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg.StartsWith("--friends=", StringComparison.Ordinal)
+                && int.TryParse(arg.AsSpan("--friends=".Length), out int n))
+            {
+                return Math.Clamp(n, 0, 3);
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// <see cref="MeasureFriendCount"/> 만큼 가짜 친구를 들인다. 기본은 가만히 있는 친구
+    /// (유휴 측정), <c>--friends-active</c> 면 계속 치고 따는 친구(목의 상태 스트림).
+    /// 유저 실행에서는 아무 일도 안 한다 - 무인 실행이 아니면 인자를 무시한다.
+    /// </summary>
+    private async void StartMeasureFriends()
+    {
+        int count = MeasureFriendCount();
+        if (count == 0 || !_unattended || _net is not MockNetSession mock)
+        {
+            return;
+        }
+
+        mock.SimulatePeerActivity = Array.IndexOf(OS.GetCmdlineUserArgs(), "--friends-active") >= 0;
+        await mock.CreateRoom();
+        for (int i = 0; i < count; i++)
+        {
+            mock.SimulateJoin(new PeerId(9001 + (ulong)i), $"측정친구{i + 1}");
+        }
+
+        GD.Print($"[measure] 가짜 친구 {count}명 로비 - {(mock.SimulatePeerActivity ? "계속 치는" : "가만히 있는")} 친구");
+    }
+
     private void ParseAutoReportArgs()
     {
         foreach (string arg in OS.GetCmdlineUserArgs())

@@ -11,7 +11,7 @@
 | 전체 문구 (개인정보 처리 안내) | ☑ 초안 — §2 |
 | 근거표 (문장마다 코드 위치) | ☑ — §3 |
 | **문의처 이메일** | ☐ `[문의 이메일]` 자리 — 사람이 정한다 |
-| **A10 (P2P) 전송 목록** | ☐ W3 멀티를 진행하므로 A10 이 들어오면 §2-5 를 실제 전송 목록으로 고친다 |
+| **A10 (P2P) 전송 목록** | ☑ 2026-09-24 — 코드(`PlayerStateCodec`)와 대조해 §2-5 에 확정. 도감 수집률이 빠져 있던 것을 넣었다. P2P 는 스팀 릴레이만 쓰게 해서(직접 연결 끔) IP 비노출 문장을 넣었다 |
 | 게임 내 최초 실행에서 짧은 문구 노출 | ☐ B15 (온보딩)에서 — §7-6 이 "스토어와 게임 내 최초 실행에 같은 문구" 로 정했다 |
 | **옵션 "타건 카운트" 끄기** | ☐ **체크박스는 있지만 아무 동작도 안 한다**(설정값 저장만, 읽는 코드 없음 — 9/21 부터 남은 항목). 구현 전에는 §2-1 의 해당 문장을 쓰면 안 된다 — §4 |
 
@@ -94,7 +94,9 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 - 스팀 친구에게: 로비에 있는 동안 "게임 참가" 에 쓰이는 로비 정보
 - 친구 목록과 친구의 접속 상태(온라인·게임 중·참가 정보)는 로비 창에서 참가·초대를 보여 주는 데만 이
   PC 에서 읽으며, 우리 서버로 보내지 않습니다.
-- `[A10 이후 확정: 친구 나무 표시를 위해 오가는 정보 — 타건 발생 여부 / 수확 / 누적 타수 / 장착 정보]`
+- 같은 로비의 사람들에게, 로비에 있는 동안 0.2초마다: 그 사이 친 횟수, 딴 바나나 수, 누적 타수, 장착한
+  커서 장식, 도감 수집률. 친구 화면에서 원숭이와 나무를 움직이는 데만 씁니다. 어떤 키를 눌렀는지는 들어
+  있지 않습니다. 스팀 중계 서버를 거쳐 전달되므로 서로의 IP 주소는 보이지 않습니다.
 
 **6. 하지 않는 것**
 - 키 내용, 마우스 위치, 화면, 다른 프로그램, 파일을 읽지 않습니다.
@@ -158,7 +160,10 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 - To your Steam friends: lobby information used for "Join Game" while you are in a lobby
 - Your friends list and your friends' status (online / in game / join information) are read on your PC only
   to show join and invite options in the lobby window, and are never sent to our server.
-- `[To be finalized after A10: data exchanged to show friends' trees — keystroke events / harvests / total keystrokes / equipped items]`
+- To people in the same lobby, every 0.2 seconds while you are in it: how many times you typed in that
+  moment, bananas harvested, total keystrokes, equipped cursor decorations, and collection progress. This
+  is used only to animate your monkey and tree on their screens. It never contains which keys you pressed.
+  It is delivered through Steam's relay servers, so your IP address is not visible to others.
 
 **6. What we don't do**
 - We never read key contents, mouse position, your screen, other programs, or files.
@@ -199,6 +204,8 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 | 코드를 아는 누구나 입장·로비 정보 조회 | 같은 파일 `CreateLobby(k_ELobbyTypePublic, 4)`. 로비 목록 검색은 안 하지만 ID 로 `JoinLobby`·`RequestLobbyData` 가 된다 — 코드 입장의 사전 확인이 바로 이 `RequestLobbyData` 다 |
 | 나간 뒤에도 로비 타수가 스팀 ID 와 함께 남는다 | 같은 파일 `OnLobbyChatUpdate`(방장이 나간 사람의 `s:<steamid>` 기록), `LeaveRoom`(방장 자신의 것). 로비 데이터라 로비가 사라지면 같이 사라진다 |
 | 친구에게 참가 정보 | 같은 파일 `SetRichPresence("connect", "+connect_lobby <id>")`, 나가면 `ClearRichPresence` |
+| 0.2초 상태에 든 것 (A10) | `shared/Contracts/PlayerStateCodec.cs` — 창 타건 수·수확 수·누적 타수·도감 %·장식 ID 3개가 전부다. 키 코드 필드가 없다. 보내는 곳은 `game/multiplayer/PlayerStateSender.cs` → `SteamNetSession.Broadcast`, **로비 멤버에게만** |
+| IP 가 안 보인다 | `SteamNetSession.ForceRelayOnly` — `P2P_Transport_ICE_Enable = Disable`(직접 연결 끔)을 전역으로 걸고 되읽어 확인한다. 걸렸으면 로그 `[net] P2P 는 스팀 릴레이만 쓴다`. 기본값은 직접 연결을 시도할 수 있어서 이 설정 없이는 쓸 수 없는 문장이다 |
 | 친구 목록·접속 상태는 PC 에서만 | 같은 파일 `GetFriends` — `GetFriendPersonaName`/`GetFriendPersonaState`/`GetFriendGamePlayed`/`GetFriendRichPresence`(`connect`)/`RequestFriendRichPresence`. 결과를 서버로 보내는 코드 없음 |
 
 ---
@@ -209,9 +216,8 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
    적어도 게임이 세지 않아야) "끌 수 있다" 가 참이 된다. 개인정보 문구에 넣을 거라면 **헬퍼가 RawInput
    등록 자체를 푸는 쪽**이 약속으로서 가장 강하다
 2. **문의 이메일** — §2-7, §2-8 의 `[문의 이메일]`. 스팀 파트너 사이트의 지원 이메일과 같게 한다
-3. **A10 전송 목록** — §2-5 의 대괄호 줄. §7-6 이 미리 적어 둔 목록(타건 발생 여부 / 수확 이벤트 / 누적
-   타수 / 로비 타수 / 장착 정보)이 **실제로 A10 이 보내는 것과 같은지** 코드로 확인한 뒤 확정한다. 다르면
-   문구를 코드에 맞춘다
+3. ~~**A10 전송 목록**~~ — 2026-09-24 확정(§2-5). §7-6 의 목록에는 **도감 수집률이 빠져 있었다** — 코드
+   (`PlayerStateCodec`)가 보내는 것에 맞춰 문구와 §7-6 을 같이 고쳤다. 필드를 늘리면 여기부터 고친다
 4. **서버 데이터 삭제 절차** — 지금은 요청이 오면 D1 에서 손으로 지운다(`players` · `idempotency_keys` ·
    `owned_items_mirror` 의 해당 `steam_id`). 요청이 늘면 스크립트로 만든다
 5. **스토어 설명문과 따로 쓸 것** — 커뮤니티 마켓은 밸브 승인 전이다. 설명문에서 "마켓 거래 가능" 을

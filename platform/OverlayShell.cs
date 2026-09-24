@@ -231,7 +231,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         }
 
         // A9 멀티 룸. 스팀 로비라 스팀을 안 붙인 실행(무인 측정)에서는 목으로 남는다.
-        if (ShouldUseRealNet() && _steam != null)
+        // --friends=N (무인 측정) 이면 스팀이 있어도 목이다 - 가짜 친구를 들여야 한다.
+        if (ShouldUseRealNet() && _steam != null && MeasureFriendCount() == 0)
         {
             _net = new SteamNetSession(_steam);
         }
@@ -283,6 +284,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         }
 
         ParseAutoReportArgs();
+        StartMeasureFriends();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
     }
