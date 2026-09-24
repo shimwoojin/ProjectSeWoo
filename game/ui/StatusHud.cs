@@ -34,6 +34,7 @@ public partial class StatusHud : VBoxContainer
     private Label _keystrokes;
     private Label _bananas;
     private Label _collection;
+    private Label _notice;
     private Tween _bananaPop;
     private Tween _levelPop;
 
@@ -48,6 +49,17 @@ public partial class StatusHud : VBoxContainer
         _keystrokes = GetNode<Label>("Keystrokes");
         _bananas = GetNode<Label>("Bananas");
         _collection = GetNode<Label>("Collection");
+        _notice = GetNode<Label>("Notice");
+    }
+
+    /// <summary>
+    /// 맨 아래 안내 한 줄 (A14). null 이면 숨긴다. 서버에 못 붙어 슬롯을 하나도
+    /// 못 받았을 때 쓴다 - 안내가 없으면 오프라인 첫 실행이 "나무가 고장 났다" 로 보인다.
+    /// </summary>
+    public void SetNotice(string text)
+    {
+        _notice.Text = text ?? string.Empty;
+        _notice.Visible = text != null;
     }
 
     /// <summary>보유 바나나. 유일한 재화다 (§3-2).</summary>

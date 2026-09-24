@@ -37,12 +37,25 @@ public partial class ShopWindow : CanvasLayer
 
     public event Action<ShopCatalog.Item> BuyRequested;
 
+    /// <summary>창이 열렸다. 게임 레이어가 서버 연결을 한 번 더 확인하는 계기로 쓴다.</summary>
+    public event Action Opened;
+
     /// <summary>id 가 null 이면 그 슬롯을 비워 달라는 뜻이다.</summary>
     public event Action<CursorSlot, string> EquipRequested;
 
     private Inventory _inventory;
     private Label _bananas;
     private Label _collection;
+
+    /// <summary>
+    /// 헤더 아래 안내 한 줄. 오프라인이면 그 사실을, 아니면 마지막 구매 실패 사유를
+    /// 보여 주고, 둘 다 없으면 숨는다 (A14). 전에는 오프라인 구매가 아무 반응 없이
+    /// 실패해서 버튼이 고장 난 것처럼 보였다.
+    /// </summary>
+    private Label _notice;
+    private string _purchaseMessage;
+
+    private const string OfflineNotice = "인터넷 연결이 필요하다 - 구매는 온라인에서만 된다";
 
     // 도감 탭 (B7)
     private Label _collectionTotal;
@@ -73,8 +86,17 @@ public partial class ShopWindow : CanvasLayer
 
     public void Open()
     {
+        _purchaseMessage = null;
         Refresh();
         Visible = true;
+        Opened?.Invoke();
+    }
+
+    /// <summary>구매 실패 사유를 안내 줄에 띄운다. 다음에 창을 열 때 지워진다.</summary>
+    public void ShowPurchaseMessage(string message)
+    {
+        _purchaseMessage = message;
+        Refresh();
     }
 
     public void Close()
@@ -108,6 +130,10 @@ public partial class ShopWindow : CanvasLayer
         }
 
         _bananas.Text = $"바나나 {_inventory.Bananas:N0}";
+
+        bool online = _inventory.Online;
+        _notice.Text = !online ? OfflineNotice : _purchaseMessage ?? string.Empty;
+        _notice.Visible = _notice.Text.Length > 0;
         // 퍼센트는 **내림**이다. HUD(StatusHud.SetCollection)와 같은 식이어야
         // 한 화면에 15/16 이 93% 와 94% 로 동시에 보이는 일이 없다.
         _collection.Text = $"수집 {_inventory.OwnedCount}/{ShopCatalog.All.Length}"
@@ -146,7 +172,8 @@ public partial class ShopWindow : CanvasLayer
 
                 // **못 사는 것도 보여 준다.** 버튼만 잠근다 - §3-2 가 "유저가 다음
                 // 목표를 눈으로 볼 수 있어야 커브가 작동한다" 고 한 부분이다.
-                row.Action.Disabled = !affordable;
+                // 오프라인이면 살 수 있는 값이어도 잠근다 - 이유는 안내 줄이 말한다.
+                row.Action.Disabled = !affordable || !online;
             }
         }
 
@@ -158,6 +185,7 @@ public partial class ShopWindow : CanvasLayer
     private static readonly Color Accent = new(0.55f, 0.85f, 0.55f);
     private static readonly Color Gold = new(0.98f, 0.82f, 0.30f);
     private static readonly Color Dim = new(0.62f, 0.66f, 0.72f);
+    private static readonly Color Warn = new(1.00f, 0.62f, 0.45f);
 
     /// <summary>아직 안 가진 도감 칸. 알파는 그대로 두고 색만 죽인다.</summary>
     private static readonly Color Silhouette = new(0.10f, 0.12f, 0.16f, 0.85f);
@@ -184,6 +212,12 @@ public partial class ShopWindow : CanvasLayer
         panel.AddChild(rows);
 
         rows.AddChild(MakeHeader());
+
+        _notice = new Label { Visible = false, AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _notice.AddThemeColorOverride("font_color", Warn);
+        _notice.AddThemeFontSizeOverride("font_size", 12);
+        rows.AddChild(_notice);
+
         rows.AddChild(new HSeparator());
 
         var tabs = new TabContainer

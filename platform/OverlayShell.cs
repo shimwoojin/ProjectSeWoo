@@ -117,6 +117,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// 파일·트레이 아이콘처럼 "우리 프로세스 밖으로 새어나가는" 부작용은 전부 이걸로 막는다.</summary>
     private bool _unattended;
 
+    /// <summary>스팀을 통해 다시 띄우고 꺼지는 중인 인스턴스인가. 이때는 아무것도 안 만들었으므로
+    /// <c>_Process</c>·<c>_ExitTree</c> 가 손대지 않고 빠진다 (Quit 은 몇 프레임 뒤에 끝난다).</summary>
+    private bool _relaunching;
+
     // --- 토글 상태 ---
     private bool _updateEveryFrame;
     private bool _showOutline;
@@ -136,6 +140,18 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     public override void _Ready()
     {
         InstallCrashLogging();
+
+        // 스팀 밖에서 exe 를 직접 띄웠으면(자동 시작 등) 스팀을 통해 다시 뜨고 이
+        // 인스턴스는 바로 끝낸다. 창·헬퍼·세이브를 만들기 전이어야 한다 - 곧 꺼질
+        // 인스턴스가 세이브를 쓰거나 헬퍼를 남기면 안 된다. 릴리스에서만 (개발 실행은
+        // 스팀으로 안 띄우므로 매번 꺼진다), 무인 실행 제외.
+        if (!OS.IsDebugBuild() && !IsUnattendedRun() && SteamService.RelaunchThroughSteamIfNeeded())
+        {
+            GD.Print("[steam] 스팀 밖에서 실행됨 - 스팀을 통해 다시 띄우고 종료");
+            _relaunching = true;
+            GetTree().Quit();
+            return;
+        }
 
         _win = GetWindow();
         _baseWindowSize = _win.Size;
@@ -655,6 +671,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     public override void _Process(double delta)
     {
+        if (_relaunching)
+        {
+            return;
+        }
+
         if (_dragging)
         {
             // 마우스가 창 밖으로 나가면 모션 이벤트가 끊긴다. 그래서 위치는 폴링으로 따라간다.
@@ -707,7 +728,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is not InputEventMouseButton mb)
+        if (_relaunching || @event is not InputEventMouseButton mb)
         {
             return;
         }
@@ -805,6 +826,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     public override void _ExitTree()
     {
+        if (_relaunching)
+        {
+            return;
+        }
+
         // 옵션 전부와 창 위치를 여기서 한 번 더 남긴다. 드래그 없이 바로 끈 세션도
         // 다음 실행에서 지금 상태(예: [ 로 바꾼 스케일)를 복원하려면 필요하다.
         PersistSettings();

@@ -38,6 +38,9 @@ public sealed class MockInventoryService : IInventoryService
     /// <summary>목이 항상 붙어 있다고 답한다. 스팀 오프라인 경로를 시험하려면 꺼 본다.</summary>
     public bool IsAvailable { get; set; } = true;
 
+    /// <summary>목은 처음부터 보유 목록을 안다. 스팀 미조회 경로를 시험하려면 꺼 본다.</summary>
+    public bool IsLoaded { get; set; } = true;
+
     public IReadOnlyList<InventoryItem> Items => _owned
         .Select(id => new InventoryItem(id, SteamItemInstanceId: 0, Tradable: true, Marketable: false))
         .ToList();

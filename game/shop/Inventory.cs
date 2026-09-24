@@ -46,6 +46,12 @@ public sealed class Inventory
 
     public long Bananas => _economy.Balance;
 
+    /// <summary>
+    /// 지금 서버에 붙어 있어 구매가 되는가 (docs/ECONOMY-SERVER.md §7 "구매만 온라인 필수").
+    /// 목은 항상 true 다.
+    /// </summary>
+    public bool Online => _economy.IsAvailable;
+
     /// <summary>기본 지급품은 항상 가진 것으로 친다(위 클래스 주석). 그 외에는
     /// 스팀 인벤토리 서비스가 답한다.</summary>
     public bool Owns(string id)
@@ -84,15 +90,21 @@ public sealed class Inventory
     /// 성공하면 <see cref="IInventoryService.OnItemsChanged"/> 가 뒤따라 불려서
     /// <see cref="Owns"/> 가 곧바로 참이 된다.
     /// </summary>
-    public async Task<bool> TryBuy(ShopCatalog.Item item)
+    /// <returns>결과. 실패 사유를 화면에 보여 주려고 성공 여부만이 아니라 그대로 돌려준다.</returns>
+    public async Task<PurchaseOutcome> TryBuy(ShopCatalog.Item item)
     {
-        if (!CanBuy(item))
+        if (item == null || item.IsStarter || Owns(item.Id))
         {
-            return false;
+            return PurchaseOutcome.AlreadyOwned;
+        }
+
+        if (_economy.Balance < item.Price)
+        {
+            return PurchaseOutcome.InsufficientBalance;
         }
 
         PurchaseResult result = await _economy.PurchaseItem(item.Id);
-        return result.Outcome == PurchaseOutcome.Success;
+        return result.Outcome;
     }
 
     /// <summary>
@@ -141,6 +153,17 @@ public sealed class Inventory
             if (id == null)
             {
                 _cursor?.Equip(slot, null);
+                continue;
+            }
+
+            // **보유 목록을 아직 못 받았으면 세이브를 믿는다.** 스팀 없이(자동 시작이
+            // 스팀보다 먼저) 뜨면 산 장식이 전부 "안 가진 것" 으로 보여서, 아래 경로가
+            // 세이브의 장착을 비우고 그대로 저장했다 - 켤 때마다 장착이 풀렸다. 목록이
+            // 오면 GameRoot 가 이 메서드를 다시 불러 진짜로 확인한다.
+            if (!_steamInventory.IsLoaded)
+            {
+                ShopCatalog.Item item = ShopCatalog.Find(id);
+                _cursor?.Equip(slot, item != null && item.Slot == slot ? id : null);
                 continue;
             }
 

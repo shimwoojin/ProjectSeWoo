@@ -72,6 +72,9 @@ public sealed class SteamInventoryService : IInventoryService, IDisposable
 
     public bool IsAvailable => _steam is { IsInitialized: true };
 
+    /// <summary><see cref="OnResultReady"/> 가 성공 결과를 한 번이라도 받았는가.</summary>
+    public bool IsLoaded { get; private set; }
+
     public IReadOnlyList<InventoryItem> Items => _items;
 
     public event Action OnItemsChanged;
@@ -150,6 +153,7 @@ public sealed class SteamInventoryService : IInventoryService, IDisposable
                     Marketable: false))
                 .ToArray();
 
+            IsLoaded = true;
             OnItemsChanged?.Invoke();
         }
         finally

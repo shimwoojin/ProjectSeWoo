@@ -305,6 +305,36 @@ public sealed class SteamService : IAchievements, IDisposable
         return DefaultAppId;
     }
 
+    /// <summary>
+    /// 스팀 밖에서 exe 를 바로 실행했으면 스팀을 통해 다시 띄우도록 요청한다.
+    /// true 면 스팀이 새 인스턴스를 띄우므로 <b>호출부는 즉시 종료해야 한다</b>.
+    ///
+    /// <b>왜 필요한가 (A14).</b> 경제·인벤토리가 스팀 세션 티켓에 기대므로 스팀 없이
+    /// 뜬 인스턴스는 바나나도 장식도 없는 빈 껍데기다. A6 자동 시작(레지스트리 Run)이
+    /// exe 를 직접 띄우는 대표 경로인데, 이걸 거치면 스팀이 떠 있지 않아도 스팀이 먼저
+    /// 켜진 뒤 게임이 뜬다. 스팀 오버레이·소유권 확인도 이 경로에서만 제대로 붙는다.
+    ///
+    /// <b>릴리스에서만 부른다.</b> 개발 실행(에디터·VS F5)은 스팀으로 띄우지 않으므로
+    /// 여기서 true 가 나와 매번 꺼져 버린다. 또 <see cref="TryInit"/> 이 넣는
+    /// <c>SteamAppId</c> 환경변수보다 <b>먼저</b> 불러야 한다 - 그 변수가 있으면
+    /// 스팀이 띄운 것으로 보고 false 를 돌려준다.
+    /// </summary>
+    public static bool RelaunchThroughSteamIfNeeded()
+    {
+        try
+        {
+            InstallNativeResolver();
+            return SteamAPI.RestartAppIfNecessary(new AppId_t(ResolveAppId()));
+        }
+        catch (Exception e)
+        {
+            // dll 을 못 찾는 등 판단할 수 없으면 그냥 뜬다 - 상주 앱이 이것 때문에
+            // 못 뜨는 쪽이 더 나쁘다. 스팀 없이 뜬 상태는 TryInit 이 재시도로 메운다.
+            GD.PushWarning($"[steam] 재실행 판단 실패, 그대로 진행 ({e.GetType().Name}: {e.Message})");
+            return false;
+        }
+    }
+
     private static bool IsSteamProcessRunning()
     {
         try

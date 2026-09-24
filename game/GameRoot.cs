@@ -92,6 +92,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private const double ResyncRetrySec = 30.0;
 
     private bool _loaded;
+    private string _shownNotice;
     private bool _syncing;
     private double _sinceSync;
 
@@ -131,6 +132,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         _shopButton.Pressed += () => _shop.Toggle();
         _shop.BuyRequested += OnBuyRequested;
+        _shop.Opened += OnShopOpened;
         _shop.EquipRequested += OnEquipRequested;
 
         // **여기서 세이브를 읽거나 입력을 구독하면 안 된다.** Godot 은 자식의
@@ -209,6 +211,50 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     }
 
     /// <summary>
+    /// 보유 목록을 기동 뒤에야 받았다. 세이브를 믿고 걸어 둔 장착을 이제 진짜로
+    /// 확인하고(<see cref="Inventory.ApplyEquippedToCursor"/>), 도감·상점을 다시 그린다.
+    /// 도감 100% 는 해금하지 않고 상태만 맞춘다 - 이미 다 모은 유저가 켤 때마다
+    /// "방금 완성" 으로 잡히면 안 된다 (<see cref="LoadGameState"/> 와 같은 규칙).
+    /// </summary>
+    private void OnInventoryLoadedLate()
+    {
+        _inventory.ApplyEquippedToCursor();
+        _collectionDone = _inventory.IsComplete;
+        RefreshCollectionHud();
+        PersistNow();
+        GD.Print($"[game] 보유 목록 늦게 도착 - 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
+    }
+
+    /// <summary>
+    /// 슬롯을 하나도 못 받은 동안 HUD 에 이유를 적는다 (A14). 슬롯은 서버가 주는
+    /// 것이라 오프라인 첫 실행은 빈 나무로 시작하고, 30초마다 다시 붙어 본다.
+    /// 한 번이라도 받은 뒤 끊기면 안내하지 않는다 - 로컬 예측으로 계속 자란다.
+    /// </summary>
+    private void UpdateOfflineNotice()
+    {
+        string notice = !_loaded ? "서버에 연결하는 중..."
+            : _platform.Economy.Slots.Count == 0 ? "오프라인 - 연결되면 바나나가 열린다"
+            : null;
+
+        if (notice != _shownNotice)
+        {
+            _shownNotice = notice;
+            _hud.SetNotice(notice);
+        }
+    }
+
+    /// <summary>상점을 열 때 서버에 안 붙어 있으면 바로 한 번 붙어 본다 - 세션 토큰이
+    /// 막 만료된 것뿐인데 다음 재동기화까지 "오프라인" 으로 보이면 안 된다.</summary>
+    private void OnShopOpened()
+    {
+        if (_loaded && !_syncing && !_platform.Economy.IsAvailable)
+        {
+            _sinceSync = 0.0;
+            _ = ResyncAsync(wasHealthy: false);
+        }
+    }
+
+    /// <summary>
     /// 주기 재동기화. 서버 권위 값(잔액·슬롯)을 다시 받아 로컬 예측을 바로잡고,
     /// 오프라인으로 켰다면 연결이 돌아온 뒤 슬롯을 처음으로 받는다.
     /// </summary>
@@ -220,7 +266,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         _sinceSync += delta;
-        bool healthy = _platform.Economy.IsAvailable && _platform.Economy.Slots.Count > 0;
+        bool healthy = _platform.Economy.IsAvailable && _platform.Economy.Slots.Count > 0
+            && _platform.Inventory.IsLoaded;
         if (_sinceSync < (healthy ? ResyncSec : ResyncRetrySec))
         {
             return;
@@ -239,6 +286,22 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             if (!wasHealthy && _platform.Economy.Slots.Count > 0)
             {
                 GD.Print($"[game] 서버 재연결 - 잔액 {_platform.Economy.Balance}, 슬롯 {_platform.Economy.Slots.Count}개");
+            }
+
+            // 스팀이 늦게 붙었으면(자동 시작이 스팀보다 먼저) 보유 목록을 이제야 받는다.
+            // 기동 때 한 번만 물어서, 전에는 그 세션 내내 산 장식이 상점에 안 보였다.
+            if (!_platform.Inventory.IsLoaded && _platform.Inventory.IsAvailable)
+            {
+                await _platform.Inventory.Refresh();
+                if (_platform.Inventory.IsLoaded)
+                {
+                    OnInventoryLoadedLate();
+                }
+            }
+
+            if (_shop.IsOpen)
+            {
+                _shop.Refresh();
             }
         }
         catch (Exception e)
@@ -356,6 +419,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             _tree.SyncSlots(_platform.Economy.Slots);
             TickResync(delta);
+            UpdateOfflineNotice();
         }
     }
 
@@ -636,10 +700,25 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private async void OnBuyRequested(ShopCatalog.Item item)
     {
-        if (!await _inventory.TryBuy(item))
+        PurchaseOutcome outcome = await _inventory.TryBuy(item);
+        if (outcome != PurchaseOutcome.Success)
         {
-            // 화면이 버튼을 잠가 두므로 정상 경로로는 여기 안 온다. 연타로 같은
-            // 요청이 두 번 들어온 경우가 남는다 - 두 번째는 조용히 버린다.
+            // 연타로 같은 요청이 두 번 들어온 경우(AlreadyOwned)는 조용히 버린다.
+            // 나머지는 이유를 보여 준다 - 전에는 오프라인 구매가 아무 반응 없이 실패했다.
+            string message = outcome switch
+            {
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
+                PurchaseOutcome.AlreadyOwned => null,
+                _ => "구매가 거절됐다. 바나나는 그대로다",
+            };
+
+            GD.Print($"[game] 구매 실패 {item.Id} - {outcome}");
+            if (message != null)
+            {
+                _shop.ShowPurchaseMessage(message);
+            }
+
             return;
         }
 

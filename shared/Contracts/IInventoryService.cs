@@ -33,6 +33,17 @@ public interface IInventoryService
     /// </summary>
     bool IsAvailable { get; }
 
+    /// <summary>
+    /// 스팀에서 보유 목록을 한 번이라도 제대로 받아 왔는가 (2026-09-24, A14).
+    ///
+    /// <see cref="IsAvailable"/> 과 다르다 - 스팀이 붙어 있어도 조회가 실패하면
+    /// <see cref="Items"/> 는 비어 있다. 그 빈 목록을 "아무것도 안 가졌다" 로 믿으면
+    /// 게임 레이어가 세이브의 장착 상태를 지워 버린다(스팀보다 먼저 뜨는 자동
+    /// 시작에서 매번 일어나던 일). 소유 여부로 뭔가를 <b>지우는</b> 판단은 이게
+    /// true 일 때만 한다.
+    /// </summary>
+    bool IsLoaded { get; }
+
     /// <summary>마지막으로 확인한 보유 아이템 스냅샷.</summary>
     IReadOnlyList<InventoryItem> Items { get; }
 
