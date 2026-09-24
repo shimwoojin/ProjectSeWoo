@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Godot;
 using ProjectSeWoo.Shared;
@@ -23,8 +24,14 @@ namespace ProjectSeWoo.Platform;
 ///   그 멤버의 룸 타수. 본인만 쓸 수 있다. <see cref="PublishIntervalSec"/> 에 한 번, 바뀌었을 때만.</description></item>
 /// </list>
 ///
-/// <b>200ms P2P 상태(<see cref="Broadcast"/>)는 아직 없다</b> - A10/B10 에서 붙는다.
-/// 랭킹은 1초 단위면 충분하고, 로비 멤버 데이터는 연결 관리 없이 스팀이 알아서 뿌려 준다.
+/// <b>200ms 상태(<see cref="Broadcast"/>)는 P2P 다</b> (A10, <c>SteamNetworkingMessages</c>).
+/// 친구 원숭이가 펀치하는 리듬·수확 연출용이라 잦고 잃어도 되는 것 - 로비 데이터로 보내면
+/// 스팀 서버를 거치며 늦고 호출 제한도 있다. 반대로 랭킹(로비 타수)은 1초 단위면 충분하고
+/// 나중에 들어온 사람도 바로 읽어야 해서 로비 멤버 데이터에 둔다. 둘을 섞지 않는다.
+///
+/// <b>P2P 는 같은 로비 멤버하고만 한다.</b> 연결 요청(<see cref="SteamNetworkingMessagesSessionRequest_t"/>)도,
+/// 받은 메시지도 보낸 사람이 지금 로비 멤버일 때만 받는다. 내용은 <see cref="PlayerStateCodec"/>
+/// 이 검증한다 - 로비 코드만 알면 누구나 들어오므로 상대가 우리 게임이라는 보장이 없다.
 ///
 /// <b>룸 코드 = 로비 SteamID 하위 32비트</b> (<see cref="RoomCode"/>). 상위 32비트는
 /// 유니버스(Public)·계정 종류(Chat)·인스턴스 플래그(Lobby|MMSLobby)라 모든 로비가
@@ -81,6 +88,16 @@ public sealed class SteamNetSession : INetSession, IDisposable
     /// <summary>친구 목록 상한. 친구가 수백 명이면 창을 열 때마다 줄 수백 개를 만든다.</summary>
     private const int MaxFriendsListed = 60;
 
+    /// <summary>상태 메시지 채널. 채널을 나눠 두면 나중에 다른 종류(공동 나무 등)를 섞지 않고 붙인다.</summary>
+    private const int StateChannel = 0;
+
+    /// <summary>
+    /// 비신뢰 + 끊긴 세션 자동 재시작. <c>NoDelay</c> 는 넣지 않는다 - 세션이 아직 안 열렸을
+    /// 때(로비에 막 들어온 직후) 보낸 것을 버려서 첫 몇 초가 비어 보인다.
+    /// </summary>
+    private const int StateSendFlags =
+        Constants.k_nSteamNetworkingSend_Unreliable | Constants.k_nSteamNetworkingSend_AutoRestartBrokenSession;
+
     private readonly SteamService _steam;
 
     // 콜백 핸들은 필드로 잡아 둔다 - 지역 변수면 GC 가 걷어가고 그때부터 안 온다
@@ -90,6 +107,8 @@ public sealed class SteamNetSession : INetSession, IDisposable
     private Callback<GameLobbyJoinRequested_t> _lobbyJoinRequested;
     private Callback<GameRichPresenceJoinRequested_t> _presenceJoinRequested;
     private Callback<PersonaStateChange_t> _personaChanged;
+    private Callback<SteamNetworkingMessagesSessionRequest_t> _sessionRequest;
+    private Callback<SteamNetworkingMessagesSessionFailed_t> _sessionFailed;
     private CallResult<LobbyCreated_t> _createResult;
     private CallResult<LobbyEnter_t> _enterResult;
     private bool _registered;
@@ -132,6 +151,17 @@ public sealed class SteamNetSession : INetSession, IDisposable
     /// <summary><see cref="OnRoomChanged"/> 를 다음 틱에 한 번으로 묶어 부른다.</summary>
     private bool _changed;
 
+    // P2P 수신. 매 틱 새로 잡지 않는다 - 상주 앱이라 200ms 마다 생기는 쓰레기도 쌓인다.
+    private readonly IntPtr[] _inbox = new IntPtr[32];
+    private readonly byte[] _receiveBuffer = new byte[PlayerStateCodec.MaxSize];
+
+    /// <summary>이 로비에서 받은/버린 상태 수. 로비를 나갈 때 한 줄로 남긴다 - 2계정 시험의 근거.</summary>
+    private int _statesReceived;
+    private int _statesDropped;
+
+    /// <summary>상태를 한 번이라도 받은 멤버. "첫 수신" 로그를 멤버당 한 번만 남긴다.</summary>
+    private readonly HashSet<ulong> _heardFrom = new();
+
     public SteamNetSession(SteamService steam)
     {
         _steam = steam;
@@ -140,12 +170,7 @@ public sealed class SteamNetSession : INetSession, IDisposable
 
     public event Action OnRoomChanged;
 
-    /// <summary>A10(P2P 상태)에서 채운다. 그때까지 부를 일이 없다.</summary>
-    public event Action<PeerId, PlayerState> OnPeerState
-    {
-        add { }
-        remove { }
-    }
+    public event Action<PeerId, PlayerState> OnPeerState;
 
     public event Action<PeerId> OnPeerJoin;
 
@@ -245,15 +270,20 @@ public sealed class SteamNetSession : INetSession, IDisposable
             SteamMatchmaking.SetLobbyData(lobby, SavedKey(SteamUser.GetSteamID()), Format(_mine));
         }
 
+        CloseAllSessions(lobby);
         SteamMatchmaking.LeaveLobby(lobby);
         SteamFriends.ClearRichPresence();
 
-        GD.Print($"[net] 로비 나감 {CodeOf(lobby)} - 룸 타수 {_mine}");
+        GD.Print($"[net] 로비 나감 {CodeOf(lobby)} - 룸 타수 {_mine},"
+            + $" P2P 상태 받음 {_statesReceived}개 / 버림 {_statesDropped}개");
 
         _lobby = CSteamID.Nil;
         _mine = 0;
         _published = -1;
         _lastKeystrokes.Clear();
+        _statesReceived = 0;
+        _statesDropped = 0;
+        _heardFrom.Clear();
 
         OnRoomChanged?.Invoke();
     }
@@ -474,9 +504,43 @@ public sealed class SteamNetSession : INetSession, IDisposable
         SteamFriends.ActivateGameOverlayInviteDialog(_lobby);
     }
 
-    /// <summary>A10(P2P 200ms 상태)에서 채운다. 지금은 버린다 - 계약상 부르는 쪽에 분기가 없어야 한다.</summary>
+    /// <summary>
+    /// 로비의 다른 멤버 전원에게 상태를 보낸다. 부르는 주기(200ms)와 "안 바뀌면 덜 보내기"는
+    /// 부르는 쪽이 정한다 - 여기는 보내기만 한다. 로비 밖이면 버린다.
+    /// </summary>
     public void Broadcast(PlayerState s)
     {
+        if (!InLobby)
+        {
+            return;
+        }
+
+        byte[] data = PlayerStateCodec.Encode(s);
+        CSteamID self = SteamUser.GetSteamID();
+        int count = SteamMatchmaking.GetNumLobbyMembers(_lobby);
+
+        GCHandle pin = GCHandle.Alloc(data, GCHandleType.Pinned);
+        try
+        {
+            for (int i = 0; i < count; i++)
+            {
+                CSteamID member = SteamMatchmaking.GetLobbyMemberByIndex(_lobby, i);
+                if (member == self)
+                {
+                    continue;
+                }
+
+                // 비신뢰라 실패는 다음 200ms 가 덮는다. 결과를 로그로 남기면 초당 다섯 줄이 된다.
+                var identity = new SteamNetworkingIdentity();
+                identity.SetSteamID(member);
+                SteamNetworkingMessages.SendMessageToUser(
+                    ref identity, pin.AddrOfPinnedObject(), (uint)data.Length, StateSendFlags, StateChannel);
+            }
+        }
+        finally
+        {
+            pin.Free();
+        }
     }
 
     // ------------------------------------------------------------------ 틱·콜백
@@ -536,10 +600,118 @@ public sealed class SteamNetSession : INetSession, IDisposable
             }
         }
 
+        ReceiveStates();
+
         if (_changed)
         {
             _changed = false;
             OnRoomChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 쌓인 P2P 상태를 전부 꺼낸다. 로비 밖이어도 꺼내서 버린다 - 안 꺼내면 스팀 쪽 큐에 남는다.
+    /// </summary>
+    private void ReceiveStates()
+    {
+        int received;
+        do
+        {
+            received = SteamNetworkingMessages.ReceiveMessagesOnChannel(StateChannel, _inbox, _inbox.Length);
+            for (int i = 0; i < received; i++)
+            {
+                try
+                {
+                    HandleState(SteamNetworkingMessage_t.FromIntPtr(_inbox[i]));
+                }
+                finally
+                {
+                    SteamNetworkingMessage_t.Release(_inbox[i]);
+                }
+            }
+        }
+        while (received == _inbox.Length);
+    }
+
+    private void HandleState(SteamNetworkingMessage_t message)
+    {
+        CSteamID sender = message.m_identityPeer.GetSteamID();
+        if (!InLobby || !IsMember(sender) || sender == SteamUser.GetSteamID()
+            || message.m_cbSize <= 0 || message.m_cbSize > _receiveBuffer.Length)
+        {
+            _statesDropped++;
+            return;
+        }
+
+        Marshal.Copy(message.m_pData, _receiveBuffer, 0, message.m_cbSize);
+        if (!PlayerStateCodec.TryDecode(_receiveBuffer.AsSpan(0, message.m_cbSize), out PlayerState state))
+        {
+            _statesDropped++;
+            return;
+        }
+
+        _statesReceived++;
+        if (_heardFrom.Add(sender.m_SteamID))
+        {
+            // 누구에게서 왔는지(스팀 ID)는 로그에 남기지 않는다 (docs/C2-PRIVACY.md 2-2).
+            GD.Print($"[net] P2P 첫 수신 - 상태를 보내는 멤버 {_heardFrom.Count}명");
+        }
+
+        OnPeerState?.Invoke(new PeerId(sender.m_SteamID), state);
+    }
+
+    /// <summary>같은 로비 멤버가 보낸 연결 요청만 받는다. 모르는 사람의 요청은 무시하면 시간이 지나 닫힌다.</summary>
+    private void OnSessionRequest(SteamNetworkingMessagesSessionRequest_t cb)
+    {
+        SteamNetworkingIdentity remote = cb.m_identityRemote;
+        if (InLobby && IsMember(remote.GetSteamID()))
+        {
+            SteamNetworkingMessages.AcceptSessionWithUser(ref remote);
+            return;
+        }
+
+        GD.Print("[net] 로비 멤버가 아닌 상대의 P2P 요청을 무시했다");
+    }
+
+    private void OnSessionFailed(SteamNetworkingMessagesSessionFailed_t cb)
+    {
+        // 비신뢰 상태라 끊겨도 다음 전송이 세션을 다시 연다(AutoRestartBrokenSession).
+        // 로비와 랭킹은 P2P 와 무관하게 계속 돈다.
+        GD.Print($"[net] P2P 세션 끊김 (사유 {cb.m_info.m_eEndReason}, 상태 {cb.m_info.m_eState})");
+    }
+
+    private bool IsMember(CSteamID who)
+    {
+        int count = SteamMatchmaking.GetNumLobbyMembers(_lobby);
+        for (int i = 0; i < count; i++)
+        {
+            if (SteamMatchmaking.GetLobbyMemberByIndex(_lobby, i) == who)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void CloseSession(CSteamID who)
+    {
+        var identity = new SteamNetworkingIdentity();
+        identity.SetSteamID(who);
+        SteamNetworkingMessages.CloseSessionWithUser(ref identity);
+    }
+
+    private static void CloseAllSessions(CSteamID lobby)
+    {
+        CSteamID self = SteamUser.GetSteamID();
+        int count = SteamMatchmaking.GetNumLobbyMembers(lobby);
+        for (int i = 0; i < count; i++)
+        {
+            CSteamID member = SteamMatchmaking.GetLobbyMemberByIndex(lobby, i);
+            if (member != self)
+            {
+                CloseSession(member);
+            }
         }
     }
 
@@ -552,6 +724,13 @@ public sealed class SteamNetSession : INetSession, IDisposable
             cb => JoinFromSteam(cb.m_steamIDLobby, "스팀 초대"));
         _presenceJoinRequested = Callback<GameRichPresenceJoinRequested_t>.Create(OnPresenceJoinRequested);
         _personaChanged = Callback<PersonaStateChange_t>.Create(OnPersonaChanged);
+        _sessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(OnSessionRequest);
+        _sessionFailed = Callback<SteamNetworkingMessagesSessionFailed_t>.Create(OnSessionFailed);
+
+        // 스팀 릴레이(SDR) 준비를 미리 시작한다. 안 하면 첫 P2P 전송 때 시작해서 첫 몇 초가 빈다.
+        // 릴레이를 거치므로 공유기·방화벽 뒤에서도 붙고, 상대에게 내 IP 가 보이지 않는다.
+        SteamNetworkingUtils.InitRelayNetworkAccess();
+
         _createResult = CallResult<LobbyCreated_t>.Create(OnLobbyCreated);
         _enterResult = CallResult<LobbyEnter_t>.Create(OnLobbyEntered);
         GD.Print("[net] 스팀 로비 콜백 등록");
@@ -581,6 +760,8 @@ public sealed class SteamNetSession : INetSession, IDisposable
                 SteamMatchmaking.SetLobbyData(_lobby, SavedKey(who), Format(last));
             }
 
+            CloseSession(who);
+            _heardFrom.Remove(who.m_SteamID);
             OnPeerLeave?.Invoke(new PeerId(who.m_SteamID));
         }
 
@@ -804,6 +985,8 @@ public sealed class SteamNetSession : INetSession, IDisposable
         _lobbyJoinRequested?.Dispose();
         _presenceJoinRequested?.Dispose();
         _personaChanged?.Dispose();
+        _sessionRequest?.Dispose();
+        _sessionFailed?.Dispose();
         _createResult?.Dispose();
         _enterResult?.Dispose();
         _registered = false;

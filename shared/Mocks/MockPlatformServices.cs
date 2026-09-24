@@ -73,6 +73,7 @@ public sealed class MockPlatformServices : IPlatformServices
     {
         Input.Tick(delta);
         Economy.Tick(delta);
+        Net.Tick(delta);
     }
 
     /// <summary>

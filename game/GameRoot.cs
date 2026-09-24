@@ -53,6 +53,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private RoomController _room;
 
+    /// <summary>내 상태를 200ms 창으로 로비에 뿌린다 (A10). 룸 컨트롤러와 같은 때 만든다.</summary>
+    private PlayerStateSender _stateSender;
+
     /// <summary>
     /// 구매·장착 규칙 (B6). <see cref="AttachPlatform"/> 전까지는 널이다 -
     /// 세이브와 커서 레이어가 둘 다 있어야 만들 수 있다.
@@ -191,6 +194,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             }
         }
         _room = new RoomController(_platform.Net, _roomWindow, _hud);
+        _stateSender = new PlayerStateSender(_platform.Net, SnapshotForPeers);
         _platform.Net.OnRoomChanged += OnRoomChangedForAchievement;
 
         LoadGameStateAsync();
@@ -460,6 +464,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             TickResync(delta);
             UpdateOfflineNotice();
             _room.Tick(delta);
+            _stateSender.Tick(delta);
         }
     }
 
@@ -585,6 +590,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 룸 랭킹은 누적이 아니라 룸에서 친 타수다 - 세는 것은 세션이 한다
         // (INetSession.AddKeystrokes). 룸 밖이면 세션이 버린다.
         _platform.Net.AddKeystrokes(count);
+        _stateSender.AddKeystrokes(count);
 
         // 수확을 애니메이션 타이밍이 아니라 입력에 직접 건다. §2-3 검토 노트의
         // "키 입력과 애니메이션을 1:1 고정 대응시키지 말 것"이 이 뜻이고,
@@ -636,6 +642,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         if (harvested > 0)
         {
             _hud.PopBananas();
+            _stateSender.AddHarvests(harvested);
         }
 
         _hud.SetKeystrokes(Save.TotalKeystrokes);
@@ -1084,6 +1091,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 이제 세이브에 없으므로 여기서 반영할 것이 없다.
     /// </summary>
     private void PersistNow() => _store.MarkDirty();
+
+    /// <summary>
+    /// 친구에게 보일 내 상태 중 창과 무관한 것 (A10). 창 안의 타건·수확 수는
+    /// <see cref="PlayerStateSender"/> 가 채운다. 인벤토리가 서기 전이면 장식은 비어 간다.
+    /// </summary>
+    private PlayerState SnapshotForPeers() => new()
+    {
+        TotalKeystrokes = Save.TotalKeystrokes,
+        EquippedHang = _inventory?.EquippedIn(CursorSlot.Hang),
+        EquippedTrail = _inventory?.EquippedIn(CursorSlot.Trail),
+        EquippedBase = _inventory?.EquippedIn(CursorSlot.Base),
+        CollectionPercent = _inventory == null
+            ? (byte)0
+            : (byte)(_inventory.OwnedCount * 100 / ShopCatalog.All.Length),
+    };
 
     /// <summary>
     /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>).

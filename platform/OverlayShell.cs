@@ -265,7 +265,14 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             // 계약 문서와 코드가 갈라지는 것은 눈으로 안 잡히고, 을이 구현을
             // 끝낸 뒤에야 드러난다.
             GD.Print(SaveSchema.Describe());
-            GetTree().Quit(SaveSchema.SelfTest() == null ? 0 : 1);
+
+            // 멀티 상태 전송 형식(A10)도 계약이라 같이 본다. 조작된 패킷을 거르는지까지.
+            string codecFail = PlayerStateCodec.SelfTest();
+            GD.Print(codecFail == null
+                ? "[net] PlayerState 전송 형식 self-test PASS"
+                : $"[net] PlayerState 전송 형식 self-test FAIL: {codecFail}");
+
+            GetTree().Quit(SaveSchema.SelfTest() == null && codecFail == null ? 0 : 1);
             return;
         }
 
@@ -734,6 +741,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 멀티 룸의 콜백 등록·타수 전송·변경 알림 묶기. 스팀 콜백 펌프 바로 뒤라
         // 이번 프레임에 도착한 로비 소식이 같은 프레임에 화면까지 간다.
         (_net as SteamNetSession)?.Tick(delta);
+        (_net as MockNetSession)?.Tick(delta);
 
         // 목일 때만 성장 시계를 우리가 돌린다 - 실물은 서버(요청 시점 재계산)가 시간의
         // 주인이라 틱이 없다(IEconomyService 계약에 Tick 이 없는 이유와 같다).

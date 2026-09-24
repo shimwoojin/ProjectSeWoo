@@ -142,7 +142,10 @@ public readonly record struct PlayerState
     /// <summary>이번 구간에 수확한 바나나 개수. 토스트 연출용.</summary>
     public byte HarvestsInWindow { get; init; }
 
-    /// <summary>누적 타수. 룸 내 랭킹의 정렬 키 (§6).</summary>
+    /// <summary>
+    /// 누적 타수 (§6). 친구 칸의 레벨 표시용이다 - <b>랭킹 키가 아니다.</b> 로비 랭킹은
+    /// 로비에 들어온 뒤 친 타수(<see cref="RoomMember.RoomKeystrokes"/>)로 정렬한다.
+    /// </summary>
     public long TotalKeystrokes { get; init; }
 
     /// <summary>장착 중인 커서 장식. null 이면 그 슬롯은 비어 있다.</summary>

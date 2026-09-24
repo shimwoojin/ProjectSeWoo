@@ -35,7 +35,27 @@ public sealed class MockNetSession : INetSession
         public PeerId Id;
         public string Name;
         public long Keystrokes;
+
+        // 가짜 친구의 상태 스트림(A10)용. 나 자신의 자리에서는 안 쓴다.
+        public long Total;
+        public int Burst;
+        public double SinceSent;
     }
+
+    /// <summary>
+    /// 가짜 친구의 장착 조합. 친구마다 달라야 B10 화면에서 칸이 구분된다.
+    /// 카탈로그(game/shop/ShopCatalog)에 있는 ID 여야 그려진다 - 목은 shared/ 라 그 표를 못 읽어서 손으로 둔다.
+    /// </summary>
+    private static readonly string[][] FakeLooks =
+    {
+        new[] { "monkey_02", "leaf_01", null },
+        new[] { "monkey_04", null, "halo_01" },
+        new[] { "monkey_06", "spark_02", "ring_01" },
+        new[] { null, "chunk_01", "ring_02" },
+    };
+
+    private const double StateWindowSec = 0.2;
+    private double _sinceStateWindow;
 
     private sealed class Room
     {
@@ -72,6 +92,12 @@ public sealed class MockNetSession : INetSession
 
     /// <summary>시험용. false 로 두면 "스팀이 없을 때" 화면을 볼 수 있다.</summary>
     public bool IsAvailable { get; set; } = true;
+
+    /// <summary>
+    /// 가짜 친구들이 200ms 마다 상태를 보내는가 (A10). 사람처럼 몰아서 치다 쉬고, 가끔 딴다.
+    /// B10·B11(친구 화면·연출)을 2계정 없이 만들려고 둔다.
+    /// </summary>
+    public bool SimulatePeerActivity { get; set; } = true;
 
     /// <summary>마지막으로 뿌린 상태. 게임 레이어 테스트에서 확인용.</summary>
     public PlayerState LastBroadcast { get; private set; }
@@ -245,7 +271,13 @@ public sealed class MockNetSession : INetSession
         }
 
         _current.Saved.Remove(peer, out long resumed);
-        _current.Seats.Add(new Seat { Id = peer, Name = name ?? $"친구{peer}", Keystrokes = resumed });
+        _current.Seats.Add(new Seat
+        {
+            Id = peer,
+            Name = name ?? $"친구{peer}",
+            Keystrokes = resumed,
+            Total = _random.Next(500, 50_000),
+        });
         OnPeerJoin?.Invoke(peer);
         OnRoomChanged?.Invoke();
         return true;
@@ -279,6 +311,83 @@ public sealed class MockNetSession : INetSession
     /// <summary>가짜 친구의 상태를 밀어 넣는다. 타건 리듬·수확 토스트 연출 확인용.</summary>
     public void SimulateState(PeerId peer, PlayerState s) => OnPeerState?.Invoke(peer, s);
 
+    /// <summary>
+    /// 가짜 친구의 상태 스트림을 굴린다. 셸(목일 때)과 <see cref="MockPlatformServices.Tick"/> 이 부른다.
+    ///
+    /// 보내는 규칙은 실물의 <c>PlayerStateSender</c> 와 같다 - 친 게 있으면 200ms 마다, 없으면
+    /// 1초에 한 번. 그리고 <b>실물과 같은 전송 형식(<see cref="PlayerStateCodec"/>)을 한 번 거친다</b>
+    /// - 형식에서 떨어지는 값이 목에서만 멀쩡하면 안 된다.
+    /// </summary>
+    public void Tick(double delta)
+    {
+        if (_current == null || !SimulatePeerActivity)
+        {
+            return;
+        }
+
+        _sinceStateWindow += delta;
+        if (_sinceStateWindow < StateWindowSec)
+        {
+            return;
+        }
+
+        _sinceStateWindow = 0.0;
+
+        foreach (Seat seat in _current.Seats.ToArray())
+        {
+            if (seat.Id == SelfId)
+            {
+                continue;
+            }
+
+            seat.SinceSent += StateWindowSec;
+
+            // 몰아서 치다가 쉰다. 창 하나에 0~2타 - 실물 캡(초당 10타)을 넘지 않는다.
+            if (seat.Burst <= 0 && _random.NextDouble() < 0.08)
+            {
+                seat.Burst = _random.Next(5, 25);
+            }
+
+            int typed = 0;
+            if (seat.Burst > 0)
+            {
+                seat.Burst--;
+                typed = _random.Next(0, 3);
+            }
+
+            int harvested = typed > 0 && _random.NextDouble() < 0.04 ? 1 : 0;
+            if (typed == 0 && harvested == 0 && seat.SinceSent < 1.0)
+            {
+                continue;
+            }
+
+            seat.Keystrokes += typed;
+            seat.Total += typed;
+            seat.SinceSent = 0.0;
+
+            string[] look = FakeLooks[(int)(seat.Id.Value % (ulong)FakeLooks.Length)];
+            var state = new PlayerState
+            {
+                KeystrokesInWindow = (ushort)typed,
+                HarvestsInWindow = (byte)harvested,
+                TotalKeystrokes = seat.Total,
+                EquippedHang = look[0],
+                EquippedTrail = look[1],
+                EquippedBase = look[2],
+                CollectionPercent = (byte)(seat.Id.Value * 13 % 101),
+            };
+
+            if (PlayerStateCodec.TryDecode(PlayerStateCodec.Encode(state), out PlayerState wire))
+            {
+                OnPeerState?.Invoke(seat.Id, wire);
+            }
+            else
+            {
+                GD.PushError("[mock-net] 가짜 친구 상태가 전송 형식을 못 지나갔다");
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ 내부
 
     private void SeedFriends()
@@ -304,7 +413,7 @@ public sealed class MockNetSession : INetSession
         var room = new Room { Code = code, CreatedUtc = DateTime.UtcNow - age, Host = seats[0].Id };
         foreach ((PeerId id, string name, long keystrokes) in seats)
         {
-            room.Seats.Add(new Seat { Id = id, Name = name, Keystrokes = keystrokes });
+            room.Seats.Add(new Seat { Id = id, Name = name, Keystrokes = keystrokes, Total = keystrokes * 20 });
         }
 
         _rooms[code] = room;
