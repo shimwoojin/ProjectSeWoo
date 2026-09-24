@@ -28,4 +28,25 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
+  <!--
+    F5 전에 ProjectSeWoo 를 먼저 빌드시키기 위한 참조. DLL 은 가져오지 않는다
+    (ReferenceOutputAssembly=false) - 빌드 순서만 건다.
+
+    이게 없으면 VS 는 시작 프로젝트(이 런처)만 빌드하고, Godot 은
+    .godot/mono/temp/bin/Debug 의 옛 ProjectSeWoo.dll 을 그대로 읽는다. pull 로
+    .tscn 만 새것이 되면 옛 코드가 없는 노드를 찾다 null 로 터진다
+    (2026-09-24, StatusHud 의 LevelBar 가 LevelRow 아래로 옮겨졌을 때).
+
+    InputHelper 도 같은 이유다. 게임이 platform/InputHelper/bin/<구성>/ 의 exe 를
+    띄우므로(HelperInputSource.ResolveHelperPath), 여기서 안 빌드하면 옛 헬퍼가 뜬다.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\ProjectSeWoo.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+    <ProjectReference Include="..\..\platform\InputHelper\InputHelper.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+
 </Project>

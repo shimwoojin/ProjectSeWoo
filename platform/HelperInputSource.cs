@@ -135,20 +135,28 @@ public sealed class HelperInputSource : IInputSource, IDisposable
     ///
     /// 익스포트 빌드에서는 게임 exe 옆에 있고(A12 에서 같이 배포해야 한다),
     /// 개발 중에는 <c>dotnet build</c> 산출물 자리에 있다. 둘 다 뒤진다.
+    ///
+    /// <b>개발 중에는 게임과 같은 구성(Debug/Release)을 먼저 본다.</b> VS F5 는
+    /// Debug 헬퍼를 새로 빌드하는데(tools/VsLauncher 참조), 예전엔 Release 를 항상
+    /// 먼저 봐서 손으로 한 번 뽑아 둔 옛 Release exe 가 계속 떴다(2026-09-24 발견,
+    /// 9/17 빌드가 일주일간 돌고 있었다).
     /// </summary>
     private static string ResolveHelperPath()
     {
         string exeDir = Path.GetDirectoryName(OS.GetExecutablePath());
-        string projectDir = ProjectSettings.GlobalizePath("res://");
+        string helperBin = Path.Combine(ProjectSettings.GlobalizePath("res://"), "platform", "InputHelper", "bin");
+        string debugExe = Path.Combine(helperBin, "Debug", "net8.0", "InputHelper.exe");
+        string releaseExe = Path.Combine(helperBin, "Release", "net8.0", "InputHelper.exe");
+        bool debug = OS.IsDebugBuild();
 
         string[] candidates =
         {
             // 익스포트 빌드: 게임 exe 옆
             exeDir == null ? null : Path.Combine(exeDir, "InputHelper.exe"),
 
-            // 개발 중: dotnet build 산출물
-            Path.Combine(projectDir, "platform", "InputHelper", "bin", "Release", "net8.0", "InputHelper.exe"),
-            Path.Combine(projectDir, "platform", "InputHelper", "bin", "Debug", "net8.0", "InputHelper.exe"),
+            // 개발 중: dotnet build 산출물 - 같은 구성을 먼저
+            debug ? debugExe : releaseExe,
+            debug ? releaseExe : debugExe,
         };
 
         foreach (string path in candidates)
