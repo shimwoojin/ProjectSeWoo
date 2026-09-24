@@ -56,6 +56,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>내 상태를 200ms 창으로 로비에 뿌린다 (A10). 룸 컨트롤러와 같은 때 만든다.</summary>
     private PlayerStateSender _stateSender;
 
+    /// <summary>친구 칸 줄 (B10). 로비에 친구가 있으면 창을 늘려 친구 나무·원숭이를 그린다.</summary>
+    private FriendStrip _friends;
+
     /// <summary>
     /// 구매·장착 규칙 (B6). <see cref="AttachPlatform"/> 전까지는 널이다 -
     /// 세이브와 커서 레이어가 둘 다 있어야 만들 수 있다.
@@ -195,6 +198,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
         _room = new RoomController(_platform.Net, _roomWindow, _hud);
         _stateSender = new PlayerStateSender(_platform.Net, SnapshotForPeers);
+
+        _friends = new FriendStrip { Name = "Friends" };
+        AddChild(_friends);
+        _friends.Bind(_platform.Net, _platform.Shell);
         _platform.Net.OnRoomChanged += OnRoomChangedForAchievement;
 
         LoadGameStateAsync();

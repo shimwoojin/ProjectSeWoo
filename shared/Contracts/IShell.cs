@@ -39,4 +39,30 @@ public interface IShell
     /// 사이 빈 공간까지 클릭을 먹는다. 전에는 디버그 키 O 로만 열려서 유저가 열 길이 트레이뿐이었다.
     /// </summary>
     void ToggleOptions();
+
+    /// <summary>
+    /// 창에 높이 <paramref name="height"/> 짜리 칸을 붙인다 (B10 친구 칸). 0 이면 원래대로.
+    /// 값은 콘텐츠 픽셀(배율 적용 전)이다.
+    ///
+    /// <b>어느 쪽에 붙일지는 셸이 정한다.</b> 창 아래에 화면이 남으면 아래, 모자라면 위 -
+    /// 기본 위치가 화면 오른쪽 아래 구석이라 아래로만 늘리면 화면 밖으로 나간다. 위로 늘릴
+    /// 때는 창을 올린 만큼 콘텐츠를 내려서 <b>나무·원숭이가 화면에서 제자리에 있게</b> 한다.
+    ///
+    /// <b>방향은 친구가 들고 날 때는 안 바뀌고, 창을 끌어 놓았을 때만 다시 정한다</b>
+    /// (<see cref="WindowExtensionChanged"/>). 칸 높이만 바뀌는 호출은 방향을 유지한다.
+    ///
+    /// <paramref name="belowOverlap"/>: 아래에 붙일 때 원래 창의 맨 아래 몇 픽셀에 칸을 겹칠지.
+    /// 원래 창 밑이 비어 있으면 그만큼 창을 덜 늘린다. 칸의 게임 좌표는 아래면
+    /// <c>y = 기본 높이 - belowOverlap</c> 부터, 위면 <c>y = -height</c> 부터다.
+    ///
+    /// 늘어난 칸은 클릭을 받지 않는다 - 클릭 영역은 여전히
+    /// <see cref="IInteractiveArea.GetClickableBounds"/> 가 신고한 것뿐이다.
+    /// </summary>
+    WindowExtension ExtendWindow(int height, int belowOverlap = 0);
+
+    /// <summary>
+    /// 붙인 칸의 방향이 바뀌었다 - 유저가 창을 끌어서 아래에 자리가 생겼거나 없어졌다.
+    /// 칸을 그리는 쪽은 새 방향에 맞춰 자리를 옮긴다. 메인 스레드에서 온다.
+    /// </summary>
+    event System.Action<WindowExtension> WindowExtensionChanged;
 }

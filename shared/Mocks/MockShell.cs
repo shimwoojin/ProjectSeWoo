@@ -39,4 +39,20 @@ public sealed class MockShell : IShell
     public void SetClickThrough(bool on) => ClickThrough = on;
 
     public Rect2I GetSafeArea() => SafeArea;
+
+    /// <summary>마지막으로 요청된 확장 높이. 목은 창이 없어서 기록만 하고 늘 아래로 답한다.</summary>
+    public int ExtraHeight { get; private set; }
+
+    public WindowExtension ExtendWindow(int height, int belowOverlap = 0)
+    {
+        ExtraHeight = System.Math.Max(0, height);
+        return ExtraHeight == 0 ? WindowExtension.None : WindowExtension.Below;
+    }
+
+    /// <summary>목은 창을 끌 일이 없어서 방향이 바뀌지 않는다.</summary>
+    public event System.Action<WindowExtension> WindowExtensionChanged
+    {
+        add { }
+        remove { }
+    }
 }
