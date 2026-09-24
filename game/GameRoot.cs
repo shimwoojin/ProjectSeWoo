@@ -65,14 +65,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private int _nextMilestone;
 
-    /// <summary>
-    /// 마지막으로 진행도 토스트를 띄운 구간. <see cref="IAchievements.IndicateProgress"/>
-    /// 는 <b>매 타건마다 부르라고 만든 API 가 아니다</b>(계약 주석) - 구간을 넘을 때만 부른다.
-    /// </summary>
-    private int _shownProgressBucket = -1;
-
-    /// <summary>진행도 토스트를 몇 구간으로 끊을지. 20 = 5%마다 한 번.</summary>
-    private const int ProgressBuckets = 20;
 
     /// <summary>
     /// 도감 100% 도전과제를 이 세션에 이미 처리했는가 (§3-3, B7).
@@ -699,26 +691,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             GD.Print($"[game] 마일스톤 해금 {id} ({Save.TotalKeystrokes:N0}타)");
 
             _nextMilestone++;
-            _shownProgressBucket = -1;
         }
 
-        if (_nextMilestone >= table.Length)
-        {
-            return;
-        }
-
-        // 다음 마일스톤까지의 진행도. 구간을 넘을 때만 띄운다.
-        (string nextId, int threshold) = table[_nextMilestone];
-        var current = (int)Math.Min(Save.TotalKeystrokes, threshold);
-
-        int bucket = current * ProgressBuckets / threshold;
-        if (bucket == _shownProgressBucket)
-        {
-            return;
-        }
-
-        _shownProgressBucket = bucket;
-        _platform.Achievements.IndicateProgress(nextId, current, threshold);
+        // 진행도 토스트(IndicateProgress)는 띄우지 않는다 (2026-09-24). 스팀은 그것을 해금
+        // 토스트와 같은 우하단 자리에 띄워서 "안 깼는데 업적 알림이 뜬다" 로 보였다 - 켠 뒤
+        // 첫 타건마다, 다음 마일스톤까지 5% 마다. 토스트는 해금할 때만 뜬다. 커뮤니티 페이지의
+        // 진행 막대는 STAT_KEYSTROKES(PushKeystrokeStat)가 그리므로 영향이 없다.
     }
 
     /// <summary>
@@ -1037,9 +1015,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         int owned = _inventory.OwnedCount;
         int total = ShopCatalog.All.Length;
 
+        // 다 모으기 전에는 아무것도 안 띄운다 - 구매마다 "N/16" 진행도 토스트가 떴었다
+        // (CheckMilestones 의 주석과 같은 이유).
         if (!_inventory.IsComplete)
         {
-            _platform.Achievements.IndicateProgress(AchievementIds.Collection100, owned, total);
             return;
         }
 

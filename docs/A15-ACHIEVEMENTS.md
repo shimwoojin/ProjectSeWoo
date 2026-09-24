@@ -54,7 +54,7 @@
 
 | 과제 | 해금 시점 | 코드 |
 |---|---|---|
-| 누적 타수 4개 | 누적 타수가 문턱을 넘는 순간. 다음 문턱까지 진행도 토스트 | `GameRoot.CheckMilestones` |
+| 누적 타수 4개 | 누적 타수가 문턱을 넘는 순간 | `GameRoot.CheckMilestones` |
 | 첫 구매 | 구매 성공 직후 | `GameRoot.OnBuyRequested` |
 | 슬롯 완성 3개 · 도감 100% | 구매 뒤 도감 확인 때 | `GameRoot.CheckCollection` → `UnlockCompletedSlots` |
 | 룸 첫 참가 | `INetSession.OnRoomChanged` 에서 룸에 있으면 | `GameRoot.OnRoomChangedForAchievement` |
@@ -115,7 +115,11 @@ Godot_v4.7.2-stable_mono_win64_console.exe --headless --path . -- --steam-selfte
 ## 5. 누적 타수 통계 `STAT_KEYSTROKES`
 
 스팀 커뮤니티 도전과제 페이지의 **진행 막대**("100,000 중 32,881")는 과제에 정수 통계(Progress
-Stat)를 연결해야 나온다. 게임 안 진행도 토스트(`IndicateAchievementProgress`)는 통계 없이도 뜬다.
+Stat)를 연결해야 나온다.
+
+**게임 안 진행도 토스트(`IndicateAchievementProgress`)는 쓰지 않는다 (2026-09-24).** 스팀이 해금 토스트와
+같은 우하단 자리에 띄워서 "안 깼는데 업적 알림이 뜬다" 로 보였다 — 켠 뒤 첫 타건, 다음 마일스톤까지 5%
+마다, 구매마다(도감 N/16). 토스트는 해금할 때만 뜬다. 진행은 커뮤니티 페이지 막대로만 보인다.
 
 ### 5-1. 파트너 사이트 — Stats 에 새 통계
 
