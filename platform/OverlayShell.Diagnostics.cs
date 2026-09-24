@@ -130,7 +130,10 @@ public partial class OverlayShell
 
         int? keystrokeStat = _steam?.TryGetStat(StatIds.Keystrokes);
         GD.Print($"stat        : {StatIds.Keystrokes} "
-            + (keystrokeStat is int v ? $"등록됨 값={v:N0}" : _steam?.IsAvailable == true ? "**미등록**" : "?"));
+            + (keystrokeStat is int v ? $"등록됨 값={v:N0}"
+                : _steam?.IsFloatStat(StatIds.Keystrokes) == true ? "**타입이 FLOAT 다 - INT 로 등록해야 한다**"
+                : _steam?.IsAvailable == true ? "**미등록** (게시 전이거나 이름이 다르다)"
+                : "?"));
 
         _steamSelftest = false;
         GetTree().Quit(_steam?.IsInitialized == true ? 0 : 1);

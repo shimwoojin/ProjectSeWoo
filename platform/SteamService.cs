@@ -191,6 +191,10 @@ public sealed class SteamService : IAchievements, IDisposable
         return SteamUserStats.GetStat(id, out int value) ? value : null;
     }
 
+    /// <summary>INT 로 못 읽은 통계가 FLOAT 로는 읽히는가 (자체 검사 진단 - 타입을 잘못 등록한 경우).</summary>
+    public bool IsFloatStat(string id) =>
+        IsAvailable && !string.IsNullOrEmpty(id) && SteamUserStats.GetStat(id, out float _);
+
     public bool IsUnlocked(string id)
     {
         if (!IsAvailable || string.IsNullOrEmpty(id))
