@@ -44,6 +44,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private RoomWindow _roomWindow;
     private Button _roomButton;
 
+    /// <summary>옵션 창을 여는 버튼. 창은 셸 소유라 <see cref="IShell.ToggleOptions"/> 로 연다.</summary>
+    private Button _optionsButton;
+
     /// <summary>
     /// 룸 창과 멀티 세션 사이 배선 (B12). <see cref="AttachPlatform"/> 전까지는 널이다 -
     /// 세션(<see cref="IPlatformServices.Net"/>)이 있어야 만들 수 있다.
@@ -137,9 +140,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _shopButton = GetNode<Button>("ShopButton");
         _roomWindow = GetNode<RoomWindow>("RoomWindow");
         _roomButton = GetNode<Button>("RoomButton");
+        _optionsButton = GetNode<Button>("OptionsButton");
 
         _shopButton.Pressed += ToggleShop;
         _roomButton.Pressed += ToggleRoom;
+        _optionsButton.Pressed += () => _platform?.Shell.ToggleOptions();
+        _shop.UpgradeRequested += OnUpgradeRequested;
         _shop.BuyRequested += OnBuyRequested;
         _shop.Opened += OnShopOpened;
         _shop.EquipRequested += OnEquipRequested;
@@ -611,8 +617,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             }
 
             Vector2 fruitPosition = _tree.PositionOf(readyIndex);
+            bool golden = slots[readyIndex].Golden;
             _platform.Economy.RequestHarvest(readyIndex);
-            DropBanana(fruitPosition, contact);
+            DropBanana(fruitPosition, contact, golden);
             harvested++;
 
             // 낙관적 갱신을 즉시 다시 읽는다 - 방금 딴 슬롯이 이번 배치의 다음
@@ -711,10 +718,15 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         AddChild(effect);
     }
 
-    private void DropBanana(Vector2 from, double delay)
+    private void DropBanana(Vector2 from, double delay, bool golden)
     {
         var banana = _fallingBananaScene.Instantiate<FallingBanana>();
         banana.Position = from;
+        if (golden)
+        {
+            banana.MakeGolden();
+        }
+
         AddChild(banana);
 
         // 팔이 닿기 전에 떨어지면 원인과 결과가 뒤집혀 보인다.
@@ -790,6 +802,32 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _shop.Refresh();
         CheckCollection();
         PersistNow();
+    }
+
+    /// <summary>
+    /// 강화 한 단계 (B13). 서버가 잔액을 깎고 레벨을 올리고, 슬롯 수·성장 시간이 바뀐 새 슬롯을
+    /// 돌려준다 - 나무는 다음 프레임 SyncSlots 가 알아서 다시 그린다.
+    /// </summary>
+    private async void OnUpgradeRequested(UpgradeAxis axis)
+    {
+        PurchaseOutcome outcome = await _inventory.TryUpgrade(axis);
+        if (outcome != PurchaseOutcome.Success)
+        {
+            string message = outcome switch
+            {
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
+                PurchaseOutcome.MaxLevel => "이미 최대 단계다",
+                _ => "강화가 거절됐다. 바나나는 그대로다",
+            };
+
+            GD.Print($"[game] 강화 실패 {axis} - {outcome}");
+            _shop.ShowPurchaseMessage(message);
+            return;
+        }
+
+        GD.Print($"[game] 강화 {axis} → Lv.{_inventory.UpgradeLevel(axis)} 잔액 {_platform.Economy.Balance}");
+        _shop.Refresh();
     }
 
     /// <summary>슬롯 하나의 장착을 가진 것들 사이에서 한 칸 돌린다 (2/3/4 키).</summary>
@@ -1072,7 +1110,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        bounds = bounds.Merge(ButtonRect(_shopButton)).Merge(ButtonRect(_roomButton));
+        bounds = bounds.Merge(ButtonRect(_shopButton)).Merge(ButtonRect(_roomButton)).Merge(ButtonRect(_optionsButton));
 
         return Transform * bounds;
     }

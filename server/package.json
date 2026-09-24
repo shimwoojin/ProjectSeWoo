@@ -11,6 +11,8 @@
     "db:create": "wrangler d1 create punchmonkey-economy",
     "db:migrate:local": "wrangler d1 execute punchmonkey-economy --local --file=./schema.sql",
     "db:migrate:remote": "wrangler d1 execute punchmonkey-economy --remote --file=./schema.sql",
+    "db:migrate:b13:local": "wrangler d1 execute punchmonkey-economy --local --file=./migrations/0002_b13_upgrades.sql",
+    "db:migrate:b13:remote": "wrangler d1 execute punchmonkey-economy --remote --file=./migrations/0002_b13_upgrades.sql",
     "secret:steam-key": "wrangler secret put STEAM_PUBLISHER_WEB_API_KEY",
     "secret:session-secret": "wrangler secret put SESSION_SIGNING_SECRET"
   },

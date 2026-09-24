@@ -10,7 +10,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-const UPGRADE_AXES: readonly UpgradeAxis[] = ["power", "cycle", "slots"];
+const UPGRADE_AXES: readonly UpgradeAxis[] = ["golden", "cycle", "slots"];
 
 function isUpgradeAxis(value: unknown): value is UpgradeAxis {
   return typeof value === "string" && (UPGRADE_AXES as readonly string[]).includes(value);

@@ -92,22 +92,36 @@ public interface IEconomyService
 /// </summary>
 /// <param name="ElapsedMs">이번 성장 주기에서 지금까지 지난 시간(ms).</param>
 /// <param name="GrowthMs">이 슬롯이 다 자라는 데 걸리는 시간(ms). 강화로 짧아진다 (§5).</param>
-public readonly record struct SlotState(long ElapsedMs, long GrowthMs)
+/// <param name="Golden">
+/// 이번에 열리는 송이가 황금 바나나인가 (B13). 서버가 송이가 자라기 시작할 때 굴려서 정한다 —
+/// 클라이언트가 고를 수 없다. 따면 <see cref="UpgradeTable.GoldenMultiplier"/> 개. 게임은 익었을
+/// 때만 황금으로 그린다.
+/// </param>
+public readonly record struct SlotState(long ElapsedMs, long GrowthMs, bool Golden = false)
 {
     /// <summary>바나나가 열려서 수확 가능한가.</summary>
     public bool Ready => ElapsedMs >= GrowthMs;
+
+    /// <summary>지금 따면 몇 개인가.</summary>
+    public int Yield => Golden ? UpgradeTable.GoldenMultiplier : 1;
 }
 
-/// <summary>강화 3축 (§5). 세 축 다 같은 바나나 원장을 쓴다.</summary>
+/// <summary>
+/// 강화 3축 (B13, 2026-09-24 재설계 — docs/B13-UPGRADES.md). 세 축 다 같은 바나나 원장을 쓴다.
+/// 단계별 효과와 가격은 <see cref="UpgradeTable"/>.
+/// </summary>
 public enum UpgradeAxis
 {
-    /// <summary>펀치 1회당 수확량 +1씩.</summary>
-    Power,
+    /// <summary>
+    /// 황금 바나나: 송이가 황금일 확률을 올린다(0→20%). 전에는 "파워(수확당 +1, 상한 없음)" 였는데
+    /// 첫 단계 하나로 수입이 2배가 되고 끝이 없어서 바꿨다. 와이어 이름은 <c>golden</c>.
+    /// </summary>
+    Golden,
 
-    /// <summary>나무 주기 단축.</summary>
+    /// <summary>빨리 익기: 성장 시간 8분 → 4분.</summary>
     Cycle,
 
-    /// <summary>나무 슬롯 확장. 사실상 오프라인 저장고 확장.</summary>
+    /// <summary>가지 늘리기: 슬롯 3 → 6. 사실상 오프라인 저장고 확장.</summary>
     Slots,
 }
 
@@ -119,6 +133,9 @@ public enum PurchaseOutcome
     ItemUnknown,
     AlreadyOwned,
     ServerUnavailable,
+
+    /// <summary>강화가 이미 최대 단계다.</summary>
+    MaxLevel,
 
     /// <summary>서버가 거부했지만 사유가 위 항목에 안 맞는 경우 (레이트리밋 등).</summary>
     Rejected,

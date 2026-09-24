@@ -40,6 +40,9 @@ public partial class ShopWindow : CanvasLayer
     /// <summary>창이 열렸다. 게임 레이어가 서버 연결을 한 번 더 확인하는 계기로 쓴다.</summary>
     public event Action Opened;
 
+    /// <summary>강화 탭의 [강화] 버튼 (B13).</summary>
+    public event Action<UpgradeAxis> UpgradeRequested;
+
     /// <summary>id 가 null 이면 그 슬롯을 비워 달라는 뜻이다.</summary>
     public event Action<CursorSlot, string> EquipRequested;
 
@@ -68,6 +71,11 @@ public partial class ShopWindow : CanvasLayer
     private readonly Dictionary<string, Row> _rows = new(StringComparer.Ordinal);
 
     private sealed record Row(Label State, Button Action);
+
+    /// <summary>강화 탭의 한 줄 (B13): 이름+단계 / 지금 → 다음 효과 / 가격 / 버튼.</summary>
+    private sealed record UpgradeRow(Label Title, Label Effect, Label Price, Button Action);
+
+    private readonly Dictionary<UpgradeAxis, UpgradeRow> _upgradeRows = new();
 
     public bool IsOpen => Visible;
 
@@ -178,6 +186,116 @@ public partial class ShopWindow : CanvasLayer
         }
 
         RefreshCollection();
+        RefreshUpgrades(online);
+    }
+
+    // ------------------------------------------------------------------ 강화 (B13)
+
+    /// <summary>탭에 놓는 순서. 싼 것부터 - 첫 강화는 "빨리 익기" 40 바나나.</summary>
+    private static readonly UpgradeAxis[] UpgradeOrder = { UpgradeAxis.Cycle, UpgradeAxis.Golden, UpgradeAxis.Slots };
+
+    private static string UpgradeName(UpgradeAxis axis) => axis switch
+    {
+        UpgradeAxis.Slots => "가지 늘리기",
+        UpgradeAxis.Cycle => "빨리 익기",
+        UpgradeAxis.Golden => "황금 바나나",
+        _ => axis.ToString(),
+    };
+
+    /// <summary>단계 <paramref name="level"/> 의 효과를 한 마디로.</summary>
+    private static string UpgradeEffect(UpgradeAxis axis, int level) => axis switch
+    {
+        UpgradeAxis.Slots => $"송이 {UpgradeTable.SlotsAt(level)}개",
+        UpgradeAxis.Cycle => $"{UpgradeTable.GrowthMsAt(level) / 60_000}분마다 익음",
+        UpgradeAxis.Golden => $"황금 확률 {UpgradeTable.GoldenChanceAt(level)}%",
+        _ => string.Empty,
+    };
+
+    private void RefreshUpgrades(bool online)
+    {
+        foreach ((UpgradeAxis axis, UpgradeRow row) in _upgradeRows)
+        {
+            int level = _inventory.UpgradeLevel(axis);
+            int max = UpgradeTable.MaxLevel(axis);
+            long? price = UpgradeTable.NextPrice(axis, level);
+
+            row.Title.Text = $"{UpgradeName(axis)}  Lv.{Math.Min(level, max)}/{max}";
+
+            if (price == null)
+            {
+                row.Effect.Text = $"{UpgradeEffect(axis, level)} (최대)";
+                row.Price.Text = string.Empty;
+                row.Action.Text = "최대";
+                row.Action.Disabled = true;
+                continue;
+            }
+
+            bool affordable = _inventory.Bananas >= price.Value;
+            row.Effect.Text = $"{UpgradeEffect(axis, level)} → {UpgradeEffect(axis, level + 1)}";
+            row.Price.Text = $"{price.Value:N0}";
+            row.Price.AddThemeColorOverride("font_color", affordable ? Gold : Dim);
+            row.Action.Text = "강화";
+            row.Action.Disabled = !affordable || !online;
+        }
+    }
+
+    private void AddUpgradeTab(TabContainer tabs)
+    {
+        var scroll = new ScrollContainer
+        {
+            Name = "강화",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        tabs.AddChild(scroll);
+
+        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 10);
+        scroll.AddChild(list);
+
+        var hint = new Label
+        {
+            Text = $"장식과 같은 바나나를 쓴다. 황금 바나나는 따면 {UpgradeTable.GoldenMultiplier}개.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        hint.AddThemeFontSizeOverride("font_size", 11);
+        hint.AddThemeColorOverride("font_color", Dim);
+        list.AddChild(hint);
+
+        foreach (UpgradeAxis axis in UpgradeOrder)
+        {
+            list.AddChild(MakeUpgradeRow(axis));
+        }
+    }
+
+    private Control MakeUpgradeRow(UpgradeAxis axis)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+
+        var text = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        text.AddThemeConstantOverride("separation", 0);
+
+        var title = new Label();
+        title.AddThemeFontSizeOverride("font_size", 13);
+        text.AddChild(title);
+
+        var effect = new Label();
+        effect.AddThemeFontSizeOverride("font_size", 11);
+        effect.AddThemeColorOverride("font_color", Accent);
+        text.AddChild(effect);
+
+        row.AddChild(text);
+
+        var price = new Label { VerticalAlignment = VerticalAlignment.Center };
+        price.AddThemeFontSizeOverride("font_size", 12);
+        row.AddChild(price);
+
+        var action = new Button { CustomMinimumSize = new Vector2(56, 0) };
+        action.Pressed += () => UpgradeRequested?.Invoke(axis);
+        row.AddChild(action);
+
+        _upgradeRows[axis] = new UpgradeRow(title, effect, price, action);
+        return row;
     }
 
     // ------------------------------------------------------------------ UI 구성
@@ -232,6 +350,7 @@ public partial class ShopWindow : CanvasLayer
         AddSlotTab(tabs, CursorSlot.Hang);
         AddSlotTab(tabs, CursorSlot.Trail);
         AddSlotTab(tabs, CursorSlot.Base);
+        AddUpgradeTab(tabs);
         AddCollectionTab(tabs);
     }
 

@@ -26,6 +26,23 @@ public partial class TreeSlot : Node2D
     private static readonly Color Ripe = new(1.0f, 1.0f, 1.0f);
 
     /// <summary>
+    /// 익은 황금 바나나 (B13). SelfModulate 는 노란 텍스처에 곱해지므로 초록·파랑을 눌러 진한
+    /// 호박색을 만든다. **밝기를 1 넘게 올리면 다시 노랗게 날아가서 보통 바나나와 구분이 안
+    /// 됐다**(첫 시안, 2026-09-24 캡처) - 밝기는 거의 그대로 두고 옆에 반짝임 아이콘을 붙여 가른다.
+    /// 상시 애니메이션은 넣지 않는다 - 저부하 재그리기 정책(§7-3).
+    /// </summary>
+    private static readonly Color GoldTint = new(1.0f, 0.62f, 0.10f);
+    private static readonly Color GoldGlow = new(1.08f, 1.04f, 1.0f);
+
+    /// <summary>황금 송이 옆에 붙이는 반짝임. 잔상 장식(spark_01) 그림을 그대로 쓴다.</summary>
+    private const string SparkleTexture = "res://assets/cursor/trail/spark_01.png";
+
+    private Sprite2D _sparkle;
+
+    /// <summary>황금 송이는 익었을 때 이만큼 크게 그린다 - 한눈에 달라 보이게.</summary>
+    private const float GoldScale = 1.15f;
+
+    /// <summary>
     /// 색 구간 경계이자 "톡" 펄스가 나는 지점. 크기는 초반에 거의 다 자라므로
     /// 후반의 변화는 색이 맡는다 - 경계를 넘을 때 펄스를 줘서 단계가 바뀐 것을
     /// 눈치채게 한다. 성장은 몇 분에 걸쳐 일어나서 연속 변화만으로는 안 보인다.
@@ -43,6 +60,10 @@ public partial class TreeSlot : Node2D
     /// </summary>
     private Vector2 _baseScale;
 
+    /// <summary>반짝임이 끝나면 돌아갈 크기·밝기. 황금 송이는 보통보다 크고 밝다.</summary>
+    private Vector2 _restScale;
+    private Color _restModulate = Colors.White;
+
     /// <summary>지난 <see cref="SetProgress"/> 의 단계. -1 = 아직 안 그림 (첫 그리기엔 펄스 없음).</summary>
     private int _stage = -1;
 
@@ -50,28 +71,49 @@ public partial class TreeSlot : Node2D
     {
         _fruit = GetNode<Sprite2D>("Fruit");
         _baseScale = _fruit.Scale;
+        _restScale = _baseScale;
+
+        // 송이 오른쪽 위. 열매 아래로 늘어지는 피벗(꼭지)이라 FruitCenter 기준으로 잡는다.
+        _sparkle = new Sprite2D
+        {
+            Texture = GD.Load<Texture2D>(SparkleTexture),
+            Scale = Vector2.One * 0.42f,
+            Position = FruitCenter + new Vector2(22f, -24f),
+            Visible = false,
+            ZIndex = 1,
+        };
+        AddChild(_sparkle);
     }
 
     /// <summary>다 자란 열매의 중심 (슬롯 로컬). 수확 때 떨어지는 바나나의 출발점.</summary>
     public Vector2 FruitCenter => _fruit.Position + _fruit.Offset * _baseScale;
 
     /// <param name="t">0 = 갓 수확한 빈 슬롯, 1 = 바나나 열림.</param>
-    public void SetProgress(float t)
+    /// <param name="golden">황금 송이인가. <b>익었을 때만</b> 금빛으로 그린다 - 자라는 동안은 보통
+    /// 바나나와 같아서, 익는 순간 황금으로 드러난다.</param>
+    public void SetProgress(float t, bool golden = false)
     {
         _flash?.Kill();
 
         // 초반에 빠르게 커지고(ease-out) 뒤는 색이 익는다. 알파는 거의 건드리지 않는다 -
         // 예전엔 0.5→1 로 페이드해서 "반투명한 게 옅어지기만" 하는 것처럼 보였다.
         float grow = 1f - (1f - t) * (1f - t);
-        Vector2 scale = _baseScale * Mathf.Lerp(0.2f, 1.0f, grow);
+        bool showGold = golden && t >= 1f;
+        Vector2 scale = _baseScale * Mathf.Lerp(0.2f, 1.0f, grow) * (showGold ? GoldScale : 1f);
 
         Color tint = t < GreenAt
             ? Unripe.Lerp(Green, t / GreenAt)
             : t < TurningAt
                 ? Green.Lerp(Turning, (t - GreenAt) / (TurningAt - GreenAt))
                 : Turning.Lerp(Ripe, (t - TurningAt) / (1f - TurningAt));
-        _fruit.SelfModulate = tint with { A = t < 0.05f ? 0.85f : 1f };
-        _fruit.Modulate = Colors.White;
+        _fruit.SelfModulate = showGold ? GoldTint : tint with { A = t < 0.05f ? 0.85f : 1f };
+        _fruit.Modulate = showGold ? GoldGlow : Colors.White;
+        _sparkle.Visible = showGold;
+
+        // 송이들이 서로 겹쳐 있어서 뒤쪽 슬롯의 황금 송이는 앞 송이에 가려졌다 - 맨 앞으로 올린다.
+        ZIndex = showGold ? 1 : 0;
+        _restModulate = _fruit.Modulate;
+        _restScale = scale;
 
         int stage = t < GreenAt ? 0 : t < TurningAt ? 1 : 2;
         bool advanced = _stage >= 0 && stage > _stage;
@@ -92,15 +134,15 @@ public partial class TreeSlot : Node2D
     {
         _flash?.Kill();
         _flash = CreateTween();
-        _flash.TweenProperty(_fruit, "scale", _baseScale * 1.25f, 0.09)
+        _flash.TweenProperty(_fruit, "scale", _restScale * 1.25f, 0.09)
             .SetTrans(Tween.TransitionType.Back)
             .SetEase(Tween.EaseType.Out);
         _flash.Parallel()
             .TweenProperty(_fruit, "modulate", new Color(2.2f, 2.2f, 2.2f), 0.09);
-        _flash.TweenProperty(_fruit, "scale", _baseScale, 0.22)
+        _flash.TweenProperty(_fruit, "scale", _restScale, 0.22)
             .SetTrans(Tween.TransitionType.Quad);
         _flash.Parallel()
-            .TweenProperty(_fruit, "modulate", Colors.White, 0.22);
+            .TweenProperty(_fruit, "modulate", _restModulate, 0.22);
     }
 
     /// <summary>성장 단계가 바뀐 순간의 작은 "톡". 반짝임 없이 크기만 튄다.</summary>

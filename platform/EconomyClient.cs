@@ -133,10 +133,11 @@ public sealed class EconomyClient : IEconomyService, IDisposable
             return;
         }
 
-        // 낙관적 갱신. 파워 보정치는 서버만 정확히 알므로 +1 로 최소 추정만 하고,
-        // 서버 응답이 오면 ApplyState 가 진짜 값으로 덮어쓴다.
+        // 낙관적 갱신. 황금 여부는 서버가 이미 정해 보내 준 값이라 몇 개인지 정확히 안다.
+        // 다음 송이의 황금 여부는 서버만 굴리므로 일단 보통으로 두고, 응답이 오면
+        // ApplyState 가 진짜 값으로 덮어쓴다.
+        _balance += _slots[slotIndex].Yield;
         _slots[slotIndex] = new SlotState(0, _slots[slotIndex].GrowthMs);
-        _balance += 1;
         OnStateChanged?.Invoke();
 
         _ = ReconcileHarvestAsync(slotIndex, Guid.NewGuid().ToString("N"));
@@ -161,7 +162,7 @@ public sealed class EconomyClient : IEconomyService, IDisposable
             SlotState s = _slots[i];
             if (!s.Ready)
             {
-                _slots[i] = new SlotState(Math.Min(s.GrowthMs, s.ElapsedMs + delta), s.GrowthMs);
+                _slots[i] = s with { ElapsedMs = Math.Min(s.GrowthMs, s.ElapsedMs + delta) };
             }
         }
     }
@@ -239,11 +240,12 @@ public sealed class EconomyClient : IEconomyService, IDisposable
             }
 
             _balance = response.Balance;
-            if (response.Upgrades != null)
+            ApplyUpgrades(response.Upgrades);
+
+            // 슬롯 수·성장 시간이 강화로 바뀐다 - 서버가 새로 계산한 슬롯을 같이 보낸다.
+            if (response.Slots != null)
             {
-                _upgradeLevels[UpgradeAxis.Power] = response.Upgrades.Power;
-                _upgradeLevels[UpgradeAxis.Cycle] = response.Upgrades.Cycle;
-                _upgradeLevels[UpgradeAxis.Slots] = response.Upgrades.Slots;
+                ApplyState(response.Balance, response.Slots);
             }
 
             OnStateChanged?.Invoke();
@@ -271,10 +273,8 @@ public sealed class EconomyClient : IEconomyService, IDisposable
                 return;
             }
 
+            ApplyUpgrades(response.Upgrades);
             ApplyState(response.Balance, response.Slots);
-            _upgradeLevels[UpgradeAxis.Power] = response.Upgrades.Power;
-            _upgradeLevels[UpgradeAxis.Cycle] = response.Upgrades.Cycle;
-            _upgradeLevels[UpgradeAxis.Slots] = response.Upgrades.Slots;
         }
         catch (Exception e)
         {
@@ -396,10 +396,22 @@ public sealed class EconomyClient : IEconomyService, IDisposable
 
     // ------------------------------------------------------------------ HTTP
 
+    private void ApplyUpgrades(UpgradesWire upgrades)
+    {
+        if (upgrades == null)
+        {
+            return;
+        }
+
+        _upgradeLevels[UpgradeAxis.Golden] = upgrades.Golden;
+        _upgradeLevels[UpgradeAxis.Cycle] = upgrades.Cycle;
+        _upgradeLevels[UpgradeAxis.Slots] = upgrades.Slots;
+    }
+
     private void ApplyState(long balance, SlotStateWire[] slots)
     {
         _balance = balance;
-        _slots = slots?.Select(s => new SlotState(s.ElapsedMs, s.GrowthMs)).ToArray() ?? Array.Empty<SlotState>();
+        _slots = slots?.Select(s => new SlotState(s.ElapsedMs, s.GrowthMs, s.Golden)).ToArray() ?? Array.Empty<SlotState>();
         _advancedAtMs = _clock.ElapsedMilliseconds;
         OnStateChanged?.Invoke();
     }
@@ -410,6 +422,7 @@ public sealed class EconomyClient : IEconomyService, IDisposable
         "insufficient_balance" => PurchaseOutcome.InsufficientBalance,
         "item_unknown" => PurchaseOutcome.ItemUnknown,
         "already_owned" => PurchaseOutcome.AlreadyOwned,
+        "max_level" => PurchaseOutcome.MaxLevel,
         _ => PurchaseOutcome.Rejected,
     };
 
@@ -462,11 +475,12 @@ public sealed class EconomyClient : IEconomyService, IDisposable
     {
         [JsonPropertyName("elapsedMs")] public long ElapsedMs { get; set; }
         [JsonPropertyName("growthMs")] public long GrowthMs { get; set; }
+        [JsonPropertyName("golden")] public bool Golden { get; set; }
     }
 
     private sealed class UpgradesWire
     {
-        [JsonPropertyName("power")] public int Power { get; set; }
+        [JsonPropertyName("golden")] public int Golden { get; set; }
         [JsonPropertyName("cycle")] public int Cycle { get; set; }
         [JsonPropertyName("slots")] public int Slots { get; set; }
     }
@@ -493,5 +507,8 @@ public sealed class EconomyClient : IEconomyService, IDisposable
         [JsonPropertyName("balance")] public long Balance { get; set; }
         [JsonPropertyName("grantedItemDefId")] public string GrantedItemDefId { get; set; }
         [JsonPropertyName("upgrades")] public UpgradesWire Upgrades { get; set; }
+
+        /// <summary>강화 구매일 때만 온다 - 슬롯 수·성장 시간이 바뀐 새 슬롯 목록.</summary>
+        [JsonPropertyName("slots")] public SlotStateWire[] Slots { get; set; }
     }
 }

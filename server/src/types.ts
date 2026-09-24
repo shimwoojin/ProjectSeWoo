@@ -19,10 +19,12 @@ export interface Env {
 export interface SlotStateDto {
   elapsedMs: number;
   growthMs: number;
+  /** 이번 송이가 황금인가 (B13). 따면 GOLDEN_MULTIPLIER 개. */
+  golden: boolean;
 }
 
 /** shared/Contracts/IEconomyService.cs 의 UpgradeAxis 와 대응. 문자열 그대로 JSON 에 싣는다. */
-export type UpgradeAxis = "power" | "cycle" | "slots";
+export type UpgradeAxis = "golden" | "cycle" | "slots";
 
 /** shared/Contracts/IEconomyService.cs 의 PurchaseOutcome 과 대응. */
 export type PurchaseOutcome =
@@ -30,18 +32,21 @@ export type PurchaseOutcome =
   | "insufficient_balance"
   | "item_unknown"
   | "already_owned"
+  | "max_level"
   | "rejected";
 
 export interface EconomyStateDto {
   balance: number;
   slots: SlotStateDto[];
-  upgrades: { power: number; cycle: number; slots: number };
+  upgrades: { golden: number; cycle: number; slots: number };
   lastSyncUtc: string;
 }
 
 export interface HarvestResponseDto {
   accepted: boolean;
   reason?: "not_ready";
+  /** 이번 수확으로 얻은 바나나 (보통 1, 황금 GOLDEN_MULTIPLIER, 못 땄으면 0). */
+  gained: number;
   balance: number;
   slots: SlotStateDto[];
 }
@@ -50,16 +55,21 @@ export interface PurchaseResponseDto {
   outcome: PurchaseOutcome;
   balance: number;
   grantedItemDefId?: string;
-  upgrades?: { power: number; cycle: number; slots: number };
+  upgrades?: { golden: number; cycle: number; slots: number };
+  /** 강화 구매 성공 때만 - 슬롯 수·성장 시간이 바뀐 새 슬롯. */
+  slots?: SlotStateDto[];
 }
 
 /** players 테이블 한 행. DB 에 저장되는 원시 형태 - 밖으로는 안 나간다. */
 export interface PlayerRow {
   steam_id: string;
   balance: number;
+  /** 예전 "파워" 축. B13 에서 황금 바나나로 바뀌며 안 쓴다 - 칸만 남아 있다. */
   power_level: number;
+  golden_level: number;
   cycle_level: number;
   slots_level: number;
   slot_elapsed_ms: string; // JSON.stringify(number[])
+  slot_golden: string; // JSON.stringify(boolean[])
   last_sync_utc: string; // ISO
 }

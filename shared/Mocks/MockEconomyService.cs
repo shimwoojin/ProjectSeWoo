@@ -14,15 +14,15 @@ namespace ProjectSeWoo.Shared.Mocks;
 /// 그대로 <see cref="IPlatformServices.Economy"/> 자리에 꽂아 둔다. 게임
 /// 레이어는 그 사실을 몰라도 된다 (다른 목들과 같은 규칙).
 ///
-/// <b>여기서 나는 잔액/가격 숫자는 실제 밸런스가 아니다.</b> 서버가 정하는
-/// 값이고 (docs/ECONOMY-SERVER-API.md), 이 목은 "구매·수확 흐름이 끊기지
-/// 않는가"를 시험하는 용도다. 슬롯 기본값(3슬롯 · 8분)만 기획서 §2-2 수치를
-/// 그대로 맞췄다 - 기존 <c>SaveData.TreeState</c> 기본값과 같다.
+/// <b>강화는 서버와 같은 표(<see cref="UpgradeTable"/>)를 쓴다</b> (B13) — 슬롯 수·성장 시간·
+/// 황금 확률·가격이 서버(<c>server/src/catalog.ts</c>)와 같은 그림이어야 목으로 한 시험이 의미가
+/// 있다. 황금 여부는 서버처럼 송이가 자라기 시작할 때 굴린다.
 /// </summary>
 public sealed class MockEconomyService : IEconomyService
 {
-    private readonly SlotState[] _slots;
+    private readonly List<SlotState> _slots = new();
     private readonly Dictionary<UpgradeAxis, int> _upgradeLevels = new();
+    private readonly Random _rng = new();
 
     /// <summary>아이템 구매 가격표. 시험 코드가 <see cref="RegisterItemPrice"/> 로 채운다.</summary>
     private readonly Dictionary<string, long> _itemPrices = new(StringComparer.Ordinal);
@@ -36,17 +36,28 @@ public sealed class MockEconomyService : IEconomyService
 
     public MockEconomyService()
     {
-        _slots = new SlotState[3];
-        for (int i = 0; i < _slots.Length; i++)
-        {
-            _slots[i] = new SlotState(0, 480_000);
-        }
-
         foreach (UpgradeAxis axis in Enum.GetValues<UpgradeAxis>())
         {
             _upgradeLevels[axis] = 0;
         }
+
+        ResizeSlots();
     }
+
+    /// <summary>슬롯 수를 강화 단계에 맞춘다. 새 슬롯은 0 부터 자라고 황금 여부를 새로 굴린다.</summary>
+    private void ResizeSlots()
+    {
+        int count = UpgradeTable.SlotsAt(_upgradeLevels[UpgradeAxis.Slots]);
+        long growth = UpgradeTable.GrowthMsAt(_upgradeLevels[UpgradeAxis.Cycle]);
+        while (_slots.Count < count)
+        {
+            _slots.Add(new SlotState(0, growth, RollGolden()));
+        }
+    }
+
+    /// <summary>새 송이가 황금인가. 서버의 rollGolden 과 같은 규칙.</summary>
+    private bool RollGolden() =>
+        _rng.Next(100) < UpgradeTable.GoldenChanceAt(_upgradeLevels[UpgradeAxis.Golden]);
 
     /// <summary>목이 항상 붙어 있다고 답한다. 서버 단절 경로를 시험하려면 꺼 본다.</summary>
     public bool IsAvailable { get; set; } = true;
@@ -82,14 +93,14 @@ public sealed class MockEconomyService : IEconomyService
         long deltaMs = (long)(deltaSeconds * 1000.0);
         bool becameReady = false;
 
-        for (int i = 0; i < _slots.Length; i++)
+        for (int i = 0; i < _slots.Count; i++)
         {
             if (_slots[i].Ready)
             {
                 continue;
             }
 
-            var next = new SlotState(_slots[i].ElapsedMs + deltaMs, _slots[i].GrowthMs);
+            var next = _slots[i] with { ElapsedMs = Math.Min(_slots[i].GrowthMs, _slots[i].ElapsedMs + deltaMs) };
             _slots[i] = next;
             becameReady |= next.Ready;
         }
@@ -109,9 +120,9 @@ public sealed class MockEconomyService : IEconomyService
     /// </summary>
     public void DebugAdvanceAll(long ms)
     {
-        for (int i = 0; i < _slots.Length; i++)
+        for (int i = 0; i < _slots.Count; i++)
         {
-            _slots[i] = new SlotState(Math.Min(_slots[i].GrowthMs, _slots[i].ElapsedMs + ms), _slots[i].GrowthMs);
+            _slots[i] = _slots[i] with { ElapsedMs = Math.Min(_slots[i].GrowthMs, _slots[i].ElapsedMs + ms) };
         }
 
         OnStateChanged?.Invoke();
@@ -119,13 +130,13 @@ public sealed class MockEconomyService : IEconomyService
 
     public void RequestHarvest(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= _slots.Length || !_slots[slotIndex].Ready)
+        if (slotIndex < 0 || slotIndex >= _slots.Count || !_slots[slotIndex].Ready)
         {
             return;
         }
 
-        _slots[slotIndex] = new SlotState(0, _slots[slotIndex].GrowthMs);
-        Balance += 1 + UpgradeLevel(UpgradeAxis.Power);
+        Balance += _slots[slotIndex].Yield;
+        _slots[slotIndex] = new SlotState(0, _slots[slotIndex].GrowthMs, RollGolden());
         OnStateChanged?.Invoke();
     }
 
@@ -167,28 +178,33 @@ public sealed class MockEconomyService : IEconomyService
             return Task.FromResult(new PurchaseResult(PurchaseOutcome.ServerUnavailable, Balance));
         }
 
-        // 임의 가격 곡선. 실제 밸런스는 서버가 정한다 (docs/ECONOMY-SERVER.md §2).
-        long price = 50L * (_upgradeLevels[axis] + 1);
-        if (Balance < price)
+        long? price = UpgradeTable.NextPrice(axis, _upgradeLevels[axis]);
+        if (price == null)
+        {
+            return Task.FromResult(new PurchaseResult(PurchaseOutcome.MaxLevel, Balance));
+        }
+
+        if (Balance < price.Value)
         {
             return Task.FromResult(new PurchaseResult(PurchaseOutcome.InsufficientBalance, Balance));
         }
 
-        Balance -= price;
+        Balance -= price.Value;
         _upgradeLevels[axis]++;
 
         if (axis == UpgradeAxis.Cycle)
         {
-            for (int i = 0; i < _slots.Length; i++)
+            // 자라던 시간은 그대로 두고 목표만 줄인다 - 이미 넘었으면 곧바로 익는다(서버와 같다).
+            long growth = UpgradeTable.GrowthMsAt(_upgradeLevels[axis]);
+            for (int i = 0; i < _slots.Count; i++)
             {
-                long shortened = Math.Max(180_000, _slots[i].GrowthMs - 30_000);
-                _slots[i] = new SlotState(_slots[i].ElapsedMs, shortened);
+                _slots[i] = _slots[i] with { ElapsedMs = Math.Min(growth, _slots[i].ElapsedMs), GrowthMs = growth };
             }
         }
 
-        // UpgradeAxis.Slots 는 레벨만 오르고 슬롯 배열은 안 늘어난다 - 목은 구매
-        // 흐름을 시험하는 용도라 배열 크기 변경까지는 재현하지 않는다. 실물
-        // 서버는 슬롯 수만큼 SlotState 목록 길이를 바꿔서 응답한다.
+        ResizeSlots();
+
+        GD.Print($"[mock-economy] 강화 {axis} → Lv.{_upgradeLevels[axis]} (-{price}) 잔액 {Balance}");
         OnStateChanged?.Invoke();
         return Task.FromResult(new PurchaseResult(PurchaseOutcome.Success, Balance));
     }

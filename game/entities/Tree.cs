@@ -83,6 +83,9 @@ public partial class Tree : Node2D
     /// 이제는 스냅샷만 받으므로 직접 기억해 둔다.</summary>
     private bool[] _wasReady = Array.Empty<bool>();
 
+    /// <summary>마지막으로 그린 황금 여부. 진행 단계가 같아도 이게 바뀌면 다시 그린다 (B13).</summary>
+    private bool[] _drawnGolden = Array.Empty<bool>();
+
     /// <summary>익은 슬롯마다 지금까지 맞은 횟수 (<see cref="HitsToDrop"/>). 안 익은 슬롯은 0.</summary>
     private int[] _hits = Array.Empty<int>();
 
@@ -125,7 +128,7 @@ public partial class Tree : Node2D
             bool ready = s.Ready;
             float t = s.GrowthMs <= 0 ? 0f : Mathf.Clamp((float)s.ElapsedMs / s.GrowthMs, 0f, 1f);
 
-            Redraw(i, t, flashOnRipe: ready && !_wasReady[i]);
+            Redraw(i, t, s.Golden, flashOnRipe: ready && !_wasReady[i]);
             _wasReady[i] = ready;
 
             if (!ready)
@@ -152,6 +155,7 @@ public partial class Tree : Node2D
         _slots = new TreeSlot[count];
         _drawnStep = new int[count];
         _wasReady = new bool[count];
+        _drawnGolden = new bool[count];
         _hits = new int[count];
 
         for (int i = 0; i < count; i++)
@@ -257,16 +261,17 @@ public partial class Tree : Node2D
         }
     }
 
-    private void Redraw(int i, float t, bool flashOnRipe)
+    private void Redraw(int i, float t, bool golden, bool flashOnRipe)
     {
         int step = Mathf.FloorToInt(t * ProgressSteps);
-        if (step == _drawnStep[i])
+        if (step == _drawnStep[i] && golden == _drawnGolden[i])
         {
             return;
         }
 
         _drawnStep[i] = step;
-        _slots[i].SetProgress(t);
+        _drawnGolden[i] = golden;
+        _slots[i].SetProgress(t, golden);
 
         if (flashOnRipe)
         {

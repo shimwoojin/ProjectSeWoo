@@ -76,11 +76,46 @@ export function steamItemDefIdOf(itemDefId: string): number | null {
 }
 
 /**
- * 강화 가격. 임의 곡선이다 - 기획서 §5 는 "커서 아이템과 같은 바나나를 쓴다"만
- * 확정했고 구체적인 강화 가격표는 없다. shared/Mocks/MockEconomyService.cs 와
- * 같은 공식을 써서 목과 서버가 최소한 같은 그림으로 시험되게 맞췄다 - 실제
- * 밸런싱 전까지의 placeholder.
+ * 강화 3축의 단계별 효과와 가격 (B13, 2026-09-24 — docs/B13-UPGRADES.md).
+ *
+ * **C# 사본이 따로 있다** — shared/UpgradeTable.cs (목 경제와 강화 UI 가 쓴다). 두 표가
+ * 갈라지면 조용히 갈라지므로 한쪽을 고치면 다른 쪽도 같이 고친다. 진짜 판정은 이 표로 한다.
+ *
+ * 레벨 L 의 효과는 effect[L], L 에서 L+1 로 올리는 가격은 price[L]. 최대 레벨 = price.length.
+ * 표보다 큰 레벨(예전 곡선으로 올린 개발 계정)은 마지막 단계로 본다.
  */
-export function upgradePriceOf(currentLevel: number): number {
-  return 50 * (currentLevel + 1);
+export const UPGRADES = {
+  /** 가지 늘리기: 슬롯 수. */
+  slots: { effect: [3, 4, 5, 6], price: [60, 200, 600] },
+  /** 빨리 익기: 한 송이가 익는 시간(ms). 8분에서 1분씩. */
+  cycle: { effect: [480_000, 420_000, 360_000, 300_000, 240_000], price: [40, 120, 350, 900] },
+  /** 황금 바나나: 한 송이가 황금일 확률(%). */
+  golden: { effect: [0, 5, 10, 15, 20], price: [50, 150, 450, 1200] },
+} as const;
+
+/** 황금 바나나 한 송이의 값. 보통 바나나는 1. */
+export const GOLDEN_MULTIPLIER = 5;
+
+export type UpgradeKey = keyof typeof UPGRADES;
+
+function at(values: readonly number[], level: number): number {
+  return values[Math.max(0, Math.min(values.length - 1, level))];
+}
+
+export function slotCountAt(level: number): number {
+  return at(UPGRADES.slots.effect, level);
+}
+
+export function growthMsAt(level: number): number {
+  return at(UPGRADES.cycle.effect, level);
+}
+
+export function goldenChanceAt(level: number): number {
+  return at(UPGRADES.golden.effect, level);
+}
+
+/** 다음 단계 가격. 최대 레벨이면 null. */
+export function upgradePriceOf(axis: UpgradeKey, currentLevel: number): number | null {
+  const prices = UPGRADES[axis].price;
+  return currentLevel >= 0 && currentLevel < prices.length ? prices[currentLevel] : null;
 }

@@ -41,5 +41,13 @@ offset_bottom = 450.0
 custom_minimum_size = Vector2(78, 26)
 text = "멀티"
 
+[node name="OptionsButton" type="Button" parent="."]
+offset_left = 290.0
+offset_top = 424.0
+offset_right = 348.0
+offset_bottom = 450.0
+custom_minimum_size = Vector2(58, 26)
+text = "옵션"
+
 [node name="RoomWindow" type="CanvasLayer" parent="."]
 script = ExtResource("8_room")

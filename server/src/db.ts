@@ -1,6 +1,6 @@
 import type { Env, PlayerRow } from "./types";
 
-/** 없으면 기본값(잔액 0, 슬롯 3개 · 480000ms)으로 만든다. */
+/** 없으면 기본값(잔액 0, 슬롯 3개 · 480000ms, 황금 없음)으로 만든다. */
 export async function getOrCreatePlayer(env: Env, steamId: string): Promise<PlayerRow> {
   const existing = await env.DB
     .prepare("SELECT * FROM players WHERE steam_id = ?")
@@ -14,8 +14,8 @@ export async function getOrCreatePlayer(env: Env, steamId: string): Promise<Play
   const nowIso = new Date().toISOString();
   await env.DB
     .prepare(
-      `INSERT INTO players (steam_id, balance, power_level, cycle_level, slots_level, slot_elapsed_ms, last_sync_utc)
-       VALUES (?, 0, 0, 0, 0, '[0,0,0]', ?)`,
+      `INSERT INTO players (steam_id, balance, power_level, golden_level, cycle_level, slots_level, slot_elapsed_ms, slot_golden, last_sync_utc)
+       VALUES (?, 0, 0, 0, 0, 0, '[0,0,0]', '[false,false,false]', ?)`,
     )
     .bind(steamId, nowIso)
     .run();
@@ -24,9 +24,11 @@ export async function getOrCreatePlayer(env: Env, steamId: string): Promise<Play
     steam_id: steamId,
     balance: 0,
     power_level: 0,
+    golden_level: 0,
     cycle_level: 0,
     slots_level: 0,
     slot_elapsed_ms: "[0,0,0]",
+    slot_golden: "[false,false,false]",
     last_sync_utc: nowIso,
   };
 }
@@ -35,16 +37,17 @@ export async function savePlayer(env: Env, player: PlayerRow): Promise<void> {
   await env.DB
     .prepare(
       `UPDATE players
-       SET balance = ?, power_level = ?, cycle_level = ?, slots_level = ?,
-           slot_elapsed_ms = ?, last_sync_utc = ?, updated_at = datetime('now')
+       SET balance = ?, golden_level = ?, cycle_level = ?, slots_level = ?,
+           slot_elapsed_ms = ?, slot_golden = ?, last_sync_utc = ?, updated_at = datetime('now')
        WHERE steam_id = ?`,
     )
     .bind(
       player.balance,
-      player.power_level,
+      player.golden_level,
       player.cycle_level,
       player.slots_level,
       player.slot_elapsed_ms,
+      player.slot_golden,
       player.last_sync_utc,
       player.steam_id,
     )

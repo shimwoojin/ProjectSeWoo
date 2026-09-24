@@ -61,6 +61,7 @@ PunchMonkey (저장소·어셈블리 이름은 `ProjectSeWoo`) 문서 목록과 
 | A12 빌드·배포 | [A12-BUILD.md](A12-BUILD.md) | **Godot 익스포트만으로는 돌아가는 빌드가 안 나온다.** 파이프라인 + Depot 업로드 |
 | A15 도전과제 | [A15-ACHIEVEMENTS.md](A15-ACHIEVEMENTS.md) | 10개 목록(파트너 사이트 입력본) + 해금 조건 + 놓친 해금 회수 + 목 결과로는 진짜 과제를 안 푼다 |
 | 스팀 설정 (C1·C2 연결) | [STEAM-CONFIG.md](STEAM-CONFIG.md) | **빌드를 올리는 것과 실행되게 하는 것은 다른 일이다.** 앱 페이지 · 스토어 페이지 설정값과 근거 |
+| B13 강화 | [B13-UPGRADES.md](B13-UPGRADES.md) | 강화 3축 재설계 — 빨리 익기 / 황금 바나나(×5) / 가지 늘리기, 최대 약 7배. 표는 서버·C# 두 벌 |
 | C2 개인정보 문구 | [C2-PRIVACY.md](C2-PRIVACY.md) | 스토어·게임 내 개인정보 문구 초안(한/영) + **문장마다 코드 근거**. 코드가 바뀌면 여기부터 고친다 |
 
 ---

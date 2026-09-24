@@ -61,11 +61,11 @@
 {
   "balance": 132,
   "slots": [
-    { "elapsedMs": 210000, "growthMs": 480000 },
-    { "elapsedMs": 480000, "growthMs": 480000 },
-    { "elapsedMs": 0,      "growthMs": 480000 }
+    { "elapsedMs": 210000, "growthMs": 480000, "golden": false },
+    { "elapsedMs": 480000, "growthMs": 480000, "golden": true },
+    { "elapsedMs": 0,      "growthMs": 480000, "golden": false }
   ],
-  "upgrades": { "power": 0, "cycle": 0, "slots": 0 },
+  "upgrades": { "golden": 0, "cycle": 0, "slots": 0 },
   "lastSyncUtc": "2026-09-23T04:00:00Z"
 }
 ```
@@ -73,17 +73,22 @@
 응답을 받는 시점에 서버가 `lastSyncUtc` 기준 경과 시간을 각 슬롯에 미리
 반영해서 보낸다 — 클라이언트는 받은 값을 그대로 그리기 시작하면 된다.
 
+**`golden` (B13, 2026-09-24)** — 그 슬롯의 이번 송이가 황금 바나나인가. 서버가 송이가 자라기
+시작할 때(수확 직후, 슬롯이 새로 생길 때) 황금 강화 단계의 확률로 굴려 정한다 — 클라이언트는
+고를 수 없다. 게임은 익었을 때만 황금으로 그린다. 강화 3축의 단계·가격은
+[B13-UPGRADES.md](B13-UPGRADES.md), 표는 `server/src/catalog.ts` 의 `UPGRADES`.
+
 ### 2-2. `POST /v1/economy/harvest`
 
 ```json
 // 요청
 { "slotIndex": 1, "clientRequestId": "01JXYZ..." }
 
-// 응답 (성공)
-{ "accepted": true, "balance": 133, "slots": [ ... ] }
+// 응답 (성공) - gained 는 보통 1, 황금 송이면 5
+{ "accepted": true, "gained": 5, "balance": 137, "slots": [ ... ] }
 
 // 응답 (거부 - 아직 안 자랐다)
-{ "accepted": false, "reason": "not_ready", "balance": 132, "slots": [ ... ] }
+{ "accepted": false, "reason": "not_ready", "gained": 0, "balance": 132, "slots": [ ... ] }
 ```
 
 - `clientRequestId`는 클라이언트가 생성하는 UUID다. **같은 id로 재시도가
@@ -116,7 +121,7 @@
 
 `outcome` 값은 클라이언트의 `PurchaseOutcome` enum과 1:1 대응한다
 (`success` / `insufficient_balance` / `item_unknown` / `already_owned` /
-`rejected`). `server_unavailable`은 HTTP 레벨 실패(타임아웃 등)에 대응하는
+`max_level` / `rejected`). `max_level` 은 강화 전용(2-4). `server_unavailable`은 HTTP 레벨 실패(타임아웃 등)에 대응하는
 것이라 이 JSON 안에는 없다 — 클라이언트가 요청 자체가 실패했을 때 채운다.
 
 ### 2-4. `POST /v1/economy/purchase/upgrade`
@@ -125,12 +130,20 @@
 // 요청
 { "axis": "cycle", "clientRequestId": "01JCD2..." }
 
-// 응답
-{ "outcome": "success", "balance": 10, "upgrades": { "power": 0, "cycle": 1, "slots": 0 } }
+// 응답 (성공) - 슬롯 수·성장 시간이 바뀌므로 새로 계산한 슬롯을 같이 보낸다
+{ "outcome": "success", "balance": 10, "upgrades": { "golden": 0, "cycle": 1, "slots": 0 },
+  "slots": [ { "elapsedMs": 130, "growthMs": 420000, "golden": false }, ... ] }
+
+// 응답 (이미 최대 단계)
+{ "outcome": "max_level", "balance": 4106, "upgrades": { "golden": 4, "cycle": 1, "slots": 3 } }
 ```
 
-구조는 2-3과 같다. 스팀 호출이 없다는 것만 다르다 — 서버 원장의 정수 하나를
-올리고 끝난다.
+- `axis` 는 `golden` / `cycle` / `slots` (B13). 예전 `power` 는 **400 으로 거절**한다 — 황금
+  바나나로 바뀌었다
+- 가격은 서버가 자기 표(`UPGRADES`)로 판정한다. 클라이언트가 가격을 보내지 않는다
+- 레벨을 올리기 **전에** 지금까지 흐른 시간을 옛 레벨로 확정한다(안 그러면 같은 구간을 두 번
+  더한다 — b7696d3). 슬롯이 늘면 새 슬롯은 0 부터, 성장 시간이 짧아지면 이미 넘은 슬롯은 곧바로
+  익는다
 
 ---
 
