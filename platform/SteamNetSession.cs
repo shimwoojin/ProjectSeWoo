@@ -107,6 +107,8 @@ public sealed class SteamNetSession : INetSession, IDisposable
     private Callback<GameLobbyJoinRequested_t> _lobbyJoinRequested;
     private Callback<GameRichPresenceJoinRequested_t> _presenceJoinRequested;
     private Callback<PersonaStateChange_t> _personaChanged;
+    private Callback<SteamServersDisconnected_t> _serversDisconnected;
+    private Callback<SteamServersConnected_t> _serversConnected;
     private Callback<SteamNetworkingMessagesSessionRequest_t> _sessionRequest;
     private Callback<SteamNetworkingMessagesSessionFailed_t> _sessionFailed;
     private CallResult<LobbyCreated_t> _createResult;
@@ -131,6 +133,11 @@ public sealed class SteamNetSession : INetSession, IDisposable
     private ulong _deferredJoin;
 
     private CSteamID _lobby = CSteamID.Nil;
+
+    /// <summary>
+    /// 스팀 서버 연결이 끊겨 빠진 로비 (A11). 다시 붙으면 여기로 들어간다. Nil = 없음.
+    /// </summary>
+    private CSteamID _reconnectLobby = CSteamID.Nil;
     private DateTime _enteredUtc;
     private long _mine;
     private long _published = -1;
@@ -176,7 +183,11 @@ public sealed class SteamNetSession : INetSession, IDisposable
 
     public event Action<PeerId> OnPeerLeave;
 
-    public bool IsAvailable => _steam.IsInitialized && _registered;
+    /// <summary>
+    /// 스팀에 붙었고 스팀 서버에 로그인돼 있다. 스팀 클라이언트는 떠 있는데 인터넷이 끊긴
+    /// 경우(<c>BLoggedOn</c> false)도 로비를 못 쓰므로 false 다.
+    /// </summary>
+    public bool IsAvailable => _steam.IsInitialized && _registered && SteamUser.BLoggedOn();
 
     private bool InLobby => _lobby.IsValid() && _lobby != CSteamID.Nil;
 
@@ -660,6 +671,49 @@ public sealed class SteamNetSession : INetSession, IDisposable
         OnPeerState?.Invoke(new PeerId(sender.m_SteamID), state);
     }
 
+    /// <summary>
+    /// 스팀 서버 연결이 끊겼다 (A11) - 인터넷이 끊겼거나 스팀이 점검 중. 로비도 P2P 도 못 쓰므로
+    /// 로비에서 빠진 것으로 정리하고, 다시 붙으면(<see cref="OnServersConnected"/>) 그 로비로 들어간다.
+    /// 로비 타수는 방장이 보관해 두므로(<c>s:&lt;steamid&gt;</c>) 돌아오면 이어진다. 세이브의
+    /// 마지막 로비도 지우지 않는다 - 게임을 껐다 켜도 돌아간다.
+    /// </summary>
+    private void OnServersDisconnected(SteamServersDisconnected_t cb)
+    {
+        GD.Print($"[net] 스팀 서버 연결 끊김 ({cb.m_eResult})");
+        if (!InLobby)
+        {
+            return;
+        }
+
+        CSteamID lobby = _lobby;
+        _reconnectLobby = lobby;
+
+        // 서버에 못 닿으니 로비 데이터에 남길 수 없다 - 로컬 상태만 걷는다.
+        SteamMatchmaking.LeaveLobby(lobby);
+        SteamFriends.ClearRichPresence();
+        GD.Print($"[net] 로비 {CodeOf(lobby)} 에서 빠짐 - 스팀에 다시 붙으면 재입장");
+
+        _lobby = CSteamID.Nil;
+        _mine = 0;
+        _published = -1;
+        _lastKeystrokes.Clear();
+        _heardFrom.Clear();
+        _changed = true;
+    }
+
+    private void OnServersConnected(SteamServersConnected_t cb)
+    {
+        GD.Print("[net] 스팀 서버 다시 연결됨");
+        if (_reconnectLobby == CSteamID.Nil || InLobby || _pending != null)
+        {
+            return;
+        }
+
+        CSteamID lobby = _reconnectLobby;
+        _reconnectLobby = CSteamID.Nil;
+        JoinFromSteam(lobby, "스팀 재연결");
+    }
+
     /// <summary>같은 로비 멤버가 보낸 연결 요청만 받는다. 모르는 사람의 요청은 무시하면 시간이 지나 닫힌다.</summary>
     private void OnSessionRequest(SteamNetworkingMessagesSessionRequest_t cb)
     {
@@ -724,6 +778,8 @@ public sealed class SteamNetSession : INetSession, IDisposable
             cb => JoinFromSteam(cb.m_steamIDLobby, "스팀 초대"));
         _presenceJoinRequested = Callback<GameRichPresenceJoinRequested_t>.Create(OnPresenceJoinRequested);
         _personaChanged = Callback<PersonaStateChange_t>.Create(OnPersonaChanged);
+        _serversDisconnected = Callback<SteamServersDisconnected_t>.Create(OnServersDisconnected);
+        _serversConnected = Callback<SteamServersConnected_t>.Create(OnServersConnected);
         _sessionRequest = Callback<SteamNetworkingMessagesSessionRequest_t>.Create(OnSessionRequest);
         _sessionFailed = Callback<SteamNetworkingMessagesSessionFailed_t>.Create(OnSessionFailed);
 
@@ -985,6 +1041,8 @@ public sealed class SteamNetSession : INetSession, IDisposable
         _lobbyJoinRequested?.Dispose();
         _presenceJoinRequested?.Dispose();
         _personaChanged?.Dispose();
+        _serversDisconnected?.Dispose();
+        _serversConnected?.Dispose();
         _sessionRequest?.Dispose();
         _sessionFailed?.Dispose();
         _createResult?.Dispose();

@@ -196,7 +196,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
                 }
             }
         }
-        _room = new RoomController(_platform.Net, _roomWindow, _hud);
+        _room = new RoomController(_platform.Net, _roomWindow, _hud, _store);
         _stateSender = new PlayerStateSender(_platform.Net, SnapshotForPeers);
 
         _friends = new FriendWindows { Name = "Friends" };

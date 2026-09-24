@@ -16,6 +16,10 @@ namespace ProjectSeWoo.Game;
 ///   <item>창이 열려 있는 동안 1초마다 랭킹·경과 시간을, 5초마다 친구 목록을 다시 그린다.
 ///   닫혀 있으면 아무것도 안 그린다 (§7-3 저부하).</item>
 ///   <item>HUD 에 룸 한 줄(<c>룸 2/4 · 1위 · 1,234타</c>)을 1초마다 쓴다.</item>
+///   <item><b>자동 재입장 (A11).</b> 들어간 로비를 세이브(<c>multi.lastLobby</c>)에 기억하고,
+///   다시 켜면 그 로비가 살아 있을 때 조용히 들어간다 - 상주 앱이라 재부팅·크래시 뒤에 친구
+///   로비에서 떨어져 있는 게 가장 흔한 불편이다. 유저가 [로비 나가기]로 직접 나오면 잊는다.</item>
+///   <item>방장이 바뀌면 알린다.</item>
 /// </list>
 /// </summary>
 public sealed class RoomController : IDisposable
@@ -29,6 +33,14 @@ public sealed class RoomController : IDisposable
     private readonly INetSession _net;
     private readonly RoomWindow _window;
     private readonly StatusHud _hud;
+    private readonly ISaveStore _store;
+
+    /// <summary>켤 때 세이브에서 읽은, 다시 들어갈 로비 코드. 시도하고 나면 비운다.</summary>
+    private string _autoRejoin;
+
+    // 방장이 바뀐 순간을 잡으려고 지난번에 본 방장을 로비별로 들고 있는다.
+    private string _hostRoom;
+    private PeerId _hostSeen;
     private readonly Random _random = new();
 
     private double _sinceRoom;
@@ -36,11 +48,13 @@ public sealed class RoomController : IDisposable
     private bool _busy;
     private ulong _nextFakeId = 9001;
 
-    public RoomController(INetSession net, RoomWindow window, StatusHud hud)
+    public RoomController(INetSession net, RoomWindow window, StatusHud hud, ISaveStore store)
     {
         _net = net;
         _window = window;
         _hud = hud;
+        _store = store;
+        _autoRejoin = store.Data.Multi.LastLobby;
 
         _net.OnRoomChanged += OnRoomChanged;
         _window.CreateRequested += OnCreateRequested;
@@ -66,6 +80,8 @@ public sealed class RoomController : IDisposable
     /// <summary><see cref="GameRoot"/> 의 <c>_Process</c> 가 매 프레임 부른다.</summary>
     public void Tick(double delta)
     {
+        TryAutoRejoin();
+
         _sinceRoom += delta;
         if (_sinceRoom >= RoomRefreshSec)
         {
@@ -125,6 +141,10 @@ public sealed class RoomController : IDisposable
 
     private void OnLeaveRequested()
     {
+        // 직접 나왔으면 다음에 켤 때 다시 들어가지 않는다.
+        _store.Data.Multi.LastLobby = null;
+        _store.MarkDirty();
+
         _net.LeaveRoom();
         _window.ShowMessage("로비에서 나왔어요. 다시 들어가면 타수가 이어져요");
     }
@@ -179,12 +199,120 @@ public sealed class RoomController : IDisposable
 
     private void OnRoomChanged()
     {
+        RememberLobby();
+        AnnounceHostChange();
+
         if (_window.IsOpen)
         {
             _window.Refresh();
         }
 
         UpdateHud();
+    }
+
+    // ------------------------------------------------------------------ 자동 재입장 (A11)
+
+    /// <summary>
+    /// 지난번 로비에 다시 들어간다. 스팀이 붙은 뒤 한 번만 - 붙기 전이면 다음 틱에 다시 본다.
+    /// 이미 로비에 있으면(스팀 친구창 "게임 참가" 로 켜진 경우 등) 그쪽을 따른다.
+    /// </summary>
+    private void TryAutoRejoin()
+    {
+        if (_autoRejoin == null || _busy || !_net.IsAvailable)
+        {
+            return;
+        }
+
+        string code = _autoRejoin;
+        _autoRejoin = null;
+        if (_net.Current != null)
+        {
+            return;
+        }
+
+        _ = AutoRejoinAsync(code);
+    }
+
+    /// <summary>
+    /// 창을 안 열었을 때도 도는 경로라 실패를 팝업으로 띄우지 않는다 - 나중에 창을 열었을 때
+    /// 뜬금없는 오류 팝업이 떠 있게 된다. 로그만 남기고, 로비가 사라졌으면 잊는다.
+    /// </summary>
+    private async Task AutoRejoinAsync(string code)
+    {
+        _busy = true;
+        _window.SetBusy(true);
+        try
+        {
+            RoomHandle room = await _net.JoinRoom(code);
+            GD.Print($"[room] 지난번 로비 {room.Uid} 에 다시 들어왔다");
+            _window.ShowMessage($"지난번 로비 {room.Uid} 에 다시 들어왔어요");
+        }
+        catch (RoomJoinException e) when (e.Error == RoomJoinError.SteamUnavailable)
+        {
+            // 붙었다가 그새 끊긴 경우. 다음에 붙으면 다시 해 본다.
+            _autoRejoin = code;
+        }
+        catch (Exception e)
+        {
+            GD.Print($"[room] 지난번 로비에 못 들어갔다 - {e.Message}. 기억을 지운다");
+            if (_store.Data.Multi.LastLobby == code)
+            {
+                _store.Data.Multi.LastLobby = null;
+                _store.MarkDirty();
+            }
+        }
+        finally
+        {
+            _busy = false;
+            _window.SetBusy(false);
+            _window.Refresh();
+            UpdateHud();
+        }
+    }
+
+    /// <summary>들어가 있는 로비를 세이브에 기억한다. 바뀔 때만 쓴다.</summary>
+    private void RememberLobby()
+    {
+        if (_net.Current is { } room && _store.Data.Multi.LastLobby != room.Uid)
+        {
+            _store.Data.Multi.LastLobby = room.Uid;
+            _store.MarkDirty();
+        }
+    }
+
+    /// <summary>
+    /// 방장이 나가면 스팀이 남은 사람에게 넘긴다(A11). 조용히 바뀌면 "방장" 표시가 왜 옮겨
+    /// 갔는지 모르니 한 줄 알린다. 로비가 바뀐 것은 방장 변경이 아니다.
+    /// </summary>
+    private void AnnounceHostChange()
+    {
+        if (_net.Current is not { } room)
+        {
+            _hostRoom = null;
+            return;
+        }
+
+        if (_hostRoom == room.Uid && _hostSeen != room.Host)
+        {
+            if (room.IsHost)
+            {
+                _window.ShowMessage("방장이 나가서 내가 방장이 됐어요");
+            }
+            else
+            {
+                foreach (RoomMember m in _net.Members)
+                {
+                    if (m.Id == room.Host)
+                    {
+                        _window.ShowMessage($"방장이 {m.Name} 님으로 바뀌었어요");
+                        break;
+                    }
+                }
+            }
+        }
+
+        _hostRoom = room.Uid;
+        _hostSeen = room.Host;
     }
 
     private void UpdateHud()

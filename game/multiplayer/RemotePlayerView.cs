@@ -35,6 +35,26 @@ public partial class RemotePlayerView : Node2D
 
     private const string TreeScene = "res://game/entities/Tree.tscn";
     private const string MonkeyScene = "res://game/entities/Monkey.tscn";
+    private const string BananaScene = "res://game/effects/FallingBanana.tscn";
+
+    /// <summary>한 창에 딴 바나나를 몇 개까지 떨어뜨릴지. 폭주 방지는 펀치와 같은 이유.</summary>
+    private const int MaxBananasPerWindow = 3;
+
+    /// <summary>
+    /// 상태가 이만큼 안 오면 "연결 확인 중". 친구는 치지 않아도 1초마다 생존 신호를 보낸다
+    /// (<see cref="PlayerStateSender"/>) - 5초면 네 번 빠진 것이다.
+    /// </summary>
+    private const double StaleSec = 5.0;
+
+    /// <summary>이만큼 안 치면 "쉬는 중". 일하다 잠깐 손 뗀 것까지 쉰다고 하면 시끄럽다.</summary>
+    private const double IdleSec = 60.0;
+
+    /// <summary>
+    /// 떨어진 바나나가 닿는 높이 - 원숭이 발치. 내 화면(GameRoot.GroundY 404, 나무 262)의
+    /// 나무 기준 거리를 줄인 것이다. 필드가 아니라 프로퍼티인 이유: 정적 필드는 선언 순서대로
+    /// 초기화되는데 <see cref="TreeAt"/> 이 아래에 있어서, 필드면 (0,0) 기준으로 계산된다.
+    /// </summary>
+    private static float GroundY => TreeAt.Y + (404f - 262f) * MiniScale;
 
     // 내 화면 배치(GameRoot.tscn)에서 원숭이는 나무 기준 (-70, +98) 에 있다. 같은 모양을 줄인다.
     private static readonly Vector2 TreeAt = new(CellWidth / 2f + 6f, 76f);
@@ -59,6 +79,11 @@ public partial class RemotePlayerView : Node2D
     private readonly string[] _shownIds = new string[3];
 
     private long _totalKeystrokes = -1;
+
+    /// <summary>마지막 상태·타건을 받은 시각(ms, <see cref="Time.GetTicksMsec"/>). 0 = 아직 없음.</summary>
+    private ulong _lastStateMs;
+    private ulong _lastTypedMs;
+    private readonly RandomNumberGenerator _rng = new();
     private long _roomKeystrokes;
     private byte _collectionPercent;
 
@@ -152,7 +177,22 @@ public partial class RemotePlayerView : Node2D
 
         _totalKeystrokes = state.TotalKeystrokes;
         _collectionPercent = state.CollectionPercent;
+
+        ulong now = Time.GetTicksMsec();
+        _lastStateMs = now;
+        if (state.KeystrokesInWindow > 0 || _lastTypedMs == 0)
+        {
+            // 처음 받은 상태는 "방금 친 것" 으로 친다 - 들어오자마자 "쉬는 중" 으로 뜨지 않게.
+            _lastTypedMs = now;
+        }
+
         RefreshStats();
+
+        int bananas = Math.Min((int)state.HarvestsInWindow, MaxBananasPerWindow);
+        if (bananas > 0)
+        {
+            DropBananas(bananas);
+        }
 
         int punches = Math.Min((int)state.KeystrokesInWindow, MaxPunchesPerWindow);
         for (int i = 0; i < punches; i++)
@@ -197,11 +237,78 @@ public partial class RemotePlayerView : Node2D
             _stats.Text = stats;
         }
 
-        string collection = _totalKeystrokes >= 0 ? $"도감 {_collectionPercent}%" : string.Empty;
-        if (_collection.Text != collection)
+        // 셋째 줄은 평소엔 도감 %, 한동안 안 치면 "쉬는 중", 상태가 끊기면 "연결 확인 중".
+        // 끊긴 칸은 흐리게 - 친구가 창을 닫았는지 네트워크가 끊겼는지는 이쪽에서 모른다.
+        string status;
+        float alpha = 1f;
+        if (_lastStateMs == 0)
         {
-            _collection.Text = collection;
+            status = string.Empty;
         }
+        else
+        {
+            double sinceState = (Time.GetTicksMsec() - _lastStateMs) / 1000.0;
+            double sinceTyped = (Time.GetTicksMsec() - _lastTypedMs) / 1000.0;
+            if (sinceState >= StaleSec)
+            {
+                status = "연결 확인 중…";
+                alpha = 0.5f;
+            }
+            else if (sinceTyped >= IdleSec)
+            {
+                status = $"쉬는 중 · {(int)(sinceTyped / 60)}분";
+                alpha = 0.8f;
+            }
+            else
+            {
+                status = $"도감 {_collectionPercent}%";
+            }
+        }
+
+        if (_collection.Text != status)
+        {
+            _collection.Text = status;
+        }
+
+        Modulate = new Color(1f, 1f, 1f, alpha);
+    }
+
+    /// <summary>
+    /// 친구가 바나나를 땄다 (B11, §4-2 "친구가 방금 바나나를 땄다"). 친구 나무에서 바나나가
+    /// 떨어지고 "+N 바나나" 가 떠오른다. 친구 창 안의 일이라 메인 창을 가리지 않는다.
+    /// </summary>
+    private void DropBananas(int count)
+    {
+        PackedScene scene = GD.Load<PackedScene>(BananaScene);
+        for (int i = 0; i < count; i++)
+        {
+            var banana = scene.Instantiate<FallingBanana>();
+            banana.Position = TreeAt + new Vector2(_rng.RandfRange(-20f, 20f), -20f - i * 6f);
+            banana.Scale = Vector2.One * MiniScale;
+            AddChild(banana);
+            banana.Drop(GroundY);
+        }
+
+        var pop = new Label
+        {
+            Text = $"+{count} 바나나",
+            // 창 모양(GetShape) 안에서만 그려진다 - 칸 맨 위는 나무 윗부분보다 높아서 잘린다.
+            // 그래서 나무 잎 한가운데에서 떠오른다.
+            Position = new Vector2(0, 48),
+            Size = new Vector2(CellWidth, 18),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        pop.AddThemeFontSizeOverride("font_size", 13);
+        pop.AddThemeColorOverride("font_color", new Color(0.98f, 0.82f, 0.30f));
+        pop.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.8f));
+        pop.AddThemeConstantOverride("outline_size", 4);
+        AddChild(pop);
+
+        Tween tween = pop.CreateTween();
+        tween.TweenProperty(pop, "position:y", 30f, 0.9).SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+        tween.Parallel().TweenProperty(pop, "modulate:a", 0f, 0.9).SetDelay(0.3);
+        tween.TweenCallback(Callable.From(pop.QueueFree));
     }
 
     /// <summary>
