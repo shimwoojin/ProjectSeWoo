@@ -46,22 +46,20 @@ public interface IAchievements
 }
 
 /// <summary>
-/// 도전과제 API Name 목록.
+/// 도전과제 API Name 목록. <b>스팀 파트너 사이트 등록본과 한 글자도 다르면 안 된다</b>
+/// (A15, 2026-09-24 확정 — 등록 내용은 docs/A15-ACHIEVEMENTS.md).
 ///
-/// **아직 스팀 파트너 사이트에 등록되지 않았다 (A15 일감).** 여기 있는 것은 기획서가
-/// 이미 확정한 두 축(§3-3 도감 100%, §6 누적 타수 마일스톤)을 코드에서 부를 수 있게
-/// 이름만 먼저 박아둔 것이다. 문자열을 을 쪽에 직접 쓰게 두면 A15 에서 이름을 고칠 때
-/// game/ 을 뒤져야 하므로 여기 한 곳에 모은다 — <see cref="SceneGroups"/> 와 같은 이유다.
-///
-/// **마일스톤 수치는 잠정이다.** §6 은 "로그 스케일 레벨 환산" 만 확정했고 구체적인
-/// 도전과제 구간은 정하지 않았다. 10배씩 세 칸은 B3(레벨 곡선)와 W2 밸런스 튜닝 뒤에
-/// 다시 본다. 이름에 숫자가 들어 있으므로 **수치를 바꾸면 API Name 도 같이 바뀐다** —
-/// 스팀에 등록한 뒤에는 이름을 못 바꾸니 A15 전에 확정해야 한다.
+/// 문자열을 을 쪽에 직접 쓰게 두면 이름을 고칠 때 game/ 을 뒤져야 하므로 여기 한 곳에
+/// 모은다 — <see cref="SceneGroups"/> 와 같은 이유다. 스팀에 등록한 뒤에는 API Name 을
+/// 바꾸지 않는다(유저가 이미 딴 기록이 그 이름에 붙어 있다). 새 과제는 추가만 한다.
 /// </summary>
 public static class AchievementIds
 {
     /// <summary>도감 수집률 100% (§3-3). 기획서가 유일하게 명시한 도전과제다.</summary>
     public const string Collection100 = "ACH_COLLECTION_100";
+
+    /// <summary>누적 1천 타 (§6). 첫 세션 안에 따는 입문 과제.</summary>
+    public const string Keystrokes1K = "ACH_KEYSTROKES_1K";
 
     /// <summary>누적 1만 타 (§6).</summary>
     public const string Keystrokes10K = "ACH_KEYSTROKES_10K";
@@ -72,14 +70,37 @@ public static class AchievementIds
     /// <summary>누적 100만 타 (§6).</summary>
     public const string Keystrokes1M = "ACH_KEYSTROKES_1M";
 
+    /// <summary>상점에서 장식을 처음 샀다 (보유 장식이 기본 지급품 말고 하나라도 생겼다).</summary>
+    public const string FirstPurchase = "ACH_FIRST_PURCHASE";
+
+    /// <summary>매달림 슬롯의 장식을 전부 모았다.</summary>
+    public const string SlotCompleteHang = "ACH_SLOT_HANG";
+
+    /// <summary>잔상 슬롯의 장식을 전부 모았다.</summary>
+    public const string SlotCompleteTrail = "ACH_SLOT_TRAIL";
+
+    /// <summary>바닥 슬롯의 장식을 전부 모았다.</summary>
+    public const string SlotCompleteBase = "ACH_SLOT_BASE";
+
+    /// <summary>멀티 룸에 처음 들어갔다 (만들거나 참가). 실물 스팀 로비(A9) 전에는 해금되지 않는다.</summary>
+    public const string RoomFirstJoin = "ACH_ROOM_FIRST_JOIN";
+
     /// <summary>
     /// 누적 타수 마일스톤을 작은 것부터. <see cref="IAchievements.IndicateProgress"/> 의
     /// 구간 계산과 해금 판정을 을이 표로 돌릴 수 있게 열어둔다.
     /// </summary>
     public static readonly (string Id, int Threshold)[] KeystrokeMilestones =
     {
+        (Keystrokes1K, 1_000),
         (Keystrokes10K, 10_000),
         (Keystrokes100K, 100_000),
         (Keystrokes1M, 1_000_000),
+    };
+
+    /// <summary>등록해야 하는 전부. 자체 검사(--steam-selftest)가 이 목록을 본다.</summary>
+    public static readonly string[] All =
+    {
+        Collection100, Keystrokes1K, Keystrokes10K, Keystrokes100K, Keystrokes1M,
+        FirstPurchase, SlotCompleteHang, SlotCompleteTrail, SlotCompleteBase, RoomFirstJoin,
     };
 }

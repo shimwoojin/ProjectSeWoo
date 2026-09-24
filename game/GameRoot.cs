@@ -100,6 +100,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private const double ResyncRetrySec = 30.0;
 
     private bool _loaded;
+
+    /// <summary>
+    /// 스팀 통계가 준비된 뒤 "이미 달성한 조건" 을 한 번 훑었는가 (A15, <see cref="SyncAchievements"/>).
+    /// 보유 목록이 늦게 오면 다시 훑는다.
+    /// </summary>
+    private bool _achievementsSynced;
     private string _shownNotice;
     private bool _syncing;
     private double _sinceSync;
@@ -171,7 +177,23 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _store = platform.Save;
         _platform.Input.OnKeystrokes += OnKeystrokes;
         _platform.Economy.OnStateChanged += OnEconomyStateChanged;
+
+        // 목 경제는 가격표를 받아야 판다. 실물은 서버가 자기 사본(server/src/catalog.ts)으로
+        // 판정하지만 목에는 표가 없어서, 9/23 리와이어 뒤로 **디버그 상점 구매가 전부
+        // ItemUnknown 으로 실패하고 있었다**(2026-09-24 A15 시험 중 발견). 원본인
+        // ShopCatalog 를 그대로 넣는다.
+        if (_platform.Economy is MockEconomyService mockEconomy)
+        {
+            foreach (ShopCatalog.Item item in ShopCatalog.All)
+            {
+                if (!item.IsStarter)
+                {
+                    mockEconomy.RegisterItemPrice(item.Id, item.Price);
+                }
+            }
+        }
         _room = new RoomController(_platform.Net, _roomWindow, _hud);
+        _platform.Net.OnRoomChanged += OnRoomChangedForAchievement;
 
         LoadGameStateAsync();
     }
@@ -232,6 +254,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     {
         _inventory.ApplyEquippedToCursor();
         _collectionDone = _inventory.IsComplete;
+        _achievementsSynced = false;
         RefreshCollectionHud();
         PersistNow();
         GD.Print($"[game] 보유 목록 늦게 도착 - 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
@@ -272,6 +295,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private void TickResync(double delta)
     {
+        if (_loaded && !_achievementsSynced && _platform.Achievements.IsAvailable)
+        {
+            SyncAchievements();
+        }
+
         if (!_loaded || _syncing)
         {
             return;
@@ -774,6 +802,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {_platform.Economy.Balance}");
 
+        if (TrustEconomyForAchievements)
+        {
+            TryUnlock(AchievementIds.FirstPurchase, "첫 구매");
+        }
+
         RefreshCollectionHud();
         _shop.Refresh();
         CheckCollection();
@@ -857,6 +890,114 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _hud.SetCollection(_inventory.OwnedCount, ShopCatalog.All.Length);
 
     /// <summary>
+    /// 재화·소유에서 나온 도전과제(구매·슬롯 완성·도감)를 진짜로 해금해도 되는가 (A15).
+    ///
+    /// <b>디버그 빌드는 목 경제로 돌면서도 스팀이 켜져 있으면 도전과제만 진짜로 간다</b>
+    /// (<c>OverlayShell</c> 이 <c>SteamService</c> 를 꽂는다). 그대로 두면 목 바나나로 산
+    /// 장식이 개발 계정의 도감 100% 를 실제로 해금한다 - 되돌릴 수 없다. 디버그 지급
+    /// (<see cref="_cheated"/>)과 같은 이유로 막는다. 도전과제 쪽도 목이면(단독 실행 시험)
+    /// 막을 이유가 없어 허용한다. 누적 타수는 실제 입력이라 이 규칙 밖이다.
+    /// </summary>
+    private bool TrustEconomyForAchievements =>
+        !_cheated && (_platform.Achievements is MockAchievements || _platform.Economy is not MockEconomyService);
+
+    /// <summary>룸 참가 도전과제를 해금해도 되는가. 목 멀티의 가짜 룸은 안 된다 - 위와 같은 이유.</summary>
+    private bool TrustNetForAchievements =>
+        _platform.Achievements is MockAchievements || _platform.Net is not MockNetSession;
+
+    /// <summary>
+    /// 아직 안 딴 것만 해금한다. 스팀이 없으면 아무것도 안 한다 - 그때 놓친 것은
+    /// <see cref="SyncAchievements"/> 가 스팀이 붙은 뒤 주워 담는다.
+    /// </summary>
+    private void TryUnlock(string id, string why)
+    {
+        if (!_platform.Achievements.IsAvailable || _platform.Achievements.IsUnlocked(id))
+        {
+            return;
+        }
+
+        _platform.Achievements.Unlock(id);
+        GD.Print($"[game] 도전과제 해금 {id} ({why})");
+    }
+
+    /// <summary>슬롯 하나의 장식을 전부 가졌으면 그 슬롯의 도전과제를 해금한다.</summary>
+    private void UnlockCompletedSlots()
+    {
+        foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
+        {
+            if (_inventory.OwnedInSlot(slot) < ShopCatalog.CountInSlot(slot))
+            {
+                continue;
+            }
+
+            string id = slot switch
+            {
+                CursorSlot.Hang => AchievementIds.SlotCompleteHang,
+                CursorSlot.Trail => AchievementIds.SlotCompleteTrail,
+                CursorSlot.Base => AchievementIds.SlotCompleteBase,
+                _ => null,
+            };
+
+            if (id != null)
+            {
+                TryUnlock(id, $"{ShopCatalog.SlotName(slot)} 슬롯 완성");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 이미 달성한 조건을 훑어서 아직 안 풀린 도전과제를 해금한다 (A15).
+    ///
+    /// <b>해금은 조건을 넘는 순간 한 번만 부른다.</b> 그 순간 스팀이 없으면(자동 시작이
+    /// 스팀보다 먼저 뜬 경우 등) <c>Unlock</c> 이 조용히 버려지고, 다음 실행부터는 "이미
+    /// 지난 마일스톤" 으로 건너뛰어서 <b>그 도전과제는 영영 안 풀렸다.</b> 그래서 스팀
+    /// 통계가 처음 준비됐을 때 한 번 훑는다. <see cref="TryUnlock"/> 이 이미 딴 것은
+    /// 건너뛰므로 스팀에 중복 호출이 가지 않는다.
+    /// </summary>
+    private void SyncAchievements()
+    {
+        _achievementsSynced = true;
+
+        foreach ((string id, int threshold) in AchievementIds.KeystrokeMilestones)
+        {
+            if (Save.TotalKeystrokes >= threshold)
+            {
+                TryUnlock(id, $"누적 {threshold:N0}타 - 놓친 것 회수");
+            }
+        }
+
+        // 보유 목록을 아직 못 받았으면 소유 기반 과제는 판단하지 않는다 - 빈 목록을
+        // "아무것도 없다" 로 읽으면 안 된다(IInventoryService.IsLoaded). 목록이 오면
+        // OnInventoryLoadedLate 가 다시 훑게 한다.
+        if (_inventory == null || !_platform.Inventory.IsLoaded || !TrustEconomyForAchievements)
+        {
+            return;
+        }
+
+        if (_inventory.OwnedCount > 1)
+        {
+            // 기본 지급품(1개) 말고 하나라도 있으면 산 적이 있는 것이다.
+            TryUnlock(AchievementIds.FirstPurchase, "보유 장식 있음 - 놓친 것 회수");
+        }
+
+        UnlockCompletedSlots();
+
+        if (_inventory.IsComplete)
+        {
+            TryUnlock(AchievementIds.Collection100, "도감 100% - 놓친 것 회수");
+        }
+    }
+
+    /// <summary>룸에 들어갔으면(만들었거나 참가했거나) 첫 참가 도전과제를 해금한다.</summary>
+    private void OnRoomChangedForAchievement()
+    {
+        if (_platform.Net.Current != null && TrustNetForAchievements)
+        {
+            TryUnlock(AchievementIds.RoomFirstJoin, "멀티 룸 첫 참가");
+        }
+    }
+
+    /// <summary>
     /// 도감 100% 도전과제 (§3-3). <b>기획서가 유일하게 명시한 도전과제다.</b>
     ///
     /// 해금 조건을 아는 것은 게임 레이어이고 스팀에 쓰는 것은 플랫폼이다 -
@@ -873,11 +1014,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             return;
         }
 
-        if (_cheated)
+        if (!TrustEconomyForAchievements)
         {
-            // 디버그로 받은 것이라 진행도조차 올리지 않는다 - 스팀 통계에 남는다.
+            // 디버그로 받았거나 목 경제로 산 것이라 진행도조차 올리지 않는다 - 스팀 통계에 남는다.
             return;
         }
+
+        UnlockCompletedSlots();
 
         int owned = _inventory.OwnedCount;
         int total = ShopCatalog.All.Length;

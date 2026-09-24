@@ -112,15 +112,21 @@ public partial class OverlayShell
         GD.Print($"persona     : {_steam?.PersonaName}");
         GD.Print($"elapsed     : {_steamSelftestElapsed:F1}s");
 
-        // 도전과제 스텁 배선 확인. **읽기만 한다** - Unlock 을 여기서 부르면 나중에
-        // 진짜 앱 ID 로 이 검사를 돌렸을 때 실제 도전과제가 해금돼 버린다.
-        // appid=480 에서는 우리 이름이 등록돼 있지 않으므로 전부 false 가 정상이다.
-        GD.Print($"ach ids     : {AchievementIds.KeystrokeMilestones.Length + 1}개 정의됨");
-        GD.Print($"  {AchievementIds.Collection100} = {_steam?.IsUnlocked(AchievementIds.Collection100)}");
-        foreach ((string id, int threshold) in AchievementIds.KeystrokeMilestones)
+        // 도전과제 배선 확인. **읽기만 한다** - Unlock 을 여기서 부르면 진짜 앱 ID 로
+        // 이 검사를 돌렸을 때 실제 도전과제가 해금돼 버린다.
+        // A15: 파트너 사이트에 입력한 이름이 코드와 한 글자라도 다르면 "미등록" 으로 나온다.
+        // 통계를 아직 못 받았으면(스키마가 없거나 게시 전) 전부 "?" 다.
+        int registered = 0;
+        GD.Print($"ach ids     : {AchievementIds.All.Length}개 정의됨");
+        foreach (string id in AchievementIds.All)
         {
-            GD.Print($"  {id} ({threshold:N0}타) = {_steam?.IsUnlocked(id)}");
+            bool? reg = _steam?.IsRegistered(id);
+            registered += reg == true ? 1 : 0;
+            string state = reg switch { true => "등록됨", false => "**미등록**", null => "?" };
+            GD.Print($"  {id,-22} {state}  해금={_steam?.IsUnlocked(id)}");
         }
+
+        GD.Print($"ach 등록    : {registered}/{AchievementIds.All.Length}");
 
         _steamSelftest = false;
         GetTree().Quit(_steam?.IsInitialized == true ? 0 : 1);

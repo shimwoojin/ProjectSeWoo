@@ -16,7 +16,7 @@
 | 네이티브 `steam_api64.dll` | 저장소 루트 | ☑ 커밋 (SDK 1.60) |
 | 자체 검사 | `--steam-selftest` | ☑ PASS (§4) |
 | 진짜 앱 ID | `SteamService.DefaultAppId` | ☑ **`5281130`** (2026-09-16 수수료 결제 후 발급, §2-2) |
-| 도전과제 실제 등록 | — | ⬜ A15 |
+| 도전과제 실제 등록 | — | ◐ A15 — 목록·코드 확정(10개), 파트너 사이트 입력은 사람이 ([A15-ACHIEVEMENTS.md](A15-ACHIEVEMENTS.md)) |
 | 내보낸 빌드에 dll 복사 | — | ⬜ A12 (§6) |
 
 ---

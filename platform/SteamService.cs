@@ -162,6 +162,21 @@ public sealed class SteamService : IAchievements, IDisposable
     }
 
     /// <summary><see cref="IAchievements.IsUnlocked"/>.</summary>
+    /// <summary>
+    /// 이 이름이 파트너 사이트의 도전과제 스키마에 있는가 (A15 자체 검사용).
+    /// <c>GetAchievement</c> 는 모르는 이름이면 호출 자체가 false 다 - 해금 여부와 별개다.
+    /// 통계를 받기 전(<see cref="IsAvailable"/> false)에는 판단할 수 없어 null.
+    /// </summary>
+    public bool? IsRegistered(string id)
+    {
+        if (!IsAvailable || string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        return SteamUserStats.GetAchievement(id, out _);
+    }
+
     public bool IsUnlocked(string id)
     {
         if (!IsAvailable || string.IsNullOrEmpty(id))

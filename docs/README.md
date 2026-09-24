@@ -59,6 +59,7 @@ PunchMonkey (저장소·어셈블리 이름은 `ProjectSeWoo`) 문서 목록과 
 | A7 저부하 | [A7-PERF.md](A7-PERF.md) | **메모리 기준을 `PrivWS` < 300MB 로 재설정 → 실측 239MB, 확정 Go** |
 | A8 스팀 | [A8-STEAM.md](A8-STEAM.md) | GodotSteam 대신 Steamworks.NET. 앱 ID `5281130` |
 | A12 빌드·배포 | [A12-BUILD.md](A12-BUILD.md) | **Godot 익스포트만으로는 돌아가는 빌드가 안 나온다.** 파이프라인 + Depot 업로드 |
+| A15 도전과제 | [A15-ACHIEVEMENTS.md](A15-ACHIEVEMENTS.md) | 10개 목록(파트너 사이트 입력본) + 해금 조건 + 놓친 해금 회수 + 목 결과로는 진짜 과제를 안 푼다 |
 | 스팀 설정 (C1·C2 연결) | [STEAM-CONFIG.md](STEAM-CONFIG.md) | **빌드를 올리는 것과 실행되게 하는 것은 다른 일이다.** 앱 페이지 · 스토어 페이지 설정값과 근거 |
 
 ---
