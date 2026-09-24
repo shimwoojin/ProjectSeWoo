@@ -11,7 +11,7 @@
 | 코드 (`AchievementIds`, 해금 조건) | ☑ 목(`MockAchievements`)으로 끝까지 시험 — §3 |
 | 파트너 사이트 등록 | ☐ **사람이 한다** — §2 |
 | 등록 확인 | ☐ 등록·게시 뒤 `--steam-selftest` 가 `ach 등록 : 10/10` 이어야 한다 — §4 |
-| 아이콘 | ☐ 달성·미달성 각 10장 |
+| 아이콘 | ☑ 달성·미달성 각 10장 — `assets/_store/achievements/` (§6) |
 | 진행도 통계(커뮤니티 진행 막대) | ☐ 안 한다(선택). §5 |
 
 ## 1. 목록
@@ -45,8 +45,8 @@
 2. 과제마다 **New Achievement** → API Name / Display Name / Description 입력,
    Hidden 끔, Set By = Client
 3. 한국어는 같은 화면의 언어 선택(또는 Localization)에서 Display Name·Description 을 넣는다
-4. 아이콘은 달성·미달성 각각 올린다 (규격은 업로드 화면에서 확인 — 공식 문서 페이지에
-   수치가 없었다)
+4. 아이콘은 달성 `<API_NAME>.png` / 미달성 `<API_NAME>_locked.png` 를 올린다. JPG 만 받으면
+   같은 이름의 `.jpg` 를 쓴다 (규격은 업로드 화면에서 확인 — 공식 문서 페이지에 수치가 없었다)
 5. **게시(Publish)를 눌러야 반영된다.** 스팀 인벤토리 아이템 정의 때 "게시"와 "서비스
    활성화"를 따로 눌러야 했던 것과 같은 함정을 조심한다 (ECONOMY-SERVER.md §10)
 
@@ -110,3 +110,29 @@ Godot_v4.7.2-stable_mono_win64_console.exe --headless --path . -- --steam-selfte
 진행도 토스트(`IndicateAchievementProgress`)는 통계 없이도 뜬다. 막대까지 원하면
 `STAT_KEYSTROKES` 같은 통계를 등록하고 코드에서 `SetStat` + 주기적 `StoreStats` 를 붙여야 한다
 — 출시 필수는 아니라 보류.
+
+## 6. 아이콘
+
+`tools/make-achievement-icons.py` 가 게임 스프라이트로 만든다(손으로 그리지 않는다 — B8 과
+같은 이유). 256×256, 과제마다 달성·미달성 × PNG·JPG 네 장, 모두 40장.
+
+```
+"C:\Tools\ComfyUI\.venv\Scripts\python.exe" tools\make-achievement-icons.py
+```
+
+시스템 파이썬에는 PIL 이 없어서 에셋 파이프라인과 같은 ComfyUI venv 로 돌린다. 출력 폴더
+`assets/_store/achievements/` 는 `.gdignore` 라 Godot 이 임포트하지 않는다 — 게임이 아니라
+스팀에 올리는 소재다(C1 스토어 소재도 `assets/_store/` 에 모으면 된다).
+
+| 과제 | 그림 | 배경 / 테두리 |
+|---|---|---|
+| 누적 타수 4개 | 펀치하는 원숭이 + 숫자 배지 | 테두리가 단계를 가른다 — 1K 동 · 10K 은 · 100K 금 · 1M 다이아 |
+| 첫 구매 | 노랑 원숭이(첫 티어 장식) + 바나나 | 초록 |
+| 매달림 / 잔상 / 바닥 수집가 | 각 슬롯의 최고 티어 장식 | 보라 / 청록 / 갈색 |
+| 도감 완성 | 바나나가 가득한 나무 + `16/16` | 금, 굵은 테두리 |
+| 같이 치자 | 원숭이 둘 | 파랑 |
+
+미달성은 흑백 + 밝기 55% + 대비 80% — 모양은 남겨서 무엇을 해야 하는지 짐작하게 한다.
+64px 로 줄여서도 테두리 색·배지·그림이 구분되는 것을 확인했다(스팀이 작게 보여 주는 곳이 많다).
+업로드 화면 규격이 다르면 스크립트의 `SIZE` 만 바꿔 다시 뽑는다.
+
