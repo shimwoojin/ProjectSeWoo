@@ -50,6 +50,9 @@ cp .dev.vars.example .dev.vars
 
 ```bash
 npm run dev       # http://localhost:8787 — .dev.vars 를 읽는다
+                  # predev 가 db:migrate:local 을 먼저 돌린다 (schema.sql 이 전부
+                  # IF NOT EXISTS 라 매번 돌려도 안전)
+                  # 게임은 VS 의 "Godot 게임 - 로컬 서버" 프로필로 붙인다
 npm run typecheck # tsc --noEmit
 
 # 배포 전에 원격 시크릿을 넣어야 한다 (.dev.vars 는 로컬 전용):

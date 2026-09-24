@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "PunchMonkey 서버 권위 경제 백엔드 (docs/ECONOMY-SERVER-API.md). Cloudflare Workers + D1.",
   "scripts": {
+    "predev": "npm run db:migrate:local",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
