@@ -18,22 +18,33 @@ namespace ProjectSeWoo.Game;
 /// 선으로 보인다. 글자 폭에 맞춰 84px 로 고정하고 왼쪽에 붙인다 (실제로 띄워
 /// 보고서야 드러난 것이다).
 ///
-/// B2 가 <see cref="PopBananas"/> 를 붙였다. 남은 것은 자릿수가 바뀔 때의 강조와
-/// 레벨업 연출이다 (§2-3).
+/// <b>바 옆에 "이 레벨 안에서 친 타수 / 이 레벨에 필요한 타수"를 적는다.</b> 레벨
+/// 한 칸이 1.35배씩 무거워져서(<see cref="KeystrokeLevel"/>) 바만으로는 "얼마나
+/// 남았나"가 안 읽힌다. 누적 기준(1,167 / 1,390)이 아니라 구간 기준(163 / 386)인
+/// 것은 목표가 한눈에 들어오게 하려는 것이다 - 누적은 바로 아래 줄에 따로 있다.
+///
+/// B2 가 <see cref="PopBananas"/> 를 붙였다. 레벨업 순간엔 레벨 글자가 튄다
+/// (<see cref="PopLevel"/>). 남은 것은 자릿수가 바뀔 때의 강조다 (§2-3).
 /// </summary>
 public partial class StatusHud : VBoxContainer
 {
     private Label _level;
     private ProgressBar _levelBar;
+    private Label _levelCount;
     private Label _keystrokes;
     private Label _bananas;
     private Label _collection;
     private Tween _bananaPop;
+    private Tween _levelPop;
+
+    /// <summary>지난 <see cref="SetKeystrokes"/> 의 레벨. 0 = 아직 안 그림 (로드 때는 튀지 않는다).</summary>
+    private int _shownLevel;
 
     public override void _Ready()
     {
         _level = GetNode<Label>("Level");
-        _levelBar = GetNode<ProgressBar>("LevelBar");
+        _levelBar = GetNode<ProgressBar>("LevelRow/LevelBar");
+        _levelCount = GetNode<Label>("LevelRow/LevelCount");
         _keystrokes = GetNode<Label>("Keystrokes");
         _bananas = GetNode<Label>("Bananas");
         _collection = GetNode<Label>("Collection");
@@ -79,8 +90,42 @@ public partial class StatusHud : VBoxContainer
     /// </summary>
     public void SetKeystrokes(long total)
     {
-        _level.Text = $"Lv.{KeystrokeLevel.LevelFor(total)}";
+        int level = KeystrokeLevel.LevelFor(total);
+        long from = KeystrokeLevel.ThresholdFor(level);
+        long to = KeystrokeLevel.ThresholdFor(level + 1);
+
+        _level.Text = $"Lv.{level}";
         _levelBar.Value = KeystrokeLevel.ProgressInLevel(total) * 100.0;
+        _levelCount.Text = $"{total - from:N0} / {to - from:N0}";
         _keystrokes.Text = $"{total:N0}타";
+
+        if (_shownLevel > 0 && level > _shownLevel)
+        {
+            PopLevel();
+        }
+
+        _shownLevel = level;
+    }
+
+    /// <summary>레벨이 오른 순간 레벨 글자를 한 번 크게 튕기고 잠깐 노랗게 빛낸다 (§2-3 레벨업 연출).</summary>
+    private void PopLevel()
+    {
+        _levelPop?.Kill();
+        // 라벨은 VBox 폭만큼 늘어나 있고 글자는 왼쪽에 붙어 있다 - 가운데 피벗이면
+        // 글자가 왼쪽으로 밀려난다.
+        _level.PivotOffset = new Vector2(0f, _level.Size.Y / 2f);
+        _level.Scale = Vector2.One;
+        _level.Modulate = Colors.White;
+
+        _levelPop = CreateTween();
+        _levelPop.TweenProperty(_level, "scale", Vector2.One * 1.35f, 0.1)
+            .SetTrans(Tween.TransitionType.Back)
+            .SetEase(Tween.EaseType.Out);
+        _levelPop.Parallel()
+            .TweenProperty(_level, "modulate", new Color(1f, 0.85f, 0.3f), 0.1);
+        _levelPop.TweenProperty(_level, "scale", Vector2.One, 0.25)
+            .SetTrans(Tween.TransitionType.Quad);
+        _levelPop.Parallel()
+            .TweenProperty(_level, "modulate", Colors.White, 0.6);
     }
 }
