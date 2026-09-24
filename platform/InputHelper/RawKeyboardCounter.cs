@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ProjectSeWoo.InputHelper;
@@ -19,6 +20,12 @@ namespace ProjectSeWoo.InputHelper;
 /// 휠은 빼는데, 한 번 굴릴 때 이벤트가 여러 번 터져서 횟수가 부풀기 때문이다.
 /// 마우스를 넣어도 개인정보 수준은 그대로다 - <see cref="HandleRawInput"/> 의
 /// 설명 참고.
+///
+/// <b>2026-09-24: 키보드는 뗄 때 센다.</b> 누를 때 세면 키를 꾹 누르고 있는
+/// 동안 OS 자동 반복이 "누름" 을 33ms 마다 계속 보내서 초당 캡(10)까지 타수가
+/// 올랐다. 자동 반복은 누름만 되풀이하고 뗌은 손을 뗄 때 한 번뿐이라, 뗌에서
+/// 세면 얼마나 오래 누르든 1타다. 키 코드는 여전히 안 읽는다 - 원래 읽던
+/// 플래그 하나를 반대로 볼 뿐이다.
 /// </summary>
 internal sealed class RawKeyboardCounter : IDisposable
 {
@@ -40,7 +47,7 @@ internal sealed class RawKeyboardCounter : IDisposable
     private const uint RimTypeMouse = 0;
     private const uint RimTypeKeyboard = 1;
 
-    /// <summary>키를 <b>뗄 때</b> 켜지는 플래그. 이게 있으면 세지 않는다.</summary>
+    /// <summary>키를 <b>뗄 때</b> 켜지는 플래그. <b>이게 있을 때만 센다</b> (자동 반복은 이 플래그 없이 누름만 되풀이한다).</summary>
     private const ushort RiKeyBreak = 0x01;
 
     /// <summary>
@@ -200,9 +207,6 @@ internal sealed class RawKeyboardCounter : IDisposable
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandleW(string name);
 
-    [DllImport("kernel32.dll")]
-    private static extern long GetTickCount64();
-
     // --- 상태 -------------------------------------------------------------
 
     private IntPtr _hwnd;
@@ -210,7 +214,15 @@ internal sealed class RawKeyboardCounter : IDisposable
     private WndProcDelegate _wndProc;
     private Func<bool> _onTick;
 
-    private long _lastSecondStamp;
+    /// <summary>
+    /// 간격 측정용 고해상도 시계. <c>GetTickCount64</c> 는 약 15.6ms 단위로만
+    /// 올라서, 33ms·100ms 같은 고정 주기가 31/47ms, 94/109ms 로 들쭉날쭉하게
+    /// 재어졌고 규칙성 판정(허용 12%)을 번번이 빠져나갔다 (2026-09-24 실측:
+    /// 100ms 매크로 30타 중 23타 통과).
+    /// </summary>
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
+
+    private double _lastSecondStamp;
     private int _thisSecond;
 
     /// <summary>
@@ -297,7 +309,7 @@ internal sealed class RawKeyboardCounter : IDisposable
             return false;
         }
 
-        _lastSecondStamp = GetTickCount64();
+        _lastSecondStamp = _clock.Elapsed.TotalMilliseconds;
         Status = "RawInput INPUTSINK";
         return true;
     }
@@ -447,7 +459,7 @@ internal sealed class RawKeyboardCounter : IDisposable
     ///
     /// 버퍼에서 읽는 값은 딱 셋이다:
     ///   - offset 0  : 키보드인가 마우스인가 (그 외 HID 를 걸러내려고)
-    ///   - offset 26 : (키보드) 누른 것인가 뗀 것인가 — 안 그러면 한 타가 두 번 세진다
+    ///   - offset 26 : (키보드) 누른 것인가 뗀 것인가 — 뗀 것만 센다 (자동 반복 차단)
     ///   - offset 28 : (마우스) 버튼이 눌렸는가 — 뗌·휠을 걸러내려고
     ///
     /// 스캔 코드(24)·가상 키 코드(30)·마우스 좌표(36/40)·휠 회전량(30)은 어느
@@ -478,9 +490,12 @@ internal sealed class RawKeyboardCounter : IDisposable
             }
 
             ushort flags = (ushort)Marshal.ReadInt16(_buffer, FlagsOffset);
-            if ((flags & RiKeyBreak) != 0)
+            if ((flags & RiKeyBreak) == 0)
             {
-                // 키를 뗀 것이다. 누른 것만 센다.
+                // 누름이다. 뗌만 센다 - 꾹 누르고 있으면 OS 자동 반복이 누름을
+                // 계속 보내는데, 뗌은 손을 뗄 때 한 번뿐이다. 키 코드 없이 "같은
+                // 키의 반복" 을 가릴 방법이 이것뿐이다 (Shift 를 누른 채 치는
+                // 대문자와 섞여도 갈린다).
                 return;
             }
 
@@ -518,13 +533,16 @@ internal sealed class RawKeyboardCounter : IDisposable
     /// 타이밍 기준이 오히려 더 넓게 막는다. 사람의 타건 간격은 들쭉날쭉하고
     /// 매크로·키 홀드 자동 반복은 메트로놈처럼 규칙적이다. 키 코드를 안 봐도
     /// 갈리고, <b>서로 다른 키를 번갈아 누르는 매크로까지 잡힌다</b> —
-    /// 원래 규칙으로는 못 잡던 것이다. 자동 반복(키 홀드)도 고정 주기라 같은
-    /// 장치에 걸린다. <b>오토클리커도 같은 장치에 그대로 걸린다</b> - 마우스가
-    /// 자기 <see cref="Rhythm"/> 을 따로 들고 가는 이유다.
+    /// 원래 규칙으로는 못 잡던 것이다. <b>오토클리커도 같은 장치에 그대로
+    /// 걸린다</b> - 마우스가 자기 <see cref="Rhythm"/> 을 따로 들고 가는 이유다.
+    ///
+    /// <b>키 홀드 자동 반복은 여기가 아니라 <see cref="HandleRawInput"/> 에서
+    /// 막는다</b> (뗌에서 센다, 2026-09-24). 원래 이 장치에 걸린다고 적혀
+    /// 있었지만 실제로는 타이머 해상도 때문에 걸리지 않았다.
     /// </summary>
     private void Count(ref Rhythm rhythm, bool mouse)
     {
-        long now = GetTickCount64();
+        double now = _clock.Elapsed.TotalMilliseconds;
 
         if (now - _lastSecondStamp >= 1_000)
         {
@@ -543,8 +561,11 @@ internal sealed class RawKeyboardCounter : IDisposable
         else if (double.IsInfinity(gap) || gap > IdleResetMs)
         {
             // 첫 입력이거나 한참 쉬었다. 규칙성 판정을 새로 시작한다.
+            // 평균은 비워 두고 다음 간격으로 새로 잡는다 - 쉰 시간(2초+)을 평균에
+            // 넣으면 100ms 매크로가 그 평균까지 수렴하는 15타 동안 규칙적으로 안
+            // 보여서, 쉬었다 시작할 때마다 약 20타가 공짜로 통과했다 (2026-09-24 실측).
             rhythm.Run = 0;
-            rhythm.IntervalAvg = double.IsInfinity(gap) ? 0.0 : gap;
+            rhythm.IntervalAvg = 0.0;
         }
         else
         {
