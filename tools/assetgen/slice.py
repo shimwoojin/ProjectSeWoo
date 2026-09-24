@@ -59,19 +59,46 @@ def merge_runs(cols, n):
     return cols
 
 
-def slice_strip_centroid(spec, im, mask, cols, y0, y1, dry):
+def grid_boxes(spec, mask):
+    """여러 행으로 받은 시트("rows": k)의 프레임 상자를 읽는 순서(왼→오, 위→아래)로.
+
+    행 띠를 먼저 찾고(좁은 틈부터 합쳐 k 개로), 띠마다 열 덩어리를 frames/k 개로
+    모은다. 프레임 위치를 숫자로 박지 않는다는 원칙은 한 행일 때와 같다.
+    """
+    n, rows = spec["frames"], spec["rows"]
+    if n % rows:
+        raise ValueError(f"frames {n} 이 rows {rows} 로 나눠떨어지지 않는다")
+    per_row = n // rows
+
+    bands = merge_runs(runs(mask.any(1), MIN_RUN), rows)
+    if len(bands) != rows:
+        raise ValueError(f"행 띠 {len(bands)}개 != rows {rows}")
+
+    boxes = []
+    for y0, y1 in bands:
+        cols = merge_runs(runs(mask[y0:y1 + 1].any(0), MIN_RUN), per_row)
+        if len(cols) != per_row:
+            raise ValueError(f"y={y0}..{y1} 행: 덩어리 {len(cols)}개 != {per_row}개")
+        boxes += [(x0, y0, x1, y1) for x0, x1 in cols]
+    return boxes
+
+
+def slice_strip_centroid(spec, im, mask, boxes, dry):
     """프레임마다 알파 무게중심을 칸 가운데에 맞춰 균등 그리드로 다시 깐다.
 
     원숭이처럼 "몸이 제자리에 있고 팔만 움직이는" 시트는 칸 기준 상대 위치를
     보존해야 하지만(아래 slice_strip), **타격 이펙트는 모든 프레임이 한 점(맞은 자리)
     에서 터져야 한다.** 받은 시트는 프레임 중심이 칸마다 수십 px 씩 어긋나 있어서
     그대로 쓰면 폭발이 옆으로 떨며 번진다.
+
+    <paramref>boxes</paramref> 는 프레임마다 (x0, y0, x1, y1) - 원본이 여러 행이어도
+    산출은 가로 1행이다.
     """
     n, margin = spec["frames"], spec.get("margin", 8)
     alpha = np.array(im.getchannel("A"), dtype=np.float64)
 
     frames, centers = [], []
-    for x0, x1 in cols:
+    for x0, y0, x1, y1 in boxes:
         w = alpha[y0:y1 + 1, x0:x1 + 1] * mask[y0:y1 + 1, x0:x1 + 1]
         ys, xs = np.indices(w.shape)
         total = w.sum()
@@ -122,6 +149,14 @@ def slice_strip(spec, dry):
     im, mask = load(src)
     n, margin = spec["frames"], spec.get("margin", 8)
 
+    if spec.get("rows", 1) > 1:
+        # 여러 행 시트는 이펙트처럼 무게중심 정렬하는 것만 받는다 - 행을 넘나들면
+        # "칸 기준 상대 위치"가 정의되지 않는다.
+        if spec.get("align") != "centroid":
+            raise ValueError('rows > 1 은 "align": "centroid" 와 같이만 쓴다')
+        slice_strip_centroid(spec, im, mask, grid_boxes(spec, mask), dry)
+        return
+
     ys = runs(mask.any(1), MIN_RUN)
     if not ys:
         raise ValueError("알파가 비었다")
@@ -137,7 +172,7 @@ def slice_strip(spec, dry):
         cols = [(round(i * pitch), round((i + 1) * pitch) - 1) for i in range(n)]
 
     if spec.get("align") == "centroid":
-        slice_strip_centroid(spec, im, mask, cols, y0, y1, dry)
+        slice_strip_centroid(spec, im, mask, [(x0, y0, x1, y1) for x0, x1 in cols], dry)
         return
 
     pitch = im.width / n
