@@ -16,7 +16,7 @@
 | 트레이 아이콘 + 메뉴 | `platform/TrayIcon.cs` | ☑ (아래 §3) |
 | 창 닫기 → 트레이 | `OverlayShell.OnCloseRequested` | ☑ |
 | 자동 시작 (레지스트리) | `platform/Autostart.cs` | ☑ (아래 §4) |
-| 전체화면 앱 위 자동 숨김 | `platform/FullscreenWatcher.cs` | ☑ 구현, **실제 검증은 미완료** (§5) |
+| 전체화면 앱 위 자동 숨김 | `platform/FullscreenWatcher.cs` | ☑ 구현, **실제 검증은 미완료** (§5). **2026-09-24 기본값을 끔으로 바꿨다** - 휴리스틱 오판이 "켜 놨는데 사라졌다" 가 되므로 원하는 사람만 옵션에서 켠다 |
 | ~~창 숨김이 아예 안 먹던 버그~~ | `OverlayShell.ApplyVisibility` | ☑ 고침 (2026-09-16, §6-1) |
 | 세이브 스키마 v3 (`cursorIndependent`) | `shared/Save/SaveData.cs`, `SaveSchema.cs` | ☑ (§6-2) |
 

@@ -60,6 +60,7 @@ public partial class OverlayShell
 
             case Key.F4:
                 _win.AlwaysOnTop = !_win.AlwaysOnTop;
+                EnforceTaskbarMinimize();
                 break;
 
             case Key.F5:

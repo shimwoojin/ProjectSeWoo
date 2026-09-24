@@ -111,9 +111,16 @@ public sealed class SaveData
         [JsonPropertyName("cursorEnabled")]
         public bool CursorEnabled { get; set; } = true;
 
-        /// <summary>전체화면으로 실행 중인 다른 앱 위에서 셸을 자동으로 숨긴다 (§7-1).</summary>
+        /// <summary>
+        /// 전체화면으로 실행 중인 다른 앱 위에서 셸을 자동으로 숨긴다 (§7-1).
+        ///
+        /// <b>기본은 꺼짐이다 (2026-09-24).</b> 판정이 휴리스틱이라(docs/A6-TRAY-OPTIONS.md §3)
+        /// 전체화면이 아닌 창에서도 숨는 오판이 나면 "켜 놨는데 사라졌다" 가 된다. 원하는
+        /// 사람만 옵션 창에서 켠다. 꺼져 있으면 전체화면 검사 자체를 안 한다.
+        /// 필드가 이미 저장된 세이브는 그 값을 그대로 쓴다 - 기본값만 바뀐다.
+        /// </summary>
         [JsonPropertyName("hideOnFullscreen")]
-        public bool HideOnFullscreen { get; set; } = true;
+        public bool HideOnFullscreen { get; set; }
 
         /// <summary>
         /// 셸 몸통이 숨겨져도 커서 장식(§3-1)은 남긴다.

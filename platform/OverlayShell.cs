@@ -163,6 +163,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         _win.AlwaysOnTop = true;
         _win.Transparent = true;
         GetTree().Root.TransparentBg = true;
+        EnforceTaskbarMinimize();
 
         // WEEK0-GODOT-VALIDATION.md §4 "창 닫기 = 종료가 아니라 트레이로". 이 창엔
         // OS 닫기 버튼이 없지만(Borderless), Alt+F4 등으로 OS 가 요청을 보낼 수 있다.
@@ -722,6 +723,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     {
         SampleDiagnostics();
         CheckFullscreen();
+        EnforceTaskbarMinimize();
     }
 
     // ------------------------------------------------------------------ 입력
