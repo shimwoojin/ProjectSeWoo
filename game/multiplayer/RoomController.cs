@@ -101,7 +101,7 @@ public sealed class RoomController : IDisposable
         await RunBusy(async () =>
         {
             RoomHandle room = await _net.CreateRoom();
-            _window.ShowMessage($"룸을 만들었어요. 로비 코드 {room.Uid} 를 친구에게 보내 주세요");
+            _window.ShowMessage($"로비를 만들었어요. 로비 코드 {room.Uid} 를 친구에게 보내 주세요");
         });
     }
 
@@ -111,7 +111,7 @@ public sealed class RoomController : IDisposable
         {
             RoomHandle room = await _net.JoinRoom(uid);
             _window.ClearCodeInput();
-            _window.ShowMessage($"룸 {room.Uid} 에 들어왔어요");
+            _window.ShowMessage($"로비 {room.Uid} 에 들어왔어요");
         });
     }
 
@@ -126,7 +126,7 @@ public sealed class RoomController : IDisposable
     private void OnLeaveRequested()
     {
         _net.LeaveRoom();
-        _window.ShowMessage("룸에서 나왔어요. 다시 들어가면 타수가 이어져요");
+        _window.ShowMessage("로비에서 나왔어요. 다시 들어가면 타수가 이어져요");
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public sealed class RoomController : IDisposable
     {
         // 형식이 틀린 것과 없는 룸을 가르지 않는다 - 유저가 할 일(번호를 다시 확인)이 같다.
         RoomJoinError.InvalidCode or RoomJoinError.NotFound => "잘못된 로비 코드입니다",
-        RoomJoinError.Full => $"룸이 가득 찼어요 (최대 {RoomWindow.MaxMembers}명)",
+        RoomJoinError.Full => $"로비가 가득 찼어요 (최대 {RoomWindow.MaxMembers}명)",
         RoomJoinError.SteamUnavailable => "스팀이 켜져 있어야 멀티를 쓸 수 있어요",
         _ => "들어가지 못했어요. 잠시 뒤 다시 해 주세요",
     };
@@ -200,7 +200,7 @@ public sealed class RoomController : IDisposable
         {
             if (m.IsSelf)
             {
-                _hud.SetRoom($"룸 {members.Count}/{RoomWindow.MaxMembers}"
+                _hud.SetRoom($"로비 {members.Count}/{RoomWindow.MaxMembers}"
                     + $" · {RoomRanking.RankOf(members, m)}위 · {m.RoomKeystrokes:N0}타");
                 return;
             }

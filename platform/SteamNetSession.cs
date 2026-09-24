@@ -418,6 +418,11 @@ public sealed class SteamNetSession : INetSession, IDisposable
                 status = FriendStatus.InGame;
 
                 CSteamID lobby = game.m_steamIDLobby;
+                if (!lobby.IsValid() || !lobby.IsLobby())
+                {
+                    lobby = LobbyFromPresence(id);
+                }
+
                 if (lobby.IsValid() && lobby.IsLobby())
                 {
                     status = FriendStatus.InRoom;
@@ -744,6 +749,26 @@ public sealed class SteamNetSession : INetSession, IDisposable
 
     private static long ParseLong(string raw) =>
         long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value) && value > 0 ? value : 0;
+
+    /// <summary>
+    /// 친구가 들어가 있는 로비를 그 친구의 rich presence <c>connect</c> 에서 읽는다
+    /// (<see cref="Enter"/> 가 설정하는 그 값). <c>GetFriendGamePlayed</c> 의 로비 칸이
+    /// 비어 올 때의 보조 경로다 - 그게 비면 친구 목록에 [참가]가 아예 안 떴다.
+    /// 아직 못 받았으면 요청만 걸어 둔다. 창이 열려 있는 동안 5초마다 다시 읽으므로
+    /// 다음 갱신 때 잡힌다.
+    /// </summary>
+    private static CSteamID LobbyFromPresence(CSteamID friend)
+    {
+        string connect = SteamFriends.GetFriendRichPresence(friend, "connect");
+        if (string.IsNullOrEmpty(connect))
+        {
+            SteamFriends.RequestFriendRichPresence(friend);
+            return CSteamID.Nil;
+        }
+
+        ulong lobby = ParseConnectLobby(connect.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        return lobby == 0 ? CSteamID.Nil : new CSteamID(lobby);
+    }
 
     /// <summary><c>+connect_lobby &lt;id&gt;</c> 를 찾는다. 없으면 0.</summary>
     private static ulong ParseConnectLobby(string[] args)

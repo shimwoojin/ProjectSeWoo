@@ -87,7 +87,7 @@ theme_override_colors/font_color = Color(0.55, 0.85, 0.55, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
 theme_override_constants/outline_size = 4
 theme_override_font_sizes/font_size = 12
-text = "룸 1/4 · 1위 · 0타"
+text = "로비 1/4 · 1위 · 0타"
 
 [node name="Notice" type="Label" parent="."]
 visible = false

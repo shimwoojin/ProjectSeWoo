@@ -414,7 +414,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             GD.Print("[game] 디버그 키 - G 성장 앞당기기 / B 상점 / 2·3·4 슬롯 장착 순환"
                 + " / Shift+B 전 상품 지급 / Shift+R 인벤토리 초기화"
-                + " / M 멀티 룸 / Shift+M 가짜 친구 입장·타건 / Ctrl+M 가짜 친구 퇴장");
+                + " / M 멀티 로비 / Shift+M 가짜 친구 입장·타건 / Ctrl+M 가짜 친구 퇴장");
         }
     }
 
