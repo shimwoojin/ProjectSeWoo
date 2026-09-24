@@ -47,6 +47,17 @@ public partial class Tree : Node2D
     /// </summary>
     private const int ProgressSteps = 64;
 
+    /// <summary>
+    /// 다 익은 바나나 한 송이를 떨어뜨리는 데 필요한 타격 수. 모자란 타격마다
+    /// 익은 순간의 반짝임(<see cref="TreeSlot.FlashRipe"/>)을 다시 터뜨려 "맞고
+    /// 있다"는 걸 보여 준다.
+    ///
+    /// <b>클라이언트에서만 센다.</b> 서버는 슬롯이 익었는지만 보고 수확을 받는다 -
+    /// 이 값은 "언제 수확을 요청하는가"를 늦출 뿐 재화 규칙을 바꾸지 않는다.
+    /// 세이브에도 없어서 껐다 켜면 0부터 다시 센다.
+    /// </summary>
+    public const int HitsToDrop = 10;
+
     [Export] private PackedScene _slotScene;
 
     private Node2D _sway;
@@ -63,6 +74,9 @@ public partial class Tree : Node2D
     /// 예전에는 <c>Tick</c>이 매 프레임 값을 올리면서 그 경계를 직접 알았지만,
     /// 이제는 스냅샷만 받으므로 직접 기억해 둔다.</summary>
     private bool[] _wasReady = Array.Empty<bool>();
+
+    /// <summary>익은 슬롯마다 지금까지 맞은 횟수 (<see cref="HitsToDrop"/>). 안 익은 슬롯은 0.</summary>
+    private int[] _hits = Array.Empty<int>();
 
     /// <summary>
     /// 흔들기 전의 클릭 영역. 흔들리는 동안 다시 재지 않는다 - 매 프레임 값이 바뀌면
@@ -105,6 +119,11 @@ public partial class Tree : Node2D
 
             Redraw(i, t, flashOnRipe: ready && !_wasReady[i]);
             _wasReady[i] = ready;
+
+            if (!ready)
+            {
+                _hits[i] = 0;
+            }
         }
     }
 
@@ -125,6 +144,7 @@ public partial class Tree : Node2D
         _slots = new TreeSlot[count];
         _drawnStep = new int[count];
         _wasReady = new bool[count];
+        _hits = new int[count];
 
         for (int i = 0; i < count; i++)
         {
@@ -170,6 +190,35 @@ public partial class Tree : Node2D
         _body.Transform * (texturePx - _body.Texture.GetSize() / 2f) - _slotRoot.Position;
 
     public Rect2 GetBounds() => _restBounds;
+
+    /// <summary>
+    /// 익은 슬롯 <paramref name="index"/> 를 한 대 친다. <see cref="HitsToDrop"/> 번째
+    /// 타격이면 카운트를 비우고 true - 호출부가 수확을 요청하고 떨어뜨린다.
+    /// 연출은 여기서 걸지 않는다(<see cref="FlashHit"/>) - 펀치가 닿는 시점에
+    /// 맞추는 것은 호출부의 몫이다.
+    /// </summary>
+    public bool Hit(int index)
+    {
+        if (++_hits[index] < HitsToDrop)
+        {
+            return false;
+        }
+
+        _hits[index] = 0;
+        return true;
+    }
+
+    /// <summary>
+    /// 맞은 바나나의 반짝임. 타이머로 늦게 불리므로 그 사이 슬롯이 다시 지어졌을
+    /// 수 있다(<see cref="Rebuild"/>) - 범위를 벗어나면 조용히 넘긴다.
+    /// </summary>
+    public void FlashHit(int index)
+    {
+        if (index < _slots.Length && _wasReady[index])
+        {
+            _slots[index].FlashRipe();
+        }
+    }
 
     private void Redraw(int i, float t, bool flashOnRipe)
     {

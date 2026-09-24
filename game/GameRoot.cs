@@ -367,19 +367,30 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // "키 입력과 애니메이션을 1:1 고정 대응시키지 말 것"이 이 뜻이고,
         // 연출이 끊기거나 겹쳐도 수확 개수가 흔들리지 않는다.
         //
-        // **재화는 여기서 직접 더하지 않는다.** §2-2: 펀치 1회당 열린 바나나 1개.
+        // **재화는 여기서 직접 더하지 않는다.** 익은 바나나는 한 번에 떨어지지 않고
+        // <see cref="Tree.HitsToDrop"/> 번 맞아야 떨어진다 - 타건 하나가 가장 앞의
+        // 익은 송이를 한 대 치고, 마지막 타격에서만 수확을 요청한다.
         // <see cref="IEconomyService.RequestHarvest"/> 가 낙관적으로 잔액을 올리고
         // <see cref="OnEconomyStateChanged"/> 가 HUD 를 다시 그린다
         // (docs/ECONOMY-SERVER.md) - 그래서 이 메서드는 "어느 슬롯을 땄는가"만
         // 정하고 재화 계산은 서버(또는 목)에 맡긴다.
         int harvested = 0;
+        int flashIndex = -1;
         IReadOnlyList<SlotState> slots = _platform.Economy.Slots;
-        while (harvested < count)
+        for (int k = 0; k < count; k++)
         {
             int readyIndex = FindReadySlot(slots);
             if (readyIndex < 0)
             {
                 break;
+            }
+
+            if (!_tree.Hit(readyIndex))
+            {
+                // 한 배치에 여러 타가 와도 반짝임은 한 번이면 된다 - 겹쳐 걸어 봐야
+                // 앞의 트윈을 죽이고 다시 시작할 뿐이다.
+                flashIndex = readyIndex;
+                continue;
             }
 
             Vector2 fruitPosition = _tree.PositionOf(readyIndex);
@@ -390,6 +401,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             // 낙관적 갱신을 즉시 다시 읽는다 - 방금 딴 슬롯이 이번 배치의 다음
             // 반복에서 또 "열려 있다"로 잡히면 같은 슬롯이 중복 수확된다.
             slots = _platform.Economy.Slots;
+        }
+
+        if (flashIndex >= 0)
+        {
+            // 흔들림(Shake)과 같이 팔이 닿는 순간에 맞춘다.
+            GetTree().CreateTimer(contact).Timeout += () => _tree.FlashHit(flashIndex);
         }
 
         if (harvested > 0)
