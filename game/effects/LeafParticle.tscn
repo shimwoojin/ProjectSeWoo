@@ -4,7 +4,7 @@
 
 [node name="LeafParticle" type="CPUParticles2D"]
 emitting = false
-amount = 2
+amount = 1
 texture = ExtResource("1_leaf")
 lifetime = 1.4
 one_shot = true

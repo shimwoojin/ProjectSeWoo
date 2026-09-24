@@ -63,7 +63,15 @@ public partial class Tree : Node2D
     private Node2D _sway;
     private Node2D _slotRoot;
     private Sprite2D _body;
+    /// <summary>잎 묶음을 동시에 몇 개까지 띄울지 (<see cref="DropLeaves"/>). 한 묶음이 1장(LeafParticle.tscn 의 amount)이라 최대 4장.</summary>
+    private const int MaxLeafBursts = 4;
+
+    /// <summary>복제해서 쏘는 틀. 이 노드 자체는 쏘지 않는다.</summary>
     private CpuParticles2D _leaves;
+
+    /// <summary>지금 떨어지고 있는 잎 묶음 수.</summary>
+    private int _leafBursts;
+
     private Tween _shake;
 
     private TreeSlot[] _slots = Array.Empty<TreeSlot>();
@@ -163,7 +171,7 @@ public partial class Tree : Node2D
     /// </summary>
     public void Shake()
     {
-        _leaves.Restart();
+        DropLeaves();
 
         _shake?.Kill();
         _sway.Rotation = 0f;
@@ -171,6 +179,35 @@ public partial class Tree : Node2D
         _shake.TweenProperty(_sway, "rotation", 0.028f, 0.05).SetTrans(Tween.TransitionType.Sine);
         _shake.TweenProperty(_sway, "rotation", -0.018f, 0.08).SetTrans(Tween.TransitionType.Sine);
         _shake.TweenProperty(_sway, "rotation", 0.0f, 0.12).SetTrans(Tween.TransitionType.Sine);
+    }
+
+    /// <summary>
+    /// 잎 한 묶음을 떨어뜨린다. <c>Sway/Leaves</c> 는 틀로만 쓰고 매번 복제본을 쏜다.
+    ///
+    /// <b>예전엔 그 노드 하나를 <c>Restart()</c> 했다</b> - 그러면 떨어지던 잎이 전부
+    /// 지워지고 위에서 새로 생겨서, 빠르게 치면 잎이 끝까지 못 떨어지고 계속 되감겼다.
+    /// 복제본은 <c>local_coords</c> 가 꺼져 있어 나무가 흔들려도 끌려가지 않고,
+    /// one-shot 이 끝나면(<c>Finished</c>) 스스로 사라진다.
+    ///
+    /// 동시에 <see cref="MaxLeafBursts"/> 묶음까지만 띄운다. 넘으면 **떨어지던 잎을
+    /// 지우지 않고 이번 것을 건너뛴다** - 연타 중엔 어차피 화면에 잎이 차 있다.
+    /// </summary>
+    private void DropLeaves()
+    {
+        if (_leafBursts >= MaxLeafBursts)
+        {
+            return;
+        }
+
+        var burst = (CpuParticles2D)_leaves.Duplicate();
+        _sway.AddChild(burst);
+        _leafBursts++;
+        burst.Finished += () =>
+        {
+            _leafBursts--;
+            burst.QueueFree();
+        };
+        burst.Emitting = true;
     }
 
     /// <summary>
