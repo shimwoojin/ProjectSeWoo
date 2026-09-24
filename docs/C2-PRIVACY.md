@@ -82,11 +82,16 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 - 스팀에 저장되는 정보는 [Valve 개인정보 처리방침](https://store.steampowered.com/privacy_agreement/)을
   따릅니다.
 
-**5. 멀티 룸에서 다른 사람에게 보이는 것**
-룸은 스팀 로비로 동작하며, 우리 게임 서버를 거치지 않습니다.
-- 같은 룸의 사람들에게: 스팀 이름과 프로필(스팀이 보여 줍니다), 룸에 들어온 뒤 친 횟수(룸 타수)
-- 스팀 친구에게: 룸에 있는 동안 "게임 참가" 에 쓰이는 룸 정보
-- 친구 목록은 룸에 있는 친구를 보여 주는 데만 이 PC 에서 읽으며, 우리 서버로 보내지 않습니다.
+**5. 멀티 로비에서 다른 사람에게 보이는 것**
+멀티 로비는 스팀 로비로 동작하며, 우리 게임 서버를 거치지 않습니다.
+- 로비 코드를 아는 사람은 스팀 친구가 아니어도 로비에 들어올 수 있습니다.
+- 같은 로비의 사람들에게: 스팀 이름과 프로필(스팀이 보여 줍니다), 로비에 들어온 뒤 친 횟수(로비 타수)
+- 로비에서 나간 뒤에도 그 로비가 남아 있는 동안에는, 다시 들어왔을 때 이어서 세기 위해 로비 타수가
+  스팀 계정 ID 와 함께 로비 정보에 남습니다. 로비 코드를 아는 사람은 로비 정보를 볼 수 있습니다.
+  마지막 사람이 나가 로비가 사라지면 함께 사라집니다.
+- 스팀 친구에게: 로비에 있는 동안 "게임 참가" 에 쓰이는 로비 정보
+- 친구 목록과 친구의 접속 상태(온라인·게임 중·참가 정보)는 로비 창에서 참가·초대를 보여 주는 데만 이
+  PC 에서 읽으며, 우리 서버로 보내지 않습니다.
 - `[A10 이후 확정: 친구 나무 표시를 위해 오가는 정보 — 타건 발생 여부 / 수확 / 누적 타수 / 장착 정보]`
 
 **6. 하지 않는 것**
@@ -138,13 +143,17 @@ your balance and purchases.
   profile privacy settings.
 - Data stored by Steam is governed by the [Valve Privacy Policy](https://store.steampowered.com/privacy_agreement/).
 
-**5. What others see in multiplayer rooms**
-Rooms run on Steam lobbies and do not go through our game server.
-- To people in the same room: your Steam name and profile (shown by Steam), and how many times you have
-  typed since joining the room (room keystrokes)
-- To your Steam friends: room information used for "Join Game" while you are in a room
-- Your friends list is read on your PC only to show which friends are in rooms, and is never sent to our
-  server.
+**5. What others see in multiplayer lobbies**
+Multiplayer lobbies run on Steam lobbies and do not go through our game server.
+- Anyone who knows a lobby code can join that lobby, even if they are not your Steam friend.
+- To people in the same lobby: your Steam name and profile (shown by Steam), and how many times you have
+  typed since joining the lobby (lobby keystrokes)
+- After you leave, while the lobby still exists, your lobby keystrokes are kept in the lobby information
+  together with your Steam account ID so the count can continue if you rejoin. Anyone who knows the lobby
+  code can view the lobby information. It disappears when the last person leaves and the lobby closes.
+- To your Steam friends: lobby information used for "Join Game" while you are in a lobby
+- Your friends list and your friends' status (online / in game / join information) are read on your PC only
+  to show join and invite options in the lobby window, and are never sent to our server.
 - `[To be finalized after A10: data exchanged to show friends' trees — keystroke events / harvests / total keystrokes / equipped items]`
 
 **6. What we don't do**
@@ -174,7 +183,7 @@ Rooms run on Steam lobbies and do not go through our game server.
 | 별도 프로그램, Raw Input, 훅 아님 | `InputHelper` 프로젝트, `RegisterRawInputDevices`(`RIDEV_INPUTSINK`). `WH_KEYBOARD_LL` 없음 (A4 §2) |
 | ~~타건 카운트를 끌 수 있다~~ | **아직 거짓.** `SettingsState.KeystrokeCounting` 은 옵션 창이 저장만 하고 읽는 곳이 없다(2026-09-24 전수 검색) |
 | PC 에 저장하는 것 | `shared/Save/SaveData.cs` — totalKeystrokes / settings / inventory.equipped / lastQuitUtc. 경로는 `project.godot` 의 `custom_user_dir_name` |
-| 로그에 스팀 이름·ID | `SteamService.TryInit` 의 `[steam] 연결됨 ... user= id=` 출력 → Godot 로그 파일 |
+| 로그에 스팀 이름·ID | `SteamService.TryInit` 의 `[steam] 연결됨 ... user= id=` 출력 → Godot 로그 파일. 멀티 로그(`[net]`)에는 로비 ID 만 남고 **친구의 스팀 ID 는 남기지 않는다** (`SteamNetSession.InviteFriend`) |
 | 시작 프로그램 등록 | A6 자동 시작 (레지스트리 Run 키) |
 | 서버에 저장하는 것 | `server/schema.sql` — `players`(steam_id, balance, *_level, slot_elapsed_ms, last_sync_utc, created/updated_at), `idempotency_keys`(요청 ID·응답), `owned_items_mirror`(steam_id, item_def_id) |
 | 세션 티켓을 Valve 에 확인, 비밀번호 없음 | `server/src/steam.ts` `authenticateUserTicket` (`ISteamUserAuth/AuthenticateUserTicket`) |
@@ -182,9 +191,11 @@ Rooms run on Steam lobbies and do not go through our game server.
 | 외부 통신은 경제 서버뿐, 분석·광고 없음 | C# 에서 HTTP 를 쓰는 곳이 `platform/EconomyClient.cs` 하나 (2026-09-24 전수 검색) |
 | 장식은 스팀 인벤토리 | `server/src/steam.ts` `grantInventoryItem`, `platform/SteamInventoryService.cs` |
 | 도전과제·누적 타수 통계 | `SteamService.Unlock` / `SetStat(STAT_KEYSTROKES)` (A15) |
-| 룸은 스팀 로비, 룸 타수 | `platform/SteamNetSession.cs` — `SetLobbyMemberData(ks)`, `SetLobbyData(v, created, s:<steamid>)` |
-| 친구에게 참가 정보 | 같은 파일 `SetRichPresence("connect", "+connect_lobby <id>")` |
-| 친구 목록은 PC 에서만 | 같은 파일 `GetFriendGamePlayed` — 결과를 서버로 보내는 코드 없음 |
+| 멀티 로비는 스팀 로비, 로비 타수 | `platform/SteamNetSession.cs` — `SetLobbyMemberData(ks)`, `SetLobbyData(v, created)` |
+| 코드를 아는 누구나 입장·로비 정보 조회 | 같은 파일 `CreateLobby(k_ELobbyTypePublic, 4)`. 로비 목록 검색은 안 하지만 ID 로 `JoinLobby`·`RequestLobbyData` 가 된다 — 코드 입장의 사전 확인이 바로 이 `RequestLobbyData` 다 |
+| 나간 뒤에도 로비 타수가 스팀 ID 와 함께 남는다 | 같은 파일 `OnLobbyChatUpdate`(방장이 나간 사람의 `s:<steamid>` 기록), `LeaveRoom`(방장 자신의 것). 로비 데이터라 로비가 사라지면 같이 사라진다 |
+| 친구에게 참가 정보 | 같은 파일 `SetRichPresence("connect", "+connect_lobby <id>")`, 나가면 `ClearRichPresence` |
+| 친구 목록·접속 상태는 PC 에서만 | 같은 파일 `GetFriends` — `GetFriendPersonaName`/`GetFriendPersonaState`/`GetFriendGamePlayed`/`GetFriendRichPresence`(`connect`)/`RequestFriendRichPresence`. 결과를 서버로 보내는 코드 없음 |
 
 ---
 
@@ -195,7 +206,7 @@ Rooms run on Steam lobbies and do not go through our game server.
    등록 자체를 푸는 쪽**이 약속으로서 가장 강하다
 2. **문의 이메일** — §2-7, §2-8 의 `[문의 이메일]`. 스팀 파트너 사이트의 지원 이메일과 같게 한다
 3. **A10 전송 목록** — §2-5 의 대괄호 줄. §7-6 이 미리 적어 둔 목록(타건 발생 여부 / 수확 이벤트 / 누적
-   타수 / 룸 타수 / 장착 정보)이 **실제로 A10 이 보내는 것과 같은지** 코드로 확인한 뒤 확정한다. 다르면
+   타수 / 로비 타수 / 장착 정보)이 **실제로 A10 이 보내는 것과 같은지** 코드로 확인한 뒤 확정한다. 다르면
    문구를 코드에 맞춘다
 4. **서버 데이터 삭제 절차** — 지금은 요청이 오면 D1 에서 손으로 지운다(`players` · `idempotency_keys` ·
    `owned_items_mirror` 의 해당 `steam_id`). 요청이 늘면 스크립트로 만든다

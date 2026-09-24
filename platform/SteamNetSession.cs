@@ -457,7 +457,10 @@ public sealed class SteamNetSession : INetSession, IDisposable
         }
 
         bool sent = SteamMatchmaking.InviteUserToLobby(_lobby, new CSteamID(friend.Value));
-        GD.Print($"[net] 초대 {friend} - {(sent ? "보냄" : "실패")}");
+
+        // 친구의 스팀 ID 는 로그에 남기지 않는다 - 로그 파일에 들어가는 것은 내 스팀
+        // 이름·ID 뿐이라고 개인정보 안내(docs/C2-PRIVACY.md §2-2)에 적었다.
+        GD.Print($"[net] 초대 - {(sent ? "보냄" : "실패")}");
     }
 
     public void OpenInviteOverlay()
