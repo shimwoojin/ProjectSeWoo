@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -38,6 +39,13 @@ namespace ProjectSeWoo.Platform;
 /// <see cref="RequestHarvest"/> 는 응답을 기다리지 않고 로컬 값을 먼저 바꾼 뒤
 /// 백그라운드에서 서버 확인을 보낸다 - 펀치 연출이 네트워크 왕복 시간만큼
 /// 멈추면 §2-3 의 P0(즉각 피드백)가 깨진다.
+///
+/// <b>슬롯은 응답 사이에 로컬 시계로 자란다 (2026-09-24).</b> 서버 값은 응답을 받은
+/// 순간의 스냅샷일 뿐이라, 그 사이를 안 채우면 켤 때 익어 있던 바나나를 다 딴 뒤로
+/// 나무가 멈췄다 - 익은 슬롯이 없으면 하베스트 요청이 안 나가고, 요청이 안 나가면
+/// 새 스냅샷도 안 온다. 목은 <c>Tick</c> 으로 같은 일을 해서 디버그에선 안 보였다.
+/// 성장 공식이 서버와 같으므로(<c>server/src/economy.ts</c> 의 <c>recomputeSlots</c>)
+/// 로컬 예측은 다음 응답과 거의 그대로 맞는다.
 /// </summary>
 public sealed class EconomyClient : IEconomyService, IDisposable
 {
@@ -58,6 +66,13 @@ public sealed class EconomyClient : IEconomyService, IDisposable
     /// 보내는 도중에 막 만료되는 경합을 피하기 위한 여유분이다.</summary>
     private static readonly TimeSpan SessionRenewMargin = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// HTTP 요청 하나의 상한. 기본값(100초)이면 네트워크가 이상할 때 기동이 그만큼
+    /// 멈춘다 - <c>GameRoot</c> 가 첫 <see cref="Sync"/> 를 기다린 뒤에 HUD 를 세우기
+    /// 때문이다. 요청은 전부 작은 JSON 이라 10초면 넉넉하다.
+    /// </summary>
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -75,6 +90,10 @@ public sealed class EconomyClient : IEconomyService, IDisposable
 
     private long _balance;
     private SlotState[] _slots = Array.Empty<SlotState>();
+
+    /// <summary>슬롯을 로컬로 진행시키는 시계와, 마지막으로 진행시킨 시각(ms).</summary>
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private long _advancedAtMs;
     private readonly Dictionary<UpgradeAxis, int> _upgradeLevels = new();
 
     /// <param name="baseUrl">배포된 워커 URL. 예: https://punchmonkey-economy.&lt;계정&gt;.workers.dev</param>
@@ -84,7 +103,7 @@ public sealed class EconomyClient : IEconomyService, IDisposable
     {
         ArgumentNullException.ThrowIfNull(baseUrl);
         _steam = steam;
-        _http = new HttpClient { BaseAddress = new Uri(baseUrl) };
+        _http = new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = RequestTimeout };
     }
 
     /// <summary>세션 토큰을 들고 있고 아직 안 만료됐는가. 하베스트는 이게 false 여도
@@ -93,7 +112,14 @@ public sealed class EconomyClient : IEconomyService, IDisposable
 
     public long Balance => _balance;
 
-    public IReadOnlyList<SlotState> Slots => _slots;
+    public IReadOnlyList<SlotState> Slots
+    {
+        get
+        {
+            AdvanceLocal();
+            return _slots;
+        }
+    }
 
     public event Action OnStateChanged;
 
@@ -101,6 +127,7 @@ public sealed class EconomyClient : IEconomyService, IDisposable
 
     public void RequestHarvest(int slotIndex)
     {
+        AdvanceLocal();
         if (slotIndex < 0 || slotIndex >= _slots.Length || !_slots[slotIndex].Ready)
         {
             return;
@@ -113,6 +140,30 @@ public sealed class EconomyClient : IEconomyService, IDisposable
         OnStateChanged?.Invoke();
 
         _ = ReconcileHarvestAsync(slotIndex, Guid.NewGuid().ToString("N"));
+    }
+
+    /// <summary>
+    /// 마지막 진행 이후 흐른 시간만큼 안 익은 슬롯을 키운다. 다 자란 슬롯은
+    /// 성장 시간에서 멈춘다 - 서버의 <c>recomputeSlots</c> 와 같은 규칙이다.
+    /// </summary>
+    private void AdvanceLocal()
+    {
+        long now = _clock.ElapsedMilliseconds;
+        long delta = now - _advancedAtMs;
+        if (delta <= 0)
+        {
+            return;
+        }
+
+        _advancedAtMs = now;
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            SlotState s = _slots[i];
+            if (!s.Ready)
+            {
+                _slots[i] = new SlotState(Math.Min(s.GrowthMs, s.ElapsedMs + delta), s.GrowthMs);
+            }
+        }
     }
 
     private async Task ReconcileHarvestAsync(int slotIndex, string clientRequestId)
@@ -248,8 +299,22 @@ public sealed class EconomyClient : IEconomyService, IDisposable
 
         // 이미 날아간 세션 요청이 있으면 같이 기다린다 - 100ms 타건 배치 안에서
         // 하베스트 여러 번이 각자 세션을 새로 발급받으려 드는 것을 막는다.
-        _sessionInFlight ??= CreateSessionAsync();
-        return _sessionInFlight;
+        if (_sessionInFlight != null)
+        {
+            return _sessionInFlight;
+        }
+
+        // **동기로 끝난 실패는 잡아 두지 않는다.** CreateSessionAsync 가 첫 await 전에
+        // false 로 끝나면(스팀 미초기화, 티켓 발급 실패) 그 안의 finally 가 필드를
+        // 비우는 것보다 여기서 대입하는 게 나중이라, 끝난 실패 Task 가 필드에 영원히
+        // 남아 이후 모든 요청이 재시도 없이 실패했다.
+        Task<bool> attempt = CreateSessionAsync();
+        if (!attempt.IsCompleted)
+        {
+            _sessionInFlight = attempt;
+        }
+
+        return attempt;
     }
 
     private async Task<bool> CreateSessionAsync()
@@ -335,6 +400,7 @@ public sealed class EconomyClient : IEconomyService, IDisposable
     {
         _balance = balance;
         _slots = slots?.Select(s => new SlotState(s.ElapsedMs, s.GrowthMs)).ToArray() ?? Array.Empty<SlotState>();
+        _advancedAtMs = _clock.ElapsedMilliseconds;
         OnStateChanged?.Invoke();
     }
 

@@ -36,7 +36,12 @@ public static class SaveIO
 
     /// <summary>
     /// 저장 파일을 읽는다. 없거나 깨졌으면 새 기본값을 돌려준다 — 상주 앱이 세이브
-    /// 파일 하나 때문에 못 뜨면 안 된다. 실패 사유는 로그로만 남긴다.
+    /// 파일 하나 때문에 못 뜨면 안 된다.
+    ///
+    /// <b>못 읽은 파일은 덮어쓰기 전에 옆에 보관한다 (A14, 2026-09-24).</b> 기본값으로
+    /// 시작하면 10초 뒤 첫 저장이 원본을 덮어써서 누적 타수·설정이 영구히 사라졌다.
+    /// 보관본(<c>save.json.broken-날짜</c>)이 있으면 손으로라도 되살릴 수 있다. 그다음
+    /// 한 단계 전 세이브(<c>save.json.bak</c>, <see cref="Save"/> 가 남긴다)를 시도한다.
     /// </summary>
     public static SaveData Load()
     {
@@ -46,25 +51,82 @@ public static class SaveIO
             return new SaveData();
         }
 
+        if (TryRead(abs, out SaveData data, out string error))
+        {
+            return data;
+        }
+
+        string kept = KeepAside(abs, "broken");
+        GD.PrintErr($"[save] 로드 실패 ({error}) - 원본을 {Path.GetFileName(kept) ?? "보관 실패"} 로 보관");
+
+        string bak = abs + ".bak";
+        if (File.Exists(bak) && TryRead(bak, out data, out error))
+        {
+            GD.PrintErr("[save] 직전 세이브(.bak)로 복구했다");
+            return data;
+        }
+
+        GD.PrintErr("[save] 복구할 세이브가 없어 기본값으로 시작");
+        return new SaveData();
+    }
+
+    /// <summary>파일 하나를 읽어 현재 스키마로 올린다. 예외를 밖으로 내지 않는다.</summary>
+    private static bool TryRead(string path, out SaveData data, out string error)
+    {
+        data = null;
+        error = null;
         try
         {
-            string json = File.ReadAllText(abs);
+            string json = File.ReadAllText(path);
             JsonNode node = JsonNode.Parse(json) ?? throw new InvalidDataException("빈 세이브 파일");
-            node = SaveSchema.Migrate(node);
 
-            SaveData data = JsonSerializer.Deserialize<SaveData>(node.ToJsonString(), SaveSchema.Options);
-            return data ?? new SaveData();
+            // **더 새 버전의 세이브**(베타 브랜치에서 돌아온 경우 등)는 Migrate 가 그대로
+            // 통과시키고, 모르는 필드는 역직렬화에서 버려진 채 다음 저장에 덮인다.
+            // 읽기는 하되 원본을 먼저 보관해 둔다.
+            int version = node["version"]?.GetValue<int>() ?? 0;
+            if (version > SaveSchema.CurrentVersion)
+            {
+                string kept = KeepAside(path, $"v{version}");
+                GD.PrintErr($"[save] 이 빌드(v{SaveSchema.CurrentVersion})보다 새 세이브(v{version}) - "
+                    + $"아는 필드만 읽는다. 원본은 {Path.GetFileName(kept) ?? "보관 실패"}");
+            }
+
+            node = SaveSchema.Migrate(node);
+            data = JsonSerializer.Deserialize<SaveData>(node.ToJsonString(), SaveSchema.Options)
+                ?? throw new InvalidDataException("역직렬화 결과가 null");
+            return true;
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[save] 로드 실패, 기본값으로 시작 ({e.GetType().Name}: {e.Message})");
-            return new SaveData();
+            error = $"{e.GetType().Name}: {e.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>파일을 <c>원래이름.태그-날짜시각</c> 으로 복사해 둔다. 실패하면 null.</summary>
+    private static string KeepAside(string path, string tag)
+    {
+        try
+        {
+            string kept = $"{path}.{tag}-{DateTime.Now:yyyyMMdd-HHmmss}";
+            File.Copy(path, kept, overwrite: true);
+            return kept;
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"[save] 보관 복사 실패 ({e.GetType().Name}: {e.Message})");
+            return null;
         }
     }
 
     /// <summary>
     /// 임시 파일에 쓰고 교체한다 (§7-5 "원자적 저장"). 상주 앱은 강제 종료가 잦다 —
     /// 쓰다 만 파일이 직전 정상 세이브를 덮어쓰면 안 된다.
+    ///
+    /// <b>교체 전에 디스크까지 내린다(<c>Flush(true)</c>).</b> 안 그러면 전원이 나갔을 때
+    /// 이름 바꾸기만 기록되고 내용은 안 써진 0바이트 파일이 남을 수 있다. 교체는
+    /// <c>File.Replace</c> 로 해서 직전 세이브를 <c>save.json.bak</c> 으로 남긴다 -
+    /// <see cref="Load"/> 가 본 파일을 못 읽을 때 쓰는 복구본이다.
     /// </summary>
     public static void Save(SaveData data)
     {
@@ -78,9 +140,21 @@ public static class SaveIO
         string tmp = abs + ".tmp";
         try
         {
-            string json = JsonSerializer.Serialize(data, SaveSchema.Options);
-            File.WriteAllText(tmp, json);
-            File.Move(tmp, abs, overwrite: true);
+            byte[] json = JsonSerializer.SerializeToUtf8Bytes(data, SaveSchema.Options);
+            using (var stream = new FileStream(tmp, FileMode.Create, System.IO.FileAccess.Write, FileShare.None))
+            {
+                stream.Write(json);
+                stream.Flush(flushToDisk: true);
+            }
+
+            if (File.Exists(abs))
+            {
+                File.Replace(tmp, abs, abs + ".bak", ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(tmp, abs);
+            }
         }
         catch (Exception e)
         {

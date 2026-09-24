@@ -77,6 +77,25 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private bool _collectionDone;
 
     /// <summary>
+    /// 기동 때 서버/스팀 응답을 기다리는 상한(초). 넘으면 있는 값으로 화면을 세운다 -
+    /// 스팀 인벤토리 콜백이 안 오면 <see cref="LoadGameState"/> 가 영영 안 불려서
+    /// HUD·상점·커서 장식이 전부 빈 채로 남는다.
+    /// </summary>
+    private const double StartupWaitSec = 10.0;
+
+    /// <summary>
+    /// 서버 재동기화 주기(초). 정상일 때는 드물게(로컬 예측 보정), 서버를 못 붙었거나
+    /// 슬롯을 하나도 못 받았을 때는 자주 - 오프라인으로 켜면 슬롯이 0개라 하베스트가
+    /// 안 나가고, 그러면 재연결할 계기가 없어서 세션 내내 빈 나무였다.
+    /// </summary>
+    private const double ResyncSec = 300.0;
+    private const double ResyncRetrySec = 30.0;
+
+    private bool _loaded;
+    private bool _syncing;
+    private double _sinceSync;
+
+    /// <summary>
     /// 이 세션에서 디버그 지급(Shift+B)을 썼는가.
     ///
     /// <b>썼으면 도전과제를 해금하지 않는다.</b> 스팀은 이미 붙어 있고(A8), A15 로
@@ -156,14 +175,79 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private async void LoadGameStateAsync()
     {
-        await _platform.Economy.Sync();
-        await _platform.Inventory.Refresh();
+        try
+        {
+            await WithTimeout(_platform.Economy.Sync(), "경제 동기화");
+            await WithTimeout(_platform.Inventory.Refresh(), "인벤토리 조회");
+        }
+        catch (Exception e)
+        {
+            // 여기서 죽으면 LoadGameState 가 안 불려 게임이 빈 껍데기로 남는다.
+            GD.PushWarning($"[game] 기동 동기화 실패, 있는 값으로 시작 - {e.GetType().Name}: {e.Message}");
+        }
 
         LoadGameState();
+        _loaded = true;
 
         if (OS.IsDebugBuild())
         {
             await RunTestPurchaseIfRequestedAsync();
+        }
+    }
+
+    /// <summary>기동 대기에 상한을 건다. 늦은 쪽은 버리지 않고 나중에 끝나도록 둔다.</summary>
+    private async Task WithTimeout(Task task, string what)
+    {
+        Task first = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(StartupWaitSec)));
+        if (first != task)
+        {
+            GD.PushWarning($"[game] {what}이(가) {StartupWaitSec:F0}초 안에 안 끝났다 - 기다리지 않고 진행");
+            return;
+        }
+
+        await task;
+    }
+
+    /// <summary>
+    /// 주기 재동기화. 서버 권위 값(잔액·슬롯)을 다시 받아 로컬 예측을 바로잡고,
+    /// 오프라인으로 켰다면 연결이 돌아온 뒤 슬롯을 처음으로 받는다.
+    /// </summary>
+    private void TickResync(double delta)
+    {
+        if (!_loaded || _syncing)
+        {
+            return;
+        }
+
+        _sinceSync += delta;
+        bool healthy = _platform.Economy.IsAvailable && _platform.Economy.Slots.Count > 0;
+        if (_sinceSync < (healthy ? ResyncSec : ResyncRetrySec))
+        {
+            return;
+        }
+
+        _sinceSync = 0.0;
+        _ = ResyncAsync(healthy);
+    }
+
+    private async Task ResyncAsync(bool wasHealthy)
+    {
+        _syncing = true;
+        try
+        {
+            await _platform.Economy.Sync();
+            if (!wasHealthy && _platform.Economy.Slots.Count > 0)
+            {
+                GD.Print($"[game] 서버 재연결 - 잔액 {_platform.Economy.Balance}, 슬롯 {_platform.Economy.Slots.Count}개");
+            }
+        }
+        catch (Exception e)
+        {
+            GD.PushWarning($"[game] 재동기화 실패 - {e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            _syncing = false;
         }
     }
 
@@ -271,6 +355,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         if (_platform != null)
         {
             _tree.SyncSlots(_platform.Economy.Slots);
+            TickResync(delta);
         }
     }
 

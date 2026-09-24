@@ -135,6 +135,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     public override void _Ready()
     {
+        InstallCrashLogging();
+
         _win = GetWindow();
         _baseWindowSize = _win.Size;
         _unattended = IsUnattendedRun();
@@ -253,6 +255,26 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// (예: -88,-88)를 유저의 진짜 세이브 파일에 덮어썼다 - 같은 실수를 레지스트리로
     /// 반복하지 않으려고 이번엔 처음부터 하나의 플래그로 묶었다.
     /// </summary>
+    /// <summary>
+    /// 처리 안 된 예외를 Godot 로그(<c>%APPDATA%/PunchMonkey/logs/</c>)에 남긴다 (A14).
+    ///
+    /// Godot 은 자기 콜백(<c>_Process</c> 등) 안의 예외는 잡아서 찍어 주지만,
+    /// 백그라운드 스레드에서 터진 예외는 기록 없이 프로세스를 끝내고, 아무도
+    /// await 하지 않은 Task 의 예외는 아무 흔적 없이 사라진다. 유저가 "그냥
+    /// 꺼졌다" 고만 할 때 받아 볼 게 로그 파일뿐이라 여기서 붙잡는다.
+    /// </summary>
+    private static void InstallCrashLogging()
+    {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            GD.PrintErr($"[crash] 처리 안 된 예외 (종료={e.IsTerminating}): {e.ExceptionObject}");
+
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            GD.PrintErr($"[crash] 관찰 안 된 Task 예외: {e.Exception}");
+            e.SetObserved();
+        };
+    }
+
     private static bool IsUnattendedRun()
     {
         if (DisplayServer.GetName() == "headless")
