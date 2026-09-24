@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
@@ -6,13 +6,15 @@
 [ext_resource type="PackedScene" path="res://game/effects/FallingBanana.tscn" id="4_banana"]
 [ext_resource type="PackedScene" path="res://game/ui/StatusHud.tscn" id="5_statushud"]
 [ext_resource type="Script" path="res://game/ui/ShopWindow.cs" id="6_shop"]
+[ext_resource type="PackedScene" path="res://game/effects/PunchEffect.tscn" id="7_punch"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
 _fallingBananaScene = ExtResource("4_banana")
+_punchEffectScene = ExtResource("7_punch")
 
 [node name="Tree" parent="." instance=ExtResource("2_tree")]
-position = Vector2(210, 170)
+position = Vector2(210, 262)
 
 [node name="Monkey" parent="." instance=ExtResource("3_monkey")]
 position = Vector2(140, 360)

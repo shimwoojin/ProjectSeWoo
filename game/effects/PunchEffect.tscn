@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://game/effects/PunchEffect.cs" id="1_effect"]
+[ext_resource type="Texture2D" path="res://assets/effects/punch_effect.png" id="2_sheet"]
+
+[node name="PunchEffect" type="Node2D"]
+script = ExtResource("1_effect")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+scale = Vector2(0.22, 0.22)
+texture = ExtResource("2_sheet")
+hframes = 8

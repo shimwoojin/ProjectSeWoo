@@ -34,6 +34,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     [Export] private PackedScene _fallingBananaScene;
 
+    [Export] private PackedScene _punchEffectScene;
+
     private Tree _tree;
     private Monkey _monkey;
     private StatusHud _hud;
@@ -357,6 +359,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 반응이 있어야 한다는 것이 §2-3 의 P0 요구다.
         double contact = _monkey.Punch();
         GetTree().CreateTimer(contact).Timeout += _tree.Shake;
+        GetTree().CreateTimer(contact).Timeout += SpawnPunchEffect;
 
         // 누적 타수는 재화가 아니라 기록이다 (§6). 수확 여부와 무관하게 센다 -
         // 빈 나무를 쳐도 타수는 늘어야 "논 시간" 이 레벨에 반영된다. 레벨 환산과
@@ -500,6 +503,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 수확한 바나나가 떨어지는 연출 (§2-3). 재화는 이미 입력 시점에 더해졌고
     /// 이건 눈에 보이는 쪽만 한다.
     /// </summary>
+    /// <summary>주먹이 줄기에 닿은 자리에서 타격 이펙트를 한 번 터뜨린다. 이펙트는 스스로 사라진다.</summary>
+    private void SpawnPunchEffect()
+    {
+        var effect = _punchEffectScene.Instantiate<PunchEffect>();
+        effect.Position = _monkey.ImpactPoint;
+        AddChild(effect);
+    }
+
     private void DropBanana(Vector2 from, double delay)
     {
         var banana = _fallingBananaScene.Instantiate<FallingBanana>();

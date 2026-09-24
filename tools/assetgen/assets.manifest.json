@@ -75,6 +75,15 @@
       "margin": 6,
       "out": "assets/entities/tree_growth.png",
       "note": "바나나 성장 8단계. 지금 씬은 슬롯 3개를 따로 키우므로 아직 안 쓴다 - 통짜 나무로 갈 때의 예비."
+    },
+    {
+      "src": "assets/_source/PunchEffect.png",
+      "kind": "strip",
+      "frames": 8,
+      "margin": 4,
+      "align": "centroid",
+      "out": "assets/effects/punch_effect.png",
+      "note": "주먹이 줄기에 닿는 순간의 타격 이펙트 8프레임. 모든 프레임이 한 점에서 터지도록 무게중심 정렬. game/effects/PunchEffect.tscn 이 쓴다."
     }
   ],
   "groups": {

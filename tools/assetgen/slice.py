@@ -45,6 +45,69 @@ def load(src):
     return im, np.array(im.getchannel("A")) > ALPHA_CUT
 
 
+def merge_runs(cols, n):
+    """덩어리가 프레임 수보다 많으면 가장 좁은 틈부터 이어 붙여 n 개로 줄인다.
+
+    이펙트 시트는 한 프레임이 여러 조각(흩어진 파편)으로 나뉜다 - 조각 사이 틈은
+    프레임 사이 틈보다 훨씬 좁으므로, 좁은 틈부터 메우면 프레임 단위로 모인다.
+    """
+    cols = list(cols)
+    while len(cols) > n:
+        gaps = [cols[i + 1][0] - cols[i][1] for i in range(len(cols) - 1)]
+        i = gaps.index(min(gaps))
+        cols[i:i + 2] = [(cols[i][0], cols[i + 1][1])]
+    return cols
+
+
+def slice_strip_centroid(spec, im, mask, cols, y0, y1, dry):
+    """프레임마다 알파 무게중심을 칸 가운데에 맞춰 균등 그리드로 다시 깐다.
+
+    원숭이처럼 "몸이 제자리에 있고 팔만 움직이는" 시트는 칸 기준 상대 위치를
+    보존해야 하지만(아래 slice_strip), **타격 이펙트는 모든 프레임이 한 점(맞은 자리)
+    에서 터져야 한다.** 받은 시트는 프레임 중심이 칸마다 수십 px 씩 어긋나 있어서
+    그대로 쓰면 폭발이 옆으로 떨며 번진다.
+    """
+    n, margin = spec["frames"], spec.get("margin", 8)
+    alpha = np.array(im.getchannel("A"), dtype=np.float64)
+
+    frames, centers = [], []
+    for x0, x1 in cols:
+        w = alpha[y0:y1 + 1, x0:x1 + 1] * mask[y0:y1 + 1, x0:x1 + 1]
+        ys, xs = np.indices(w.shape)
+        total = w.sum()
+        centers.append(((xs * w).sum() / total, (ys * w).sum() / total))
+        frames.append(im.crop((x0, y0, x1 + 1, y1 + 1)))
+
+    half_w = max(max(cx, f.width - cx) for f, (cx, _) in zip(frames, centers))
+    half_h = max(max(cy, f.height - cy) for f, (_, cy) in zip(frames, centers))
+    cell_w = int(np.ceil(half_w * 2)) + margin * 2
+    cell_h = int(np.ceil(half_h * 2)) + margin * 2
+
+    if dry:
+        print(f"    would write {spec['out']}  {n}프레임 x {cell_w}x{cell_h} (무게중심 정렬)")
+        return
+
+    sheet = Image.new("RGBA", (cell_w * n, cell_h), (0, 0, 0, 0))
+    for i, (frame, (cx, cy)) in enumerate(zip(frames, centers)):
+        sheet.alpha_composite(frame, (i * cell_w + round(cell_w / 2 - cx), round(cell_h / 2 - cy)))
+
+    write_strip(spec, sheet, n, cell_w, cell_h)
+
+
+def write_strip(spec, sheet, n, cell_w, cell_h):
+    out_path = ROOT / spec["out"]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out_path, optimize=True)
+    meta = {"frames": n, "cell": [cell_w, cell_h], "hframes": n, "vframes": 1,
+            "source": spec["src"]}
+    # newline="\n": 저장소가 LF 다. 기본값으로 두면 윈도우에서 CRLF 로 나가
+    # 파일을 다시 뽑을 때마다 줄끝만 바뀐 diff 가 생긴다.
+    out_path.with_suffix(".frames.json").write_text(
+        json.dumps(meta, indent=2) + "\n", encoding="utf-8", newline="\n")
+    print(f"    {spec['out']}  {n}프레임 x {cell_w}x{cell_h}  "
+          f"{out_path.stat().st_size / 1024:.1f}KB")
+
+
 def slice_strip(spec, dry):
     """가로 1행 n프레임 → 균등 그리드로 재조판.
 
@@ -65,11 +128,17 @@ def slice_strip(spec, dry):
     y0, y1 = ys[0][0], ys[-1][1]
 
     cols = runs(mask.any(0), MIN_RUN)
+    if len(cols) > n:
+        cols = merge_runs(cols, n)
     if len(cols) != n:
         # 프레임끼리 붙어 있으면 덩어리가 덜 잡힌다. 균등 분할로 되돌린다.
         print(f"    경고: 덩어리 {len(cols)}개 != frames {n}개 — 균등 분할로 처리한다")
         pitch = im.width / n
         cols = [(round(i * pitch), round((i + 1) * pitch) - 1) for i in range(n)]
+
+    if spec.get("align") == "centroid":
+        slice_strip_centroid(spec, im, mask, cols, y0, y1, dry)
+        return
 
     pitch = im.width / n
     offs = [x0 - i * pitch for i, (x0, _) in enumerate(cols)]
@@ -89,16 +158,7 @@ def slice_strip(spec, dry):
         frame = im.crop((x0, y0, x1 + 1, y1 + 1))
         sheet.alpha_composite(frame, (i * cell_w + margin + round(off + shift), margin))
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    sheet.save(out_path, optimize=True)
-    meta = {"frames": n, "cell": [cell_w, cell_h], "hframes": n, "vframes": 1,
-            "source": spec["src"]}
-    # newline="\n": 저장소가 LF 다. 기본값으로 두면 윈도우에서 CRLF 로 나가
-    # 파일을 다시 뽑을 때마다 줄끝만 바뀐 diff 가 생긴다.
-    out_path.with_suffix(".frames.json").write_text(
-        json.dumps(meta, indent=2) + "\n", encoding="utf-8", newline="\n")
-    print(f"    {spec['out']}  {n}프레임 x {cell_w}x{cell_h}  "
-          f"{out_path.stat().st_size / 1024:.1f}KB")
+    write_strip(spec, sheet, n, cell_w, cell_h)
 
 
 def slice_atlas(spec, dry):

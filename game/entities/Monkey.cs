@@ -14,8 +14,12 @@ namespace ProjectSeWoo.Game;
 /// 프레임 뜻 (원본 시트 순서):
 /// <code>
 ///   0 대기   1 왼손 준비   2 왼손 뻗음(닿음)   3 가드
-///   4 오른손 들기         5 오른손 준비        6 오른손 뻗음(닿음)   7 대기
+///   4 오른손 들기         5 오른손 뻗음(닿음)  6 오른손 거둠         7 대기
 /// </code>
+///
+/// (2026-09-24 에 시트의 알파를 재서 바로잡았다 - 전에는 6 을 뻗은 프레임으로
+/// 적어서 punch_b/punch_d 의 닿는 시각이 한 프레임 늦었다. 주먹 끝이 칸 오른쪽
+/// 끝까지 가는 것은 2·5 뿐이다.)
 /// </summary>
 public partial class Monkey : Node2D
 {
@@ -24,15 +28,24 @@ public partial class Monkey : Node2D
     /// 나무가 흔들릴 타이밍이 이 값이다 - 애니메이션 길이가 4종 다 달라서
     /// 하나로 못 잡는다. **tscn 의 키프레임을 고치면 이 표도 같이 고친다.**
     ///
-    /// 값은 tscn 에서 프레임 2 또는 6(뻗은 프레임)이 나타나는 시각이다.
+    /// 값은 tscn 에서 프레임 2 또는 5(뻗은 프레임)가 처음 나타나는 시각이다.
     /// </summary>
     private static readonly (string Name, double Contact)[] Variants =
     {
         ("punch_a", 0.09),
-        ("punch_b", 0.18),
+        ("punch_b", 0.12),
         ("punch_c", 0.03),
-        ("punch_d", 0.16),
+        ("punch_d", 0.11),
     };
+
+    /// <summary>
+    /// 뻗은 주먹의 앞면 - 시트 한 칸의 가운데를 원점으로 한 픽셀 좌표. 프레임 2·5 의
+    /// 주먹 끝이 칸 기준 (288, 166~172) 이고 칸 가운데가 (149, 162) 라서, 끝에서
+    /// 주먹 반쯤 들어온 자리를 잡았다. 타격 이펙트가 여기서 터진다.
+    /// </summary>
+    private static readonly Vector2 FistFront = new(127, 7);
+
+    private Sprite2D _sprite;
 
     private readonly RandomNumberGenerator _rng = new();
 
@@ -43,14 +56,18 @@ public partial class Monkey : Node2D
     public override void _Ready()
     {
         _punches = GetNode<AnimationPlayer>("Punches");
+        _sprite = GetNode<Sprite2D>("Sprite");
         _rng.Randomize();
 
         // 쉴 때(프레임 0) 한 번만 잰다. 펀치 중에 다시 재면 클릭 영역이 매 프레임
         // 바뀌고, 그만큼 WindowSetMousePassthrough 쓰기가 늘어난다 (§7-3).
         // Shapes.Bounds(Sprite2D) 가 시트 전체가 아니라 **한 칸**을 기준으로 잰다 -
         // 통째로 재면 영역이 8칸 폭만큼 부풀어 나무 너머까지 먹는다.
-        _restBounds = Transform * Shapes.Bounds(GetNode<Sprite2D>("Sprite"));
+        _restBounds = Transform * Shapes.Bounds(_sprite);
     }
+
+    /// <summary>뻗은 주먹이 닿는 자리 (부모 좌표). 타격 이펙트를 여기에 놓는다.</summary>
+    public Vector2 ImpactPoint => Transform * (_sprite.Transform * FistFront);
 
     /// <returns>주먹이 나무에 닿기까지의 시간(초).</returns>
     public double Punch()
