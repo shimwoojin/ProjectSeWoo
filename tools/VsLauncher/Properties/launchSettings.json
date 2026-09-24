@@ -18,6 +18,12 @@
       "commandLineArgs": "--path . -- --real-economy --economy-url=http://localhost:8787",
       "workingDirectory": "../.."
     },
+    "Godot 게임 - 실물 멀티 (중단점 O)": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Tools\\Godot_v4.7.2-stable_mono_win64\\Godot_v4.7.2-stable_mono_win64.exe",
+      "commandLineArgs": "--path . -- --real-economy --real-net",
+      "workingDirectory": "../.."
+    },
     "Godot 에디터 (중단점 X)": {
       "commandName": "Executable",
       "executablePath": "C:\\Tools\\Godot_v4.7.2-stable_mono_win64\\Godot_v4.7.2-stable_mono_win64.exe",

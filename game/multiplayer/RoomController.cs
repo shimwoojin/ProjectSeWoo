@@ -101,7 +101,7 @@ public sealed class RoomController : IDisposable
         await RunBusy(async () =>
         {
             RoomHandle room = await _net.CreateRoom();
-            _window.ShowMessage($"룸을 만들었어요. 코드 {room.Uid} 를 친구에게 보내 주세요");
+            _window.ShowMessage($"룸을 만들었어요. 로비 코드 {room.Uid} 를 친구에게 보내 주세요");
         });
     }
 
@@ -168,8 +168,8 @@ public sealed class RoomController : IDisposable
 
     private static string MessageFor(RoomJoinError error) => error switch
     {
-        RoomJoinError.InvalidCode => "룸 코드 형식이 아니에요 (예: K7Q-2XMD)",
-        RoomJoinError.NotFound => "그 코드의 룸이 없어요. 모두 나가서 닫혔을 수 있어요",
+        // 형식이 틀린 것과 없는 룸을 가르지 않는다 - 유저가 할 일(번호를 다시 확인)이 같다.
+        RoomJoinError.InvalidCode or RoomJoinError.NotFound => "잘못된 로비 코드입니다",
         RoomJoinError.Full => $"룸이 가득 찼어요 (최대 {RoomWindow.MaxMembers}명)",
         RoomJoinError.SteamUnavailable => "스팀이 켜져 있어야 멀티를 쓸 수 있어요",
         _ => "들어가지 못했어요. 잠시 뒤 다시 해 주세요",

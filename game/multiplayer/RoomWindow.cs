@@ -55,6 +55,11 @@ public partial class RoomWindow : CanvasLayer
     private Label _status;
     private Label _message;
 
+    // 오류 팝업. 아래 한 줄 문구는 작아서 오류를 놓친다 - 오류만 창 가운데에 띄운다.
+    private Control _popup;
+    private Label _popupText;
+    private Button _popupOk;
+
     // 룸 밖
     private Control _outside;
     private Label _unavailable;
@@ -104,6 +109,7 @@ public partial class RoomWindow : CanvasLayer
     {
         // 코드 입력칸이 포커스를 쥔 채 숨으면, 창이 닫혀 있는데도 키 입력을 먹는다.
         _codeInput.ReleaseFocus();
+        ClosePopup();
         Visible = false;
         Closed?.Invoke();
     }
@@ -201,11 +207,38 @@ public partial class RoomWindow : CanvasLayer
         }
     }
 
-    /// <summary>창 아래 한 줄 문구. 빈 문자열이면 지운다.</summary>
+    /// <summary>
+    /// 문구를 띄운다. 안내는 창 아래 한 줄로, <b>오류는 창 가운데 팝업으로</b> 띄운다 -
+    /// 아래 한 줄은 작아서 "왜 안 들어가지지?" 를 놓친다. 빈 문자열이면 아래 줄을 지운다.
+    /// </summary>
     public void ShowMessage(string text, bool isError = false)
     {
+        if (isError)
+        {
+            _message.Text = string.Empty;
+            _popupText.Text = text ?? string.Empty;
+            _popup.Visible = true;
+            _popupOk.GrabFocus();
+            return;
+        }
+
         _message.Text = text ?? string.Empty;
-        _message.AddThemeColorOverride("font_color", isError ? Error : ShopWindow.Dim);
+    }
+
+    public bool IsPopupOpen => _popup.Visible;
+
+    public void ClosePopup() => _popup.Visible = false;
+
+    /// <summary>Esc. 팝업이 떠 있으면 팝업만 닫고, 아니면 창을 닫는다.</summary>
+    public void Back()
+    {
+        if (IsPopupOpen)
+        {
+            ClosePopup();
+            return;
+        }
+
+        Close();
     }
 
     /// <summary>생성·참가 응답을 기다리는 동안 버튼을 잠근다 - 연타로 룸이 두 개 생기지 않게.</summary>
@@ -296,7 +329,7 @@ public partial class RoomWindow : CanvasLayer
 
         if (shown == 0)
         {
-            _inviteFriends.AddChild(MakeDimLabel("초대할 수 있는 친구가 없어요. 코드를 복사해 보내 주세요"));
+            _inviteFriends.AddChild(MakeDimLabel("초대할 수 있는 친구가 없어요. 로비 코드를 복사해 보내 주세요"));
         }
     }
 
@@ -331,7 +364,64 @@ public partial class RoomWindow : CanvasLayer
 
         _message = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _message.AddThemeFontSizeOverride("font_size", 12);
+        _message.AddThemeColorOverride("font_color", ShopWindow.Dim);
         rows.AddChild(_message);
+
+        // 팝업은 맨 마지막 자식이어야 창 위에 그려진다.
+        _popup = BuildPopup();
+        AddChild(_popup);
+    }
+
+    /// <summary>
+    /// 오류 팝업. 창 전체를 어둡게 덮어 뒤의 버튼을 못 누르게 하고, 가운데에 문구와
+    /// [확인]을 둔다. [확인]·Esc·Enter 로 닫힌다.
+    /// </summary>
+    private Control BuildPopup()
+    {
+        var dim = new ColorRect
+        {
+            Color = new Color(0f, 0f, 0f, 0.55f),
+            MouseFilter = Control.MouseFilterEnum.Stop,
+            Visible = false,
+        };
+        dim.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+
+        var center = new CenterContainer();
+        center.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        dim.AddChild(center);
+
+        var box = ShopWindow.MakeBackground();
+        box.BorderColor = Error;
+        box.SetBorderWidthAll(2);
+        box.SetContentMarginAll(18);
+
+        var panel = new PanelContainer { CustomMinimumSize = new Vector2(280, 0) };
+        panel.AddThemeStyleboxOverride("panel", box);
+        center.AddChild(panel);
+
+        var column = new VBoxContainer();
+        column.AddThemeConstantOverride("separation", 14);
+        panel.AddChild(column);
+
+        _popupText = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(244, 0),
+        };
+        _popupText.AddThemeFontSizeOverride("font_size", 16);
+        column.AddChild(_popupText);
+
+        _popupOk = new Button
+        {
+            Text = "확인",
+            CustomMinimumSize = new Vector2(96, 30),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
+        };
+        _popupOk.Pressed += ClosePopup;
+        column.AddChild(_popupOk);
+
+        return dim;
     }
 
     private Control MakeHeader()
@@ -376,7 +466,7 @@ public partial class RoomWindow : CanvasLayer
         codeRow.AddThemeConstantOverride("separation", 6);
         _codeInput = new LineEdit
         {
-            PlaceholderText = "룸 코드 (예: K7Q-2XMD)",
+            PlaceholderText = "로비 코드 (예: K7Q-2XMD)",
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             MaxLength = 16,
         };
@@ -390,7 +480,7 @@ public partial class RoomWindow : CanvasLayer
 
         // 입력칸에 포커스가 안 가는 환경(오버레이 창)을 위한 길이기도 하다 -
         // 친구가 보낸 코드를 복사해 두고 이것만 누르면 된다.
-        _pasteJoin = new Button { Text = "복사한 코드로 입장" };
+        _pasteJoin = new Button { Text = "복사한 로비 코드로 입장" };
         _pasteJoin.Pressed += () =>
         {
             string pasted = DisplayServer.ClipboardGet().Trim();
@@ -414,7 +504,7 @@ public partial class RoomWindow : CanvasLayer
         var codeRow = new HBoxContainer();
         codeRow.AddThemeConstantOverride("separation", 8);
 
-        var codeTitle = new Label { Text = "룸 코드" };
+        var codeTitle = new Label { Text = "로비 코드" };
         codeTitle.AddThemeColorOverride("font_color", ShopWindow.Dim);
         codeRow.AddChild(codeTitle);
 
@@ -470,7 +560,7 @@ public partial class RoomWindow : CanvasLayer
         }
 
         DisplayServer.ClipboardSet(room.Uid);
-        ShowMessage($"코드 {room.Uid} 를 복사했어요. 친구에게 보내 주세요");
+        ShowMessage($"로비 코드 {room.Uid} 를 복사했어요. 친구에게 보내 주세요");
     }
 
     private static RankRow MakeRankRow()

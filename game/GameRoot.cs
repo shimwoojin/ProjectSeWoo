@@ -554,7 +554,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         if (key.Keycode == Key.Escape && _roomWindow.IsOpen)
         {
-            _roomWindow.Close();
+            _roomWindow.Back();
             return;
         }
 

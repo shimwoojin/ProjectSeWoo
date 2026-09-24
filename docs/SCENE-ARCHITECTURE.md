@@ -133,7 +133,7 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 | `StatusHud.tscn` ☑ B3 | 을 | `game/ui/` | 레벨 · 누적 타수 · 바나나 표시 (§6, §2-3). **문자열은 ASCII** — 기본 테마 폰트에 한글 글리프가 없다 |
 | `PunchImpact.tscn`, `LeafParticle.tscn` | 을 | `game/effects/` | 파티클/이펙트 |
 | `Shop.tscn`, `Inventory.tscn`, `Collection.tscn`, `Onboarding.tscn` | 을 | `game/ui/` | 상점/장착/도감/온보딩 |
-| `RoomView.tscn`, `RemotePlayerView.tscn` (W3) | 을 | `game/multiplayer/` | 룸 화면, 원격 플레이어 1명당 1 instance |
+| `RoomWindow` ☑ B12 · `RemotePlayerView.tscn` (B10) | 을 | `game/multiplayer/` | 룸 화면은 씬 대신 **코드로 만드는 CanvasLayer** 가 됐다(`ShopWindow` 와 같은 패턴 - 줄 수가 룸마다 달라서). 원격 플레이어는 1명당 1 instance |
 
 `entities/` 는 B1 이 채웠다(`Tree`/`TreeSlot`/`Monkey`). 나머지 셋
 (`ui/`, `effects/`, `multiplayer/`)은 아직 빈 폴더다.

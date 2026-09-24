@@ -75,13 +75,12 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     private SteamService _steam;
 
     /// <summary>
-    /// A9~A11 전까지의 <see cref="INetSession"/> 자리. 지금은 목이다.
-    ///
-    /// 실물이 없다고 게임 레이어에 널을 넘기지 않는다는 약속을 여기서 지킨다
-    /// (<see cref="IPlatformServices.Net"/> 주석). 멀티는 컷 라인 마지막이라
-    /// 을이 룸 화면을 먼저 만들어야 하는데, 그러려면 지금 붙잡을 것이 있어야 한다.
+    /// <see cref="INetSession"/> 자리. <see cref="ShouldUseRealNet"/> 이 실물
+    /// (<see cref="SteamNetSession"/>, A9)과 목 중 무엇을 꽂을지 정한다 - 경제와 같은
+    /// 규칙이다. <see cref="_Ready"/> 에서 바꿔 끼우기 전까지도 널이 아니다
+    /// (<see cref="IPlatformServices.Net"/> 주석의 약속).
     /// </summary>
-    private readonly MockNetSession _net = new();
+    private INetSession _net = new MockNetSession();
 
     /// <summary>
     /// <see cref="IPlatformServices.Achievements"/> 로 넘길 실물. 스팀을 안 붙인
@@ -219,6 +218,12 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             _achievements = _steam;
         }
 
+        // A9 멀티 룸. 스팀 로비라 스팀을 안 붙인 실행(무인 측정)에서는 목으로 남는다.
+        if (ShouldUseRealNet() && _steam != null)
+        {
+            _net = new SteamNetSession(_steam);
+        }
+
         // 경제(잔액·원장) + 인벤토리(스팀 소유권) - 항상 같은 모드로 짝을 맞춘다
         // (§5-6, 필드 주석 참고). 릴리스는 실물, 디버그는 --real-economy 로만 실물.
         if (ShouldUseRealEconomy())
@@ -324,6 +329,17 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         !OS.IsDebugBuild() || Array.IndexOf(OS.GetCmdlineUserArgs(), "--real-economy") >= 0;
 
     /// <summary>
+    /// 멀티 세션을 실물(<see cref="SteamNetSession"/>)로 켤지 목으로 켤지 (A9).
+    ///
+    /// <see cref="ShouldUseRealEconomy"/> 와 같은 규칙이다 - 릴리스는 항상 실물,
+    /// 디버그는 기본 목. 목에서만 도는 Shift+M(가짜 친구) 디버그 키가 있어서
+    /// 룸 화면을 혼자 고칠 때는 목이 편하고, 친구와 실제로 붙어 볼 때
+    /// <c>--real-net</c> 으로 켠다.
+    /// </summary>
+    private static bool ShouldUseRealNet() =>
+        !OS.IsDebugBuild() || Array.IndexOf(OS.GetCmdlineUserArgs(), "--real-net") >= 0;
+
+    /// <summary>
     /// <c>--economy-url=</c> 로 배포 URL 을 덮는다 - <c>wrangler dev</c> 로 띄운
     /// 로컬 서버를 겨냥할 때 쓴다. 없으면 <see cref="EconomyClient.DefaultBaseUrl"/>.
     /// </summary>
@@ -426,10 +442,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         consumer.AttachPlatform(this);
 
         // 어떤 자리가 실물이고 어떤 자리가 목인지 기동 로그 한 줄로 남긴다.
-        // A9~A11 이 붙는 날 net 이 mock 에서 바뀌는 것을 여기서 확인하게 된다.
         GD.Print($"[shell] 실물 전달 완료 - input={_input.Status}"
             + $" cursor={(_cursor.IsSupported ? "실물" : "미지원")}"
-            + $" ach={(_steam == null ? "없음" : _steam.Status)} net=mock(A9~A11 대기)"
+            + $" ach={(_steam == null ? "없음" : _steam.Status)} net={(_net is SteamNetSession ? "실물(스팀 로비)" : "목")}"
             + $" economy={(_economy is MockEconomyService ? "목" : "실물")}"
             + $" inventory={(_inventoryService is MockInventoryService ? "목" : "실물")}");
     }
@@ -707,6 +722,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 스팀 콜백은 우리가 펌프를 돌려야 도착한다. 못 붙은 상태면 여기서 재시도까지 한다.
         _steam?.Tick(delta);
 
+        // 멀티 룸의 콜백 등록·타수 전송·변경 알림 묶기. 스팀 콜백 펌프 바로 뒤라
+        // 이번 프레임에 도착한 로비 소식이 같은 프레임에 화면까지 간다.
+        (_net as SteamNetSession)?.Tick(delta);
+
         // 목일 때만 성장 시계를 우리가 돌린다 - 실물은 서버(요청 시점 재계산)가 시간의
         // 주인이라 틱이 없다(IEconomyService 계약에 Tick 이 없는 이유와 같다).
         if (_economy is MockEconomyService mockEconomy)
@@ -848,6 +867,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 트레이 아이콘을 지운다 - 안 지우면 프로세스가 죽어도 재부팅 전까지
         // "죽은" 아이콘이 트레이에 남아 있다가 클릭할 때야 사라지는 흔한 버그가 난다.
         _tray?.Dispose();
+
+        // 로비를 먼저 나간다 - 방장이면 룸 타수를 로비에 맡겨야 다시 들어올 때 이어진다.
+        // 스팀을 놓은 뒤에는 로비 API 를 부를 수 없다.
+        (_net as IDisposable)?.Dispose();
 
         // 스팀을 안 놓으면 친구 목록에 죽은 프로세스가 한동안 "게임 중"으로 남는다.
         _steam?.Dispose();
