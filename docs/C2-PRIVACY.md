@@ -65,6 +65,8 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 - 누적 타수, 옵션 설정, 장착한 커서 장식, 마지막 저장 시각
 - 실행 기록(로그) 파일 — 문제 해결용이며 스팀 이름과 스팀 계정 ID 가 들어갈 수 있습니다. 외부로 보내지
   않습니다. 문의하실 때 직접 첨부하실 수 있습니다.
+- 멀티 로비에서 친구 칸을 옮겨 둔 자리 — 다음에 같은 친구와 만날 때 그 자리에 두려고, 친구의 스팀 계정
+  ID 와 화면 위치를 함께 저장합니다. 마지막으로 있던 로비 정보도 저장합니다. 외부로 보내지 않습니다.
 - "Windows 시작 시 실행" 을 켜면 Windows 시작 프로그램 목록에 등록됩니다.
 
 **3. 게임 서버에 저장하는 것**
@@ -124,6 +126,8 @@ While PunchMonkey sits on your desktop, it only counts **that** a key or mouse b
 - Total keystroke count, option settings, equipped cursor decorations, last save time
 - Log files for troubleshooting, which may include your Steam name and Steam account ID. They are never sent
   anywhere; you may attach them yourself when contacting us.
+- Where you placed your friends' windows in multiplayer lobbies — stored together with each friend's Steam
+  account ID so they appear in the same spot next time, plus the last lobby you were in. Never sent anywhere.
 - If you enable "Run at Windows startup", the game is added to your Windows startup programs.
 
 **3. Stored on our game server**
@@ -182,7 +186,7 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 | 휠은 세지 않는다 | 같은 파일 `AnyButtonDown` 마스크 — 휠 비트(0x0400/0x0800) 제외 |
 | 별도 프로그램, Raw Input, 훅 아님 | `InputHelper` 프로젝트, `RegisterRawInputDevices`(`RIDEV_INPUTSINK`). `WH_KEYBOARD_LL` 없음 (A4 §2) |
 | ~~타건 카운트를 끌 수 있다~~ | **아직 거짓.** `SettingsState.KeystrokeCounting` 은 옵션 창이 저장만 하고 읽는 곳이 없다(2026-09-24 전수 검색) |
-| PC 에 저장하는 것 | `shared/Save/SaveData.cs` — totalKeystrokes / settings / inventory.equipped / lastQuitUtc. 경로는 `project.godot` 의 `custom_user_dir_name` |
+| PC 에 저장하는 것 | `shared/Save/SaveData.cs` — totalKeystrokes / settings / inventory.equipped / multi(friendPositions: 친구 스팀 ID → 화면 좌표, lastLobby) / lastQuitUtc. 경로는 `project.godot` 의 `custom_user_dir_name`. 세이브는 `SaveIO` 가 로컬 파일로만 쓴다 |
 | 로그에 스팀 이름·ID | `SteamService.TryInit` 의 `[steam] 연결됨 ... user= id=` 출력 → Godot 로그 파일. 멀티 로그(`[net]`)에는 로비 ID 만 남고 **친구의 스팀 ID 는 남기지 않는다** (`SteamNetSession.InviteFriend`) |
 | 시작 프로그램 등록 | A6 자동 시작 (레지스트리 Run 키) |
 | 서버에 저장하는 것 | `server/schema.sql` — `players`(steam_id, balance, *_level, slot_elapsed_ms, last_sync_utc, created/updated_at), `idempotency_keys`(요청 ID·응답), `owned_items_mirror`(steam_id, item_def_id) |

@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -59,6 +59,11 @@ public static class SaveSchema
                 case 3:
                     MigrateV3ToV4(root);
                     version = 4;
+                    break;
+
+                case 4:
+                    MigrateV4ToV5(root);
+                    version = 5;
                     break;
 
                 default:
@@ -121,6 +126,16 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v4 -> v5 (2026-09-24): <c>multi</c> 추가 - 친구 칸 창 위치(<c>friendPositions</c>, B10)와
+    /// 마지막 로비(<c>lastLobby</c>, A11). additive 라 버전 태그만 올린다. 비어 있으면 친구 칸은
+    /// 기본 자리에 뜨고 자동 재입장은 안 한다 - 멀티를 안 쓰던 유저의 동작 그대로다.
+    /// </summary>
+    private static void MigrateV4ToV5(JsonNode root)
+    {
+        root["version"] = 5;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -149,6 +164,7 @@ public static class SaveSchema
             "settings", "scale", "opacity", "pos", "sound", "autostart",
             "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen", "keystrokeCounting",
             "cursorIndependent",
+            "multi", "friendPositions", "lastLobby",
             "lastQuitUtc",
         };
 

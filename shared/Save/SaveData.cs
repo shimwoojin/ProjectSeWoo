@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace ProjectSeWoo.Shared;
@@ -29,6 +30,10 @@ public sealed class SaveData
     [JsonPropertyName("settings")]
     public SettingsState Settings { get; set; } = new();
 
+    /// <summary>멀티 로비의 로컬 상태 (v5, B10·A11).</summary>
+    [JsonPropertyName("multi")]
+    public MultiState Multi { get; set; } = new();
+
     /// <summary>
     /// 마지막 종료 시각(UTC). 오프라인 성장 계산의 기준점이다 (§2-2).
     ///
@@ -45,6 +50,29 @@ public sealed class SaveData
     /// 대신 들고 있다(<see cref="IInventoryService"/>). 장착은 스팀이 모르는
     /// 개념이라 계속 로컬에 남는다.
     /// </summary>
+    /// <summary>
+    /// 멀티 로비의 로컬 상태 (v5, 2026-09-24). 서버로 가지 않는다.
+    ///
+    /// 개인정보 안내(docs/C2-PRIVACY.md §2-2 "이 PC 에 저장하는 것")에 이 항목이 적혀 있다 -
+    /// 필드를 늘리면 거기도 고친다.
+    /// </summary>
+    public sealed class MultiState
+    {
+        /// <summary>
+        /// 친구 칸 창을 끌어다 놓은 자리. 키는 친구의 스팀 계정 ID(10진수), 값은 화면 좌표
+        /// [x, y]. "바나나킹은 늘 내 왼쪽" 처럼 친구마다 기억한다 (B10).
+        /// </summary>
+        [JsonPropertyName("friendPositions")]
+        public Dictionary<string, int[]> FriendPositions { get; set; } = new();
+
+        /// <summary>
+        /// 마지막으로 있던 로비 ID(10진수). 다시 켰을 때 그 로비가 살아 있으면 들어간다
+        /// (A11). 로비에서 직접 나오면 비운다. null 이면 없음.
+        /// </summary>
+        [JsonPropertyName("lastLobby")]
+        public string LastLobby { get; set; }
+    }
+
     public sealed class InventoryState
     {
         [JsonPropertyName("equipped")]

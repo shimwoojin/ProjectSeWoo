@@ -33,19 +33,6 @@ public static class SceneGroups
     public const string GameRoot = "game_root";
 }
 
-/// <summary><see cref="IShell.ExtendWindow"/> 가 창을 어느 쪽으로 늘렸나.</summary>
-public enum WindowExtension
-{
-    /// <summary>안 늘렸다 (높이 0).</summary>
-    None,
-
-    /// <summary>아래로. 늘어난 칸은 게임 좌표 y = 기본 높이 - belowOverlap 부터.</summary>
-    Below,
-
-    /// <summary>위로. 늘어난 칸은 게임 좌표 y = -높이부터 0 까지.</summary>
-    Above,
-}
-
 /// <summary>
 /// 멀티 룸의 상대 식별자. Steam ID 를 그대로 담는다.
 ///

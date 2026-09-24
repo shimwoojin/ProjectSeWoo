@@ -6,7 +6,7 @@ namespace ProjectSeWoo.Game;
 
 /// <summary>
 /// 친구 한 명의 칸 (B10, 기획서 §4-1 "입장한 유저 각자가 본인의 나무 + 원숭이 + 장착 커서로 렌더링").
-/// <see cref="FriendStrip"/> 이 로비 멤버마다 하나씩 만든다.
+/// <see cref="FriendWindows"/> 가 로비 멤버마다 작은 창 하나에 하나씩 둔다.
 ///
 /// <b>내 나무·원숭이를 그대로 줄여 쓴다</b> (<c>Tree.tscn</c>, <c>Monkey.tscn</c>) - 친구 칸만
 /// 다른 그림이면 "저게 친구 나무" 로 안 읽힌다.
@@ -42,6 +42,9 @@ public partial class RemotePlayerView : Node2D
 
     // 커서 장식 배치는 platform/CursorLayer 의 SlotOffset/SlotScale 을 줄인 것이다.
     private const float CursorScale = 0.55f;
+
+    /// <summary>이름표 띠의 위쪽. 여기부터 칸 아래 끝까지 이름·레벨·도감 세 줄.</summary>
+    private const float LabelsTop = 144f;
     private static readonly Vector2 CursorAt = new(CellWidth - 22f, 116f);
     private static readonly Vector2[] SlotOffset = { new(0, -24), new(12, 16), new(0, 4) };
     private static readonly float[] SlotScale = { 0.42f, 0.30f, 0.34f };
@@ -78,15 +81,54 @@ public partial class RemotePlayerView : Node2D
 
         AddChild(BuildCursor());
 
-        _name = MakeLabel(new Vector2(0, 144), 13);
+        _name = MakeLabel(new Vector2(0, LabelsTop), 13);
         _stats = MakeLabel(new Vector2(0, 162), 11);
         _collection = MakeLabel(new Vector2(0, 178), 10);
         _collection.AddThemeColorOverride("font_color", new Color(0.80f, 0.84f, 0.90f));
     }
 
+    /// <summary>
+    /// 칸 창의 모양 (<see cref="ISatelliteWindow.SetShape"/>) - 위는 나무·원숭이·커서 장식을
+    /// 감싸는 사각형, 아래는 이름표 띠(칸 폭 전체)를 이은 T 자. 이 안이 보이고 잡히며,
+    /// 나무 양옆 빈 곳은 바탕화면으로 클릭이 통과한다. 아직 트리에 안 붙었으면 null(창 전체).
+    /// </summary>
+    public Vector2[] GetShape()
+    {
+        if (_tree == null)
+        {
+            return null;
+        }
+
+        // 커서 장식은 화살표 끝 기준 위로 매달리고(Hang) 아래로 깔린다 - 대략 40x48.
+        var cursor = new Rect2(CursorAt + new Vector2(-18, -30), new Vector2(40, 48));
+        Rect2 top = _tree.GetBounds().Merge(_monkey.GetBounds()).Merge(cursor);
+
+        float left = Mathf.Clamp(top.Position.X, 0, CellWidth);
+        float right = Mathf.Clamp(top.End.X, 0, CellWidth);
+        float topY = Mathf.Clamp(top.Position.Y, 0, LabelsTop);
+
+        return new[]
+        {
+            new Vector2(left, topY),
+            new Vector2(right, topY),
+            new Vector2(right, LabelsTop),
+            new Vector2(CellWidth, LabelsTop),
+            new Vector2(CellWidth, CellHeight),
+            new Vector2(0, CellHeight),
+            new Vector2(0, LabelsTop),
+            new Vector2(left, LabelsTop),
+        };
+    }
+
     /// <summary>로비 정보(이름·로비 타수). 로비 멤버 목록이 바뀌거나 1초마다 온다.</summary>
     public void SetMember(string name, long roomKeystrokes)
     {
+        // 목 셸(셸 없이 GameRoot 만 돌릴 때)의 가짜 창은 씬 트리에 없어서 _Ready 가 안 돈다.
+        if (_name == null)
+        {
+            return;
+        }
+
         if (_name.Text != name)
         {
             _name.Text = name;
@@ -99,6 +141,11 @@ public partial class RemotePlayerView : Node2D
     /// <summary>친구가 200ms 마다 보내는 상태 (A10). 장식·레벨을 맞추고 친 만큼 펀치한다.</summary>
     public void ApplyState(PlayerState state)
     {
+        if (_name == null)
+        {
+            return;
+        }
+
         ShowDecoration(CursorSlot.Hang, state.EquippedHang);
         ShowDecoration(CursorSlot.Trail, state.EquippedTrail);
         ShowDecoration(CursorSlot.Base, state.EquippedBase);

@@ -41,28 +41,13 @@ public interface IShell
     void ToggleOptions();
 
     /// <summary>
-    /// 창에 높이 <paramref name="height"/> 짜리 칸을 붙인다 (B10 친구 칸). 0 이면 원래대로.
-    /// 값은 콘텐츠 픽셀(배율 적용 전)이다.
+    /// 작은 창을 하나 띄운다 (B10 친구 칸, <see cref="ISatelliteWindow"/>).
+    /// <paramref name="contentSize"/> 는 배율 전 크기다.
     ///
-    /// <b>어느 쪽에 붙일지는 셸이 정한다.</b> 창 아래에 화면이 남으면 아래, 모자라면 위 -
-    /// 기본 위치가 화면 오른쪽 아래 구석이라 아래로만 늘리면 화면 밖으로 나간다. 위로 늘릴
-    /// 때는 창을 올린 만큼 콘텐츠를 내려서 <b>나무·원숭이가 화면에서 제자리에 있게</b> 한다.
-    ///
-    /// <b>방향은 친구가 들고 날 때는 안 바뀌고, 창을 끌어 놓았을 때만 다시 정한다</b>
-    /// (<see cref="WindowExtensionChanged"/>). 칸 높이만 바뀌는 호출은 방향을 유지한다.
-    ///
-    /// <paramref name="belowOverlap"/>: 아래에 붙일 때 원래 창의 맨 아래 몇 픽셀에 칸을 겹칠지.
-    /// 원래 창 밑이 비어 있으면 그만큼 창을 덜 늘린다. 칸의 게임 좌표는 아래면
-    /// <c>y = 기본 높이 - belowOverlap</c> 부터, 위면 <c>y = -height</c> 부터다.
-    ///
-    /// 늘어난 칸은 클릭을 받지 않는다 - 클릭 영역은 여전히
-    /// <see cref="IInteractiveArea.GetClickableBounds"/> 가 신고한 것뿐이다.
+    /// 위치: <paramref name="savedPosition"/> 이 지금 모니터 어딘가에 있으면 거기, 아니면
+    /// <paramref name="preferredOffsets"/> 를 차례로 보고 창이 화면에 다 들어오는 첫 자리.
+    /// 오프셋은 메인 창 콘텐츠 좌표(배율 전) 기준이다 - 예: "내 원숭이 바로 아래", "바로 위".
+    /// 어느 것도 안 맞으면 첫 자리를 화면 안으로 밀어 넣는다.
     /// </summary>
-    WindowExtension ExtendWindow(int height, int belowOverlap = 0);
-
-    /// <summary>
-    /// 붙인 칸의 방향이 바뀌었다 - 유저가 창을 끌어서 아래에 자리가 생겼거나 없어졌다.
-    /// 칸을 그리는 쪽은 새 방향에 맞춰 자리를 옮긴다. 메인 스레드에서 온다.
-    /// </summary>
-    event System.Action<WindowExtension> WindowExtensionChanged;
+    ISatelliteWindow OpenSatellite(string name, Vector2I contentSize, Vector2I? savedPosition, params Vector2[] preferredOffsets);
 }

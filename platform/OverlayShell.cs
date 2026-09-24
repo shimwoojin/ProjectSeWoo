@@ -50,17 +50,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     private Vector2I _baseWindowSize;
 
     /// <summary>
-    /// 붙인 칸(친구 칸)의 높이·아래로 겹칠 폭(콘텐츠 픽셀, 배율 전)과 방향
-    /// (B10, <see cref="ExtendWindow"/>). 위로 붙였으면 창을 칸 높이만큼 올리고 루트
-    /// <see cref="Node2D.Position"/> 을 그만큼 내려서 나무·원숭이가 화면에서 제자리에 있다.
-    /// 아래로 붙였으면 창을 (높이 - 겹칠 폭) 만큼만 늘린다.
+    /// 셸이 띄운 작은 창들 (B10 친구 칸, <see cref="OpenSatellite"/>). 배율·투명도·숨기기를
+    /// 메인 창과 같이 따르게 하고, 끌기 틱을 돌린다.
     /// </summary>
-    private int _extensionHeight;
-    private int _extensionOverlap;
-    private bool _extraAbove;
-
-    /// <inheritdoc cref="IShell.WindowExtensionChanged"/>
-    public event Action<WindowExtension> WindowExtensionChanged;
+    private readonly System.Collections.Generic.List<SatelliteWindow> _satellites = new();
 
     /// <summary>
     /// 지금 세션의 옵션 값 (§7-4). 세이브에서 읽어와 이 객체 하나로 유지한다 -
@@ -494,105 +487,18 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     {
         // 상한/하한은 실제 체감으로 잡은 자리 표시자다 - "창이 사라지거나 화면을
         // 뒤덮는" 극단만 막는다. A6 옵션 슬라이더도 이 범위로 맞췄다(OptionsWindow).
-        // 늘린 칸이 위에 있으면 창 위치가 배율에 따라 달라진다 - 바꾸기 전 배율로 원래 자리를 구한다.
-        Vector2I basePosition = BaseWindowPosition();
         _settings.Scale = Mathf.Clamp(s, 0.5f, 2.0f);
         Scale = Vector2.One * _settings.Scale;
-
-        // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다 (ApplyWindowGeometry 안에서).
-        ApplyWindowGeometry(basePosition);
-    }
-
-    /// <inheritdoc cref="IShell.ExtendWindow"/>
-    public WindowExtension ExtendWindow(int height, int belowOverlap = 0)
-    {
-        height = Mathf.Clamp(height, 0, _baseWindowSize.Y);
-        Vector2I basePosition = BaseWindowPosition();
-
-        if (height == 0)
+        foreach (SatelliteWindow satellite in _satellites)
         {
-            _extensionHeight = 0;
-            _extensionOverlap = 0;
-            _extraAbove = false;
-            ApplyWindowGeometry(basePosition);
-            return WindowExtension.None;
+            satellite.SetScale(_settings.Scale);
         }
-
-        // 방향은 처음 붙일 때 정한다. 이미 붙어 있으면(친구가 더 들어오거나 나가서 높이만
-        // 바뀌는 호출) 유지한다 - 친구가 들고 날 때마다 칸이 뒤집히면 더 헷갈린다.
-        // 창을 끌어 놓았을 때는 ReconsiderExtension 이 다시 정한다.
-        bool first = _extensionHeight == 0;
-        _extensionHeight = height;
-        _extensionOverlap = Mathf.Clamp(belowOverlap, 0, height);
-        if (first)
-        {
-            _extraAbove = !FitsBelow(basePosition);
-        }
-
-        ApplyWindowGeometry(basePosition);
-        return CurrentExtension();
-    }
-
-    private WindowExtension CurrentExtension() =>
-        _extensionHeight == 0 ? WindowExtension.None
-        : _extraAbove ? WindowExtension.Above
-        : WindowExtension.Below;
-
-    /// <summary>아래에 붙이면 창이 화면(작업 영역) 안에 들어오는가.</summary>
-    private bool FitsBelow(Vector2I basePosition)
-    {
-        int baseBottom = basePosition.Y + Mathf.RoundToInt(_baseWindowSize.Y * _settings.Scale);
-        int belowPx = Mathf.RoundToInt((_extensionHeight - _extensionOverlap) * _settings.Scale);
-        return baseBottom + belowPx <= GetSafeArea().End.Y;
-    }
-
-    /// <summary>
-    /// 창을 끌어 놓은 뒤 붙인 칸의 방향을 다시 정한다. 아래에 자리가 생겼으면 아래로,
-    /// 없어졌으면 위로. 나무·원숭이는 놓은 자리에 그대로 있고 칸만 옮겨 간다.
-    /// </summary>
-    private void ReconsiderExtension()
-    {
-        if (_extensionHeight == 0)
-        {
-            return;
-        }
-
-        Vector2I basePosition = BaseWindowPosition();
-        bool above = !FitsBelow(basePosition);
-        if (above == _extraAbove)
-        {
-            return;
-        }
-
-        _extraAbove = above;
-        ApplyWindowGeometry(basePosition);
-        PersistSettings();
-        GD.Print($"[shell] 친구 칸을 {(above ? "위" : "아래")}로 옮김 (창을 옮겨서)");
-        WindowExtensionChanged?.Invoke(CurrentExtension());
-    }
-
-    /// <summary>
-    /// 칸을 붙이기 전의 창 위치 - 나무·원숭이가 있는 자리. 세이브에도 이 값을 남긴다
-    /// (<see cref="PersistSettings"/>): 위로 붙인 채 꺼도 다음에 켤 때 제자리에 뜬다.
-    /// </summary>
-    private Vector2I BaseWindowPosition() =>
-        _win.Position + new Vector2I(0, _extraAbove ? Mathf.RoundToInt(_extensionHeight * _settings.Scale) : 0);
-
-    /// <summary>창 크기·위치·콘텐츠 오프셋·클릭 영역을 지금 배율과 붙인 칸에 맞춘다.</summary>
-    private void ApplyWindowGeometry(Vector2I basePosition)
-    {
-        int extraContent = _extensionHeight == 0 ? 0
-            : _extraAbove ? _extensionHeight
-            : _extensionHeight - _extensionOverlap;
-        int extraPx = Mathf.RoundToInt(extraContent * _settings.Scale);
-        int above = _extraAbove ? extraPx : 0;
 
         _win.Size = new Vector2I(
             Mathf.RoundToInt(_baseWindowSize.X * _settings.Scale),
-            Mathf.RoundToInt(_baseWindowSize.Y * _settings.Scale) + extraPx);
-        _win.Position = basePosition - new Vector2I(0, above);
-        Position = new Vector2(0, above);
+            Mathf.RoundToInt(_baseWindowSize.Y * _settings.Scale));
 
+        // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다.
         ApplyPassthrough(force: true);
     }
 
@@ -608,6 +514,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     {
         _settings.Opacity = Mathf.Clamp(a, 0.1f, 1.0f);
         Modulate = new Color(1f, 1f, 1f, _settings.Opacity);
+        foreach (SatelliteWindow satellite in _satellites)
+        {
+            satellite.SetOpacity(_settings.Opacity);
+        }
     }
 
     /// <summary>
@@ -634,6 +544,59 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     public Rect2I GetSafeArea() =>
         DisplayServer.ScreenGetUsableRect(DisplayServer.WindowGetCurrentScreen());
+
+    /// <inheritdoc cref="IShell.OpenSatellite"/>
+    public ISatelliteWindow OpenSatellite(
+        string name, Vector2I contentSize, Vector2I? savedPosition, params Vector2[] preferredOffsets)
+    {
+        var size = new Vector2I(
+            Mathf.RoundToInt(contentSize.X * _settings.Scale),
+            Mathf.RoundToInt(contentSize.Y * _settings.Scale));
+
+        var satellite = new SatelliteWindow(
+            this, name, contentSize, PlaceSatellite(size, savedPosition, preferredOffsets), _settings.Scale,
+            closed => _satellites.Remove(closed));
+        satellite.SetOpacity(_settings.Opacity);
+        _satellites.Add(satellite);
+
+        // 메인 창이 지금 숨겨져 있으면(트레이·전체화면) 같이 숨긴 채로 시작한다.
+        satellite.SetVisible(_shellWindowVisible);
+        return satellite;
+    }
+
+    /// <summary>
+    /// 위성 창의 처음 자리. 기억해 둔 자리가 지금 모니터에 있으면 거기(모니터를 뺐거나
+    /// 해상도가 바뀌었으면 버린다 - 메인 창 복원과 같은 규칙), 아니면 메인 창 기준 후보를
+    /// 차례로 보고 화면에 다 들어오는 첫 자리.
+    /// </summary>
+    private Vector2I PlaceSatellite(Vector2I size, Vector2I? saved, Vector2[] offsets)
+    {
+        if (saved is { } s && IsWithinAnyScreen(s))
+        {
+            return s;
+        }
+
+        Rect2I usable = GetSafeArea();
+        Vector2I first = _win.Position;
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            Vector2I candidate = _win.Position + (Vector2I)(offsets[i] * _settings.Scale).Round();
+            if (i == 0)
+            {
+                first = candidate;
+            }
+
+            if (usable.Encloses(new Rect2I(candidate, size)))
+            {
+                return candidate;
+            }
+        }
+
+        // 다 안 맞으면 첫 후보를 화면 안으로 밀어 넣는다.
+        return new Vector2I(
+            Mathf.Clamp(first.X, usable.Position.X, Math.Max(usable.Position.X, usable.End.X - size.X)),
+            Mathf.Clamp(first.Y, usable.Position.Y, Math.Max(usable.Position.Y, usable.End.Y - size.Y)));
+    }
 
     /// <summary>
     /// 세이브에서 옵션 전부를 복원한다 (§7-1 "위치·크기 저장, 재실행 시 복원", §7-4).
@@ -696,8 +659,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private void PersistSettings()
     {
-        Vector2I basePosition = BaseWindowPosition();
-        _settings.Pos = new[] { basePosition.X, basePosition.Y };
+        _settings.Pos = new[] { _win.Position.X, _win.Position.Y };
         _save.MarkDirty();
     }
 
@@ -744,9 +706,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             return new Rect2();
         }
 
-        // 루트 Position 은 창을 위로 늘렸을 때 콘텐츠를 내린 만큼이다 (ApplyWindowGeometry).
         Rect2 local = _content.GetClickableBounds();
-        var scaled = new Rect2(local.Position * _settings.Scale + Position, local.Size * _settings.Scale);
+        var scaled = new Rect2(local.Position * _settings.Scale, local.Size * _settings.Scale);
         return scaled.Grow(HitPadding);
     }
 
@@ -844,6 +805,12 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
         // 스팀 콜백은 우리가 펌프를 돌려야 도착한다. 못 붙은 상태면 여기서 재시도까지 한다.
         _steam?.Tick(delta);
+
+        // 친구 칸 창 끌기 (B10). 목록이 틱 안에서 줄 수 있어(닫기) 복사해서 돈다.
+        foreach (SatelliteWindow satellite in _satellites.ToArray())
+        {
+            satellite.Tick();
+        }
 
         // 멀티 룸의 콜백 등록·타수 전송·변경 알림 묶기. 스팀 콜백 펌프 바로 뒤라
         // 이번 프레임에 도착한 로비 소식이 같은 프레임에 화면까지 간다.
@@ -946,9 +913,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         {
             _drags++;
             PersistSettings();
-
-            // 친구 칸이 붙어 있으면 놓은 자리 기준으로 방향을 다시 본다 (B10).
-            ReconsiderExtension();
         }
 
         ApplyPassthrough(force: true);

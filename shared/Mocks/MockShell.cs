@@ -40,19 +40,32 @@ public sealed class MockShell : IShell
 
     public Rect2I GetSafeArea() => SafeArea;
 
-    /// <summary>마지막으로 요청된 확장 높이. 목은 창이 없어서 기록만 하고 늘 아래로 답한다.</summary>
-    public int ExtraHeight { get; private set; }
+    /// <summary>
+    /// 목은 OS 창을 못 띄운다 - 내용을 받을 노드만 있는 가짜를 준다. 씬 트리에 없어서
+    /// 그 안의 노드는 <c>_Ready</c> 가 안 돈다(셸 없이 GameRoot 만 돌리는 경우라 괜찮다).
+    /// </summary>
+    public ISatelliteWindow OpenSatellite(
+        string name, Vector2I contentSize, Vector2I? savedPosition, params Vector2[] preferredOffsets) =>
+        new MockSatellite(savedPosition ?? Vector2I.Zero);
 
-    public WindowExtension ExtendWindow(int height, int belowOverlap = 0)
+    private sealed class MockSatellite : ISatelliteWindow
     {
-        ExtraHeight = System.Math.Max(0, height);
-        return ExtraHeight == 0 ? WindowExtension.None : WindowExtension.Below;
-    }
+        public MockSatellite(Vector2I at) => ScreenPosition = at;
 
-    /// <summary>목은 창을 끌 일이 없어서 방향이 바뀌지 않는다.</summary>
-    public event System.Action<WindowExtension> WindowExtensionChanged
-    {
-        add { }
-        remove { }
+        public event System.Action<Vector2I> Moved
+        {
+            add { }
+            remove { }
+        }
+
+        public Node2D Content { get; } = new();
+
+        public Vector2I ScreenPosition { get; }
+
+        public void SetShape(Vector2[] outline)
+        {
+        }
+
+        public void Close() => Content.QueueFree();
     }
 }

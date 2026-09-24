@@ -57,6 +57,12 @@ public partial class OverlayShell
     {
         bool visible = _userWantsVisible && !_autoHiddenForFullscreen;
         SetShellWindowVisible(visible);
+
+        // 친구 칸 창도 메인 창을 따라간다 (B10). 친구만 바탕화면에 남아 있으면 이상하다.
+        foreach (SatelliteWindow satellite in _satellites)
+        {
+            satellite.SetVisible(visible);
+        }
         _cursor.SetEnabled(_settings.CursorEnabled && (visible || _settings.CursorIndependent));
     }
 
