@@ -215,7 +215,13 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         {
             _steam = new SteamService();
             _steam.Start();
-            _achievements = _steam;
+
+            // **무인 실행(--steam-selftest, --report=)은 게임에 진짜 도전과제를 넘기지 않는다.**
+            // 게임 레이어는 무인 실행에서도 떠서, 스팀 통계가 오면 "놓친 해금 회수"
+            // (GameRoot.SyncAchievements)가 돈다 - 2026-09-24 등록 확인용 자체 검사가 개발
+            // 계정에 ACH_KEYSTROKES_1K 를 실제로 해금했다. 자체 검사는 _steam 을 직접 읽으므로
+            // 영향이 없다.
+            _achievements = _unattended ? new UnavailableAchievements() : _steam;
         }
 
         // A9 멀티 룸. 스팀 로비라 스팀을 안 붙인 실행(무인 측정)에서는 목으로 남는다.

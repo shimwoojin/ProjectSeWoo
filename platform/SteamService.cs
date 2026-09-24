@@ -108,6 +108,7 @@ public sealed class SteamService : IAchievements, IDisposable
         if (_initialized)
         {
             SteamAPI.RunCallbacks();
+            FlushStatsIfDue(delta);
             return;
         }
 
@@ -157,8 +158,10 @@ public sealed class SteamService : IAchievements, IDisposable
         }
 
         // SetAchievement 는 로컬 캐시만 바꾼다. StoreStats 를 불러야 스팀 서버로 가고
-        // 해금 토스트가 뜬다.
+        // 해금 토스트가 뜬다. 밀린 통계도 같은 호출에 실려 간다.
         SteamUserStats.StoreStats();
+        _statsDirty = false;
+        _statsFlushTimer = 0.0;
     }
 
     /// <summary><see cref="IAchievements.IsUnlocked"/>.</summary>
@@ -177,6 +180,17 @@ public sealed class SteamService : IAchievements, IDisposable
         return SteamUserStats.GetAchievement(id, out _);
     }
 
+    /// <summary>통계를 읽는다 (자체 검사용). 모르는 이름이거나 통계 전이면 null.</summary>
+    public int? TryGetStat(string id)
+    {
+        if (!IsAvailable || string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        return SteamUserStats.GetStat(id, out int value) ? value : null;
+    }
+
     public bool IsUnlocked(string id)
     {
         if (!IsAvailable || string.IsNullOrEmpty(id))
@@ -188,6 +202,65 @@ public sealed class SteamService : IAchievements, IDisposable
     }
 
     /// <summary><see cref="IAchievements.IndicateProgress"/>.</summary>
+    /// <summary>
+    /// 통계를 스팀 서버로 보내는 최소 간격(초). <see cref="SetStat"/> 은 타건마다 오는데
+    /// <c>StoreStats</c> 를 그만큼 부르면 스팀이 호출을 제한한다. 1분이면 커뮤니티 진행
+    /// 막대가 늦어 봐야 1분이다. 해금(<see cref="Unlock"/>)과 종료(<see cref="Dispose"/>)
+    /// 때는 기다리지 않고 같이 보낸다.
+    /// </summary>
+    private const double StatsFlushSec = 60.0;
+
+    private bool _statsDirty;
+    private double _statsFlushTimer;
+    private bool _statRejectLogged;
+
+    public void SetStat(string id, int value)
+    {
+        if (!IsAvailable || string.IsNullOrEmpty(id))
+        {
+            return;
+        }
+
+        // Increment Only 통계는 값이 줄면 거부된다 - 세이브를 새로 시작한 PC 에서 스팀에
+        // 더 큰 값이 이미 있는 경우다. 게임은 계속 돌고, 세이브가 스팀 값을 넘으면 다시 먹는다.
+        if (!SteamUserStats.SetStat(id, value))
+        {
+            if (!_statRejectLogged)
+            {
+                _statRejectLogged = true;
+                GD.Print($"[steam] 통계 '{id}'={value} 거부 - 미등록 이름이거나 Increment Only 에 더 작은 값");
+            }
+
+            return;
+        }
+
+        _statsDirty = true;
+    }
+
+    private void FlushStatsIfDue(double delta)
+    {
+        if (!_statsDirty)
+        {
+            return;
+        }
+
+        _statsFlushTimer += delta;
+        if (_statsFlushTimer >= StatsFlushSec)
+        {
+            FlushStats();
+        }
+    }
+
+    private void FlushStats()
+    {
+        _statsFlushTimer = 0.0;
+        if (_statsDirty && IsAvailable)
+        {
+            _statsDirty = false;
+            SteamUserStats.StoreStats();
+        }
+    }
+
     public void IndicateProgress(string id, int current, int max)
     {
         if (!IsAvailable || string.IsNullOrEmpty(id) || max <= 0 || current < 0)
@@ -208,6 +281,9 @@ public sealed class SteamService : IAchievements, IDisposable
         {
             return;
         }
+
+        // 마지막 1분 안에 친 타수가 통계에 남도록 놓기 전에 한 번 보낸다.
+        FlushStats();
 
         _statsReceived?.Dispose();
         _statsReceived = null;

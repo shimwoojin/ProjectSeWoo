@@ -107,4 +107,8 @@ public sealed class UnavailableAchievements : IAchievements
     public void IndicateProgress(string id, int current, int max)
     {
     }
+
+    public void SetStat(string id, int value)
+    {
+    }
 }

@@ -43,6 +43,26 @@ public interface IAchievements
     /// 만든 API 가 아니다 — 구간을 넘을 때만 부른다.
     /// </summary>
     void IndicateProgress(string id, int current, int max);
+
+    /// <summary>
+    /// 정수 통계(<see cref="StatIds"/>)를 쓴다. 로컬 캐시만 바꾸고, 스팀 서버로는 구현이
+    /// 모아서 보낸다 - 타건마다 부르므로 매번 서버로 가면 안 된다. 스팀이 없으면 조용히 버린다.
+    /// </summary>
+    void SetStat(string id, int value);
+}
+
+/// <summary>
+/// 통계 API Name 목록 (A15, 2026-09-24). 파트너 사이트 Stats 등록본과 같아야 한다 -
+/// docs/A15-ACHIEVEMENTS.md §5.
+/// </summary>
+public static class StatIds
+{
+    /// <summary>
+    /// 누적 타수. <c>SaveData.TotalKeystrokes</c> 를 그대로 비춘다. 누적 타수 도전과제 4개의
+    /// Progress Stat 으로 연결돼 스팀 커뮤니티 도전과제 페이지에 진행 막대를 그린다.
+    /// INT · Increment Only · Min 0.
+    /// </summary>
+    public const string Keystrokes = "STAT_KEYSTROKES";
 }
 
 /// <summary>
@@ -82,7 +102,7 @@ public static class AchievementIds
     /// <summary>바닥 슬롯의 장식을 전부 모았다.</summary>
     public const string SlotCompleteBase = "ACH_SLOT_BASE";
 
-    /// <summary>멀티 룸에 처음 들어갔다 (만들거나 참가). 실물 스팀 로비(A9) 전에는 해금되지 않는다.</summary>
+    /// <summary>멀티 룸에 처음 들어갔다 (만들거나 참가). 실물 스팀 로비(<c>SteamNetSession</c>, A9)에서만 풀린다 - 목 룸은 안 된다.</summary>
     public const string RoomFirstJoin = "ACH_ROOM_FIRST_JOIN";
 
     /// <summary>

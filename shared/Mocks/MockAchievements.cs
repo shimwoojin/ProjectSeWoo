@@ -50,5 +50,24 @@ public sealed class MockAchievements : IAchievements
     }
 
     /// <summary>목 상태 초기화. 해금 조건을 반복해서 시험할 때 쓴다.</summary>
-    public void Reset() => _unlocked.Clear();
+    private readonly Dictionary<string, int> _stats = new();
+
+    public void SetStat(string id, int value)
+    {
+        if (!IsAvailable || string.IsNullOrEmpty(id))
+        {
+            return;
+        }
+
+        _stats[id] = value;
+    }
+
+    /// <summary>시험용 - 마지막으로 쓴 통계 값. 안 썼으면 null.</summary>
+    public int? GetStat(string id) => _stats.TryGetValue(id, out int v) ? v : null;
+
+    public void Reset()
+    {
+        _unlocked.Clear();
+        _stats.Clear();
+    }
 }

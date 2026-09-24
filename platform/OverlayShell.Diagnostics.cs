@@ -128,6 +128,10 @@ public partial class OverlayShell
 
         GD.Print($"ach 등록    : {registered}/{AchievementIds.All.Length}");
 
+        int? keystrokeStat = _steam?.TryGetStat(StatIds.Keystrokes);
+        GD.Print($"stat        : {StatIds.Keystrokes} "
+            + (keystrokeStat is int v ? $"등록됨 값={v:N0}" : _steam?.IsAvailable == true ? "**미등록**" : "?"));
+
         _steamSelftest = false;
         GetTree().Quit(_steam?.IsInitialized == true ? 0 : 1);
     }

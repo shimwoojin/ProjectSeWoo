@@ -582,6 +582,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 빈 나무를 쳐도 타수는 늘어야 "논 시간" 이 레벨에 반영된다. 레벨 환산과
         // 마일스톤 도전과제(AchievementIds)는 B3 가 이 값 위에 올린다.
         Save.TotalKeystrokes += count;
+        PushKeystrokeStat();
 
         // 룸 랭킹은 누적이 아니라 룸에서 친 타수다 - 세는 것은 세션이 한다
         // (INetSession.AddKeystrokes). 룸 밖이면 세션이 버린다.
@@ -958,6 +959,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     {
         _achievementsSynced = true;
 
+        // 스팀이 없는 동안 친 타수도 통계에 올린다 - 타건마다 부르는 쪽은 그때 버려졌다.
+        PushKeystrokeStat();
+
         foreach ((string id, int threshold) in AchievementIds.KeystrokeMilestones)
         {
             if (Save.TotalKeystrokes >= threshold)
@@ -987,6 +991,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             TryUnlock(AchievementIds.Collection100, "도감 100% - 놓친 것 회수");
         }
     }
+
+    /// <summary>
+    /// 누적 타수를 스팀 통계(<see cref="StatIds.Keystrokes"/>)에 비춘다. 누적 타수 도전과제의
+    /// Progress Stat 이라 커뮤니티 페이지 진행 막대가 이 값을 쓴다. 로컬 캐시만 바꾸고 서버로는
+    /// SteamService 가 1분마다 모아 보낸다. INT 라 21억에서 멈춘다(초당 캡 10 으로 6년 넘게 걸린다).
+    /// </summary>
+    private void PushKeystrokeStat() =>
+        _platform.Achievements.SetStat(StatIds.Keystrokes, (int)Math.Min(int.MaxValue, Save.TotalKeystrokes));
 
     /// <summary>룸에 들어갔으면(만들었거나 참가했거나) 첫 참가 도전과제를 해금한다.</summary>
     private void OnRoomChangedForAchievement()

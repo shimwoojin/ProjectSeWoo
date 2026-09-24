@@ -9,10 +9,10 @@
 |---|---|
 | 목록 확정 (10개) | ☑ 2026-09-24. 마일스톤 1K/10K/100K/1M, 추가 과제 5개 |
 | 코드 (`AchievementIds`, 해금 조건) | ☑ 목(`MockAchievements`)으로 끝까지 시험 — §3 |
-| 파트너 사이트 등록 | ☐ **사람이 한다** — §2 |
-| 등록 확인 | ☐ 등록·게시 뒤 `--steam-selftest` 가 `ach 등록 : 10/10` 이어야 한다 — §4 |
+| 파트너 사이트 등록 | ☑ 2026-09-24, 10개 모두 Set By = Client |
+| 등록 확인 | ☑ `--steam-selftest` → `ach 등록 : 10/10`, 통계 수신 PASS — §4 |
 | 아이콘 | ☑ 달성·미달성 각 10장 — `assets/_store/achievements/` (§6) |
-| 진행도 통계(커뮤니티 진행 막대) | ☐ 안 한다(선택). §5 |
+| 누적 타수 통계 `STAT_KEYSTROKES` | ◐ 코드 ☑ (타건마다 로컬, 1분마다 서버). **파트너 사이트 등록과 Progress Stat 연결은 사람이** — §5 |
 
 ## 1. 목록
 
@@ -30,13 +30,13 @@
 | `ACH_SLOT_TRAIL` | Trailblazer / Collect every trail decoration. | 잔상 수집가 / 잔상 장식을 모두 모은다. | 잔상 6종 |
 | `ACH_SLOT_BASE` | Solid Ground / Collect every base decoration. | 바닥 수집가 / 바닥 장식을 모두 모은다. | 바닥 4종 |
 | `ACH_COLLECTION_100` | Complete Collection / Collect all 16 cursor decorations. | 도감 완성 / 커서 장식 16종을 모두 모은다. | 도감 16/16 (§3-3) |
-| `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 룸에 들어감 (**실물 로비 A9 전에는 해금 안 됨**) |
+| `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
 
 - 누적 타수의 "Lv." 은 `KeystrokeLevel` 곡선 기준이다. 체감 기간(첫날 / 하루 이틀 / 1~2주 /
   수개월)은 하루 타건 수를 짐작한 것이라 실측이 아니다
-- `ACH_ROOM_FIRST_JOIN` 은 멀티를 1.1 로 미루면 **등록하지 않는 편이 낫다.** 딸 수 없는
-  과제가 목록에 있으면 도감 100% 성향의 유저에게 나쁜 신호다. 코드에 이름이 있어도
-  등록 안 된 이름의 `Unlock` 은 조용히 실패할 뿐이다
+- `ACH_ROOM_FIRST_JOIN` — A9(실물 스팀 로비)가 9/24 에 들어와서 실제로 딸 수 있다. 목 룸으로는
+  안 풀린다(§3-2). 멀티를 출시에서 빼게 되면 이 과제는 파트너 사이트에서 숨기거나 지운다 —
+  딸 수 없는 과제가 목록에 있으면 도감 100% 성향의 유저에게 나쁜 신호다
 - 문구는 초안이다. 스토어 페이지 톤이 정해지면 같이 다듬는다
 
 ## 2. 파트너 사이트에 넣는 순서
@@ -77,6 +77,12 @@
 `TrustNetForAchievements`). 디버그 지급(`Shift+B`, `_cheated`)은 전과 같이 막는다. 누적 타수는
 실제 입력이라 이 규칙 밖이다.
 
+**무인 실행(`--steam-selftest`, `--report=`)은 게임 레이어에 진짜 도전과제를 넘기지 않는다**
+(`OverlayShell` 이 `UnavailableAchievements` 를 준다). 게임 레이어는 무인 실행에서도 뜨고, 스팀
+통계가 오면 §3-1 회수가 돈다 — **9/24 등록 확인용 자체 검사가 개발 계정에 `ACH_KEYSTROKES_1K`
+를 실제로 해금했다**(세이브의 누적 3,288타는 실제로 친 것이라 다음 정상 실행에서도 풀렸을
+과제다). 자체 검사 자신은 `SteamService` 를 직접 읽으므로 영향이 없다.
+
 ### 3-3. 시험 (2026-09-24, 게임 씬 단독 실행 = 전부 목)
 
 | 순서 | 결과 |
@@ -98,18 +104,60 @@
 Godot_v4.7.2-stable_mono_win64_console.exe --headless --path . -- --steam-selftest
 ```
 
-이름마다 `등록됨` / `**미등록**` / `?` 를 찍고 마지막에 `ach 등록 : N/10` 을 낸다.
+이름마다 `등록됨` / `**미등록**` / `?` 를 찍고 `ach 등록 : N/10` 을 낸다. 그 아래 `stat` 줄이
+`STAT_KEYSTROKES` 의 등록 여부와 현재 값을 낸다.
 
 - `?` = 통계를 못 받았다 (스키마가 없거나 게시 전). **등록 전 지금은 전부 `?` 가 정상이다**
 - `**미등록**` = 통계는 받았는데 그 이름이 스키마에 없다 → 파트너 사이트 입력 오타
-- 읽기만 한다 — 자체 검사가 `Unlock` 을 부르면 실제 과제가 풀려 버린다
+- 읽기만 한다 — 자체 검사가 `Unlock` 을 부르면 실제 과제가 풀려 버린다. 게임 레이어의 해금도
+  무인 실행에서는 막혀 있다(§3-2)
 
-## 5. 진행도 통계 (선택, 안 함)
+## 5. 누적 타수 통계 `STAT_KEYSTROKES`
 
-스팀 커뮤니티 페이지의 진행 막대는 과제에 INT 통계(Progress Stat)를 연결해야 나온다. 게임 안
-진행도 토스트(`IndicateAchievementProgress`)는 통계 없이도 뜬다. 막대까지 원하면
-`STAT_KEYSTROKES` 같은 통계를 등록하고 코드에서 `SetStat` + 주기적 `StoreStats` 를 붙여야 한다
-— 출시 필수는 아니라 보류.
+스팀 커뮤니티 도전과제 페이지의 **진행 막대**("100,000 중 32,881")는 과제에 정수 통계(Progress
+Stat)를 연결해야 나온다. 게임 안 진행도 토스트(`IndicateAchievementProgress`)는 통계 없이도 뜬다.
+
+### 5-1. 파트너 사이트 — Stats 에 새 통계
+
+| 칸 | 값 | 이유 |
+|---|---|---|
+| API Name | `STAT_KEYSTROKES` | `StatIds.Keystrokes` 와 한 글자도 다르면 안 된다 |
+| Type | **INT** | 타수는 정수. AVGRATE 는 "시간당 비율" 용이다 |
+| Set By | **Client** | 게임 클라이언트가 `SetStat` 으로 쓴다. GS/Official GS 면 클라이언트 쓰기가 거부된다 |
+| Increment Only | **켬** | 누적값이 줄어들 일이 없다. 켜 두면 줄이는 조작도 막힌다 |
+| Max Change | **비움(제한 없음)** | 한 번 저장할 때 늘 수 있는 최대치. 작게 잡으면 **스팀이 꺼져 있던 동안 쌓인 타수를 나중에 한꺼번에 올릴 때 거부된다**(자동 시작이 스팀보다 먼저 뜬 날 등). 초당 캡(10)이 이미 입력 쪽에 있다 |
+| Min Value | **0** | |
+| Max Value | **비움** (또는 2147483647) | INT 최대. 코드도 여기서 멈춘다(초당 10타로 6년 넘게 걸린다) |
+| Default Value | 0 | |
+| Aggregated | 끔 (선택) | 켜면 스팀이 **전 유저 합계**를 모은다("전 세계 누적 타수" 같은 연출용). 지금 쓸 곳이 없다 |
+| Display Name | Total Keystrokes / 누적 타수 | |
+
+### 5-2. 파트너 사이트 — 누적 타수 과제 4개에 Progress Stat 연결
+
+`ACH_KEYSTROKES_1K/10K/100K/1M` 각각 편집 → **Progress Stat = `STAT_KEYSTROKES`**, Min 0, Max 는
+과제 문턱(1000 / 10000 / 100000 / 1000000). 다른 6개(구매·슬롯·도감·룸)는 연결하지 않는다.
+
+통계가 Max 에 닿으면 스팀이 그 과제를 **자동으로 해금**하는 것으로 알고 있다(확인은 안 했다).
+그래도 코드의 `Unlock` 은 그대로 둔다 — 이미 풀린 과제의 `Unlock` 은 아무 일도 안 한다.
+
+**Stats·Achievements 둘 다 게시(Publish)해야 반영된다.** 게시 뒤 자체 검사의 `stat` 줄이
+`등록됨 값=N` 이면 된다.
+
+### 5-3. 코드가 하는 일
+
+| 시점 | 동작 |
+|---|---|
+| 타건마다 (`GameRoot.OnKeystrokes`) | `SetStat(STAT_KEYSTROKES, 누적)` — **로컬 캐시만** 바꾼다 |
+| 1분마다 (`SteamService.Tick`) | 바뀐 게 있으면 `StoreStats` 로 서버에 보낸다. 타건마다 보내면 스팀이 호출을 제한한다 |
+| 도전과제 해금 때 | `Unlock` 이 부르는 `StoreStats` 에 밀린 통계도 같이 실려 간다 |
+| 스팀 통계가 처음 준비될 때 (`SyncAchievements`) | 현재 누적을 한 번 넣는다 — 스팀이 없는 동안 친 타수는 그때 버려졌다 |
+| 종료 (`SteamService.Dispose`) | 마지막 1분 안에 친 타수를 보내고 놓는다 |
+
+- 값은 세이브의 `TotalKeystrokes` 를 그대로 비춘다. 세이브를 새로 시작한 PC 에서는 스팀 값이 더
+  커서 Increment Only 에 걸려 거부된다 — 게임은 그대로 돌고, 세이브가 스팀 값을 넘으면 다시 먹는다
+  (거부는 로그 한 줄만 남긴다)
+- 나중에 할 수 있는 것: 켤 때 스팀 값이 세이브보다 크면 세이브를 끌어올리기 = 누적 타수의 클라우드
+  백업. 지금은 안 한다
 
 ## 6. 아이콘
 
