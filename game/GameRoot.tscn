@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://game/ui/StatusHud.tscn" id="5_statushud"]
 [ext_resource type="Script" path="res://game/ui/ShopWindow.cs" id="6_shop"]
 [ext_resource type="PackedScene" path="res://game/effects/PunchEffect.tscn" id="7_punch"]
+[ext_resource type="Script" path="res://game/multiplayer/RoomWindow.cs" id="8_room"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
@@ -31,3 +32,14 @@ text = "상점"
 
 [node name="ShopWindow" type="CanvasLayer" parent="."]
 script = ExtResource("6_shop")
+
+[node name="RoomButton" type="Button" parent="."]
+offset_left = 204.0
+offset_top = 424.0
+offset_right = 282.0
+offset_bottom = 450.0
+custom_minimum_size = Vector2(78, 26)
+text = "멀티"
+
+[node name="RoomWindow" type="CanvasLayer" parent="."]
+script = ExtResource("8_room")

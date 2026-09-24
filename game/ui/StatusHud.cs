@@ -34,6 +34,7 @@ public partial class StatusHud : VBoxContainer
     private Label _keystrokes;
     private Label _bananas;
     private Label _collection;
+    private Label _room;
     private Label _notice;
     private Tween _bananaPop;
     private Tween _levelPop;
@@ -50,6 +51,22 @@ public partial class StatusHud : VBoxContainer
         _bananas = GetNode<Label>("Bananas");
         _collection = GetNode<Label>("Collection");
         _notice = GetNode<Label>("Notice");
+        _room = GetNode<Label>("Room");
+        _room.Visible = false;
+    }
+
+    /// <summary>
+    /// 멀티 룸 한 줄 (§4-2 "룸 내 랭킹"). 룸 창을 닫아 둬도 내 순위는 보이게 한다.
+    /// null 이나 빈 문자열이면 줄을 숨긴다 - 룸 밖에서는 자리도 차지하지 않는다.
+    /// </summary>
+    public void SetRoom(string text)
+    {
+        bool show = !string.IsNullOrEmpty(text);
+        _room.Visible = show;
+        if (show && _room.Text != text)
+        {
+            _room.Text = text;
+        }
     }
 
     /// <summary>

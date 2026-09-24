@@ -46,11 +46,83 @@ public readonly record struct PeerId(ulong Value)
 
 /// <summary>
 /// 룸 핸들. 생성·참가의 결과물이고, 초대 링크에 쓸 UID 를 들고 있다.
+///
+/// <b>스냅샷이다.</b> 방장이 나가면 스팀이 소유권을 다른 멤버에게 넘기므로
+/// <see cref="Host"/>/<see cref="IsHost"/> 는 바뀔 수 있다 - 지금 값은
+/// <see cref="INetSession.Current"/> 를 다시 읽거나 <see cref="RoomMember.IsHost"/> 를 본다.
 /// </summary>
-/// <param name="Uid">유저가 친구에게 불러줄 수 있는 방 코드 (§4-1).</param>
+/// <param name="Uid">유저가 친구에게 불러줄 수 있는 방 코드 (§4-1, <see cref="RoomCode"/>).</param>
 /// <param name="Host">호스트. 공동 나무를 넣게 되면 이쪽이 권위를 갖는다 (§4-3).</param>
 /// <param name="IsHost">내가 호스트인가.</param>
-public readonly record struct RoomHandle(string Uid, PeerId Host, bool IsHost);
+/// <param name="CreatedUtc">
+/// 룸이 생긴 시각. 룸 랭킹은 이때부터 센다 - 늦게 들어온 사람은 들어온 때부터.
+/// </param>
+public readonly record struct RoomHandle(string Uid, PeerId Host, bool IsHost, DateTime CreatedUtc);
+
+/// <summary>
+/// 룸 멤버 한 명. <see cref="INetSession.Members"/> 가 입장 순서대로 돌려준다.
+/// </summary>
+/// <param name="Name">스팀 닉네임.</param>
+/// <param name="RoomKeystrokes">
+/// <b>이 룸에서</b> 친 타수 - 룸 랭킹의 정렬 키다. 누적 타수(<c>SaveData.TotalKeystrokes</c>)
+/// 가 아니다: 들어온 순간 0 에서 시작하고, 나갔다 다시 들어오면 나갈 때 값에서 이어진다.
+/// 룸이 없어지면(마지막 사람이 나가면) 같이 사라진다.
+/// </param>
+/// <param name="IsHost">지금 방장인가.</param>
+/// <param name="IsSelf">나인가.</param>
+public readonly record struct RoomMember(PeerId Id, string Name, long RoomKeystrokes, bool IsHost, bool IsSelf);
+
+/// <summary>친구 목록에서 보이는 상태. 목록 정렬 순서이기도 하다 (위가 먼저).</summary>
+public enum FriendStatus
+{
+    /// <summary>우리 게임의 룸에 있다. <see cref="FriendInfo.RoomUid"/> 로 바로 참가할 수 있다.</summary>
+    InRoom,
+
+    /// <summary>우리 게임을 켜 놓았지만 룸에는 없다.</summary>
+    InGame,
+
+    Online,
+
+    Offline,
+}
+
+/// <summary>스팀 친구 한 명.</summary>
+/// <param name="RoomUid">
+/// 친구가 들어가 있는 룸의 코드. <see cref="FriendStatus.InRoom"/> 일 때만 있고
+/// 나머지는 null 이다. 그대로 <see cref="INetSession.JoinRoom"/> 에 넘긴다.
+/// </param>
+public readonly record struct FriendInfo(PeerId Id, string Name, FriendStatus Status, string RoomUid);
+
+/// <summary><see cref="RoomJoinException"/> 의 사유. 화면 문구가 이걸로 갈린다.</summary>
+public enum RoomJoinError
+{
+    /// <summary>룸 코드 형식이 아니다 (<see cref="RoomCode.TryParse"/> 실패).</summary>
+    InvalidCode,
+
+    /// <summary>그런 룸이 없다. 코드가 틀렸거나 모두 나가서 룸이 사라졌다.</summary>
+    NotFound,
+
+    /// <summary>4명이 다 찼다 (§4-1).</summary>
+    Full,
+
+    /// <summary>스팀이 안 붙어 있다 (<see cref="INetSession.IsAvailable"/> false).</summary>
+    SteamUnavailable,
+
+    /// <summary>그 밖의 실패. 원인은 로그에 남긴다.</summary>
+    Failed,
+}
+
+/// <summary>룸 생성·참가 실패. <see cref="INetSession.CreateRoom"/>/<see cref="INetSession.JoinRoom"/> 가 던진다.</summary>
+public sealed class RoomJoinException : Exception
+{
+    public RoomJoinException(RoomJoinError error, string detail = null)
+        : base(detail ?? error.ToString())
+    {
+        Error = error;
+    }
+
+    public RoomJoinError Error { get; }
+}
 
 /// <summary>
 /// 멀티 룸에 뿌리는 상태 스냅샷 (§4-1). 200ms 단위로 묶어 보낸다.

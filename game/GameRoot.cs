@@ -41,6 +41,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private StatusHud _hud;
     private ShopWindow _shop;
     private Button _shopButton;
+    private RoomWindow _roomWindow;
+    private Button _roomButton;
+
+    /// <summary>
+    /// 룸 창과 멀티 세션 사이 배선 (B12). <see cref="AttachPlatform"/> 전까지는 널이다 -
+    /// 세션(<see cref="IPlatformServices.Net"/>)이 있어야 만들 수 있다.
+    /// </summary>
+    private RoomController _room;
 
     /// <summary>
     /// 구매·장착 규칙 (B6). <see cref="AttachPlatform"/> 전까지는 널이다 -
@@ -129,8 +137,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _hud = GetNode<StatusHud>("StatusHud");
         _shop = GetNode<ShopWindow>("ShopWindow");
         _shopButton = GetNode<Button>("ShopButton");
+        _roomWindow = GetNode<RoomWindow>("RoomWindow");
+        _roomButton = GetNode<Button>("RoomButton");
 
-        _shopButton.Pressed += () => _shop.Toggle();
+        _shopButton.Pressed += ToggleShop;
+        _roomButton.Pressed += ToggleRoom;
         _shop.BuyRequested += OnBuyRequested;
         _shop.Opened += OnShopOpened;
         _shop.EquipRequested += OnEquipRequested;
@@ -160,6 +171,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _store = platform.Save;
         _platform.Input.OnKeystrokes += OnKeystrokes;
         _platform.Economy.OnStateChanged += OnEconomyStateChanged;
+        _room = new RoomController(_platform.Net, _roomWindow, _hud);
 
         LoadGameStateAsync();
     }
@@ -381,7 +393,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         if (OS.IsDebugBuild())
         {
             GD.Print("[game] 디버그 키 - G 성장 앞당기기 / B 상점 / 2·3·4 슬롯 장착 순환"
-                + " / Shift+B 전 상품 지급 / Shift+R 인벤토리 초기화");
+                + " / Shift+B 전 상품 지급 / Shift+R 인벤토리 초기화"
+                + " / M 멀티 룸 / Shift+M 가짜 친구 입장·타건 / Ctrl+M 가짜 친구 퇴장");
         }
     }
 
@@ -420,6 +433,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             _tree.SyncSlots(_platform.Economy.Slots);
             TickResync(delta);
             UpdateOfflineNotice();
+            _room.Tick(delta);
         }
     }
 
@@ -461,7 +475,27 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             }
             else
             {
-                _shop?.Toggle();
+                ToggleShop();
+            }
+
+            return;
+        }
+
+        // 멀티 룸 (B12). 상점과 같은 이유로 목 먹이기보다 먼저 가로챈다.
+        // Shift/Ctrl 은 목일 때 가짜 친구를 움직이는 디버그 키다.
+        if (key.Keycode == Key.M)
+        {
+            if (key.ShiftPressed && OS.IsDebugBuild())
+            {
+                _room.DebugSimulateActivity();
+            }
+            else if (key.CtrlPressed && OS.IsDebugBuild())
+            {
+                _room.DebugSimulateLeave();
+            }
+            else
+            {
+                ToggleRoom();
             }
 
             return;
@@ -490,6 +524,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             return;
         }
 
+        if (key.Keycode == Key.Escape && _roomWindow.IsOpen)
+        {
+            _roomWindow.Close();
+            return;
+        }
+
         if (key.Keycode == Key.Escape && _shop is { IsOpen: true })
         {
             _shop.Close();
@@ -514,6 +554,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 빈 나무를 쳐도 타수는 늘어야 "논 시간" 이 레벨에 반영된다. 레벨 환산과
         // 마일스톤 도전과제(AchievementIds)는 B3 가 이 값 위에 올린다.
         Save.TotalKeystrokes += count;
+
+        // 룸 랭킹은 누적이 아니라 룸에서 친 타수다 - 세는 것은 세션이 한다
+        // (INetSession.AddKeystrokes). 룸 밖이면 세션이 버린다.
+        _platform.Net.AddKeystrokes(count);
 
         // 수확을 애니메이션 타이밍이 아니라 입력에 직접 건다. §2-3 검토 노트의
         // "키 입력과 애니메이션을 1:1 고정 대응시키지 말 것"이 이 뜻이고,
@@ -681,6 +725,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 셸은 _ExitTree 가 더 늦게 돈다. 구독을 남긴 채 나가지 않는다.
         _platform.Input.OnKeystrokes -= OnKeystrokes;
         _platform.Economy.OnStateChanged -= OnEconomyStateChanged;
+        _room?.Dispose();
 
         // 마지막 상태를 써 넣는다. 디스크 쓰기는 셸의 _ExitTree 가 FlushNow 로
         // 마무리하지만, 그 순서를 가정하지 않으려고 여기서도 한 번 흘려보낸다 -
@@ -878,14 +923,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     public Rect2 GetClickableBounds()
     {
-        if (_shop is { IsOpen: true })
+        if (_shop is { IsOpen: true } || _roomWindow is { IsOpen: true })
         {
             return ViewportInParentSpace();
         }
 
         Rect2 bounds = _tree.GetBounds().Merge(_monkey.GetBounds());
 
-        // 상점 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 둔 이유가
+        // 상점·멀티 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 나란히 둔 이유가
         // 이것이다 - Rect2.Merge 는 외접 사각형이라, 버튼이 화면 반대편에 있으면
         // 그 사이의 빈 공간까지 전부 클릭을 먹는다.
         //
@@ -893,10 +938,36 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        Vector2 buttonSize = _shopButton.Size.Max(_shopButton.GetCombinedMinimumSize());
-        bounds = bounds.Merge(new Rect2(_shopButton.Position, buttonSize));
+        bounds = bounds.Merge(ButtonRect(_shopButton)).Merge(ButtonRect(_roomButton));
 
         return Transform * bounds;
+    }
+
+    private static Rect2 ButtonRect(Button button) =>
+        new(button.Position, button.Size.Max(button.GetCombinedMinimumSize()));
+
+    /// <summary>
+    /// 상점과 룸 창은 한 번에 하나만 연다 - 둘 다 창 전체를 덮는 CanvasLayer 라
+    /// 겹쳐 열면 아래 것이 가려진 채로 클릭을 기다린다.
+    /// </summary>
+    private void ToggleShop()
+    {
+        if (_roomWindow.IsOpen)
+        {
+            _roomWindow.Close();
+        }
+
+        _shop.Toggle();
+    }
+
+    private void ToggleRoom()
+    {
+        if (_shop.IsOpen)
+        {
+            _shop.Close();
+        }
+
+        _roomWindow.Toggle();
     }
 
     /// <summary>

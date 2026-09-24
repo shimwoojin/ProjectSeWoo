@@ -182,9 +182,11 @@ public partial class ShopWindow : CanvasLayer
 
     // ------------------------------------------------------------------ UI 구성
 
-    private static readonly Color Accent = new(0.55f, 0.85f, 0.55f);
-    private static readonly Color Gold = new(0.98f, 0.82f, 0.30f);
-    private static readonly Color Dim = new(0.62f, 0.66f, 0.72f);
+    // 색과 배경은 룸 창(game/multiplayer/RoomWindow)도 쓴다 - 창 두 개가 같은
+    // 게임의 것으로 보여야 한다.
+    internal static readonly Color Accent = new(0.55f, 0.85f, 0.55f);
+    internal static readonly Color Gold = new(0.98f, 0.82f, 0.30f);
+    internal static readonly Color Dim = new(0.62f, 0.66f, 0.72f);
     private static readonly Color Warn = new(1.00f, 0.62f, 0.45f);
 
     /// <summary>아직 안 가진 도감 칸. 알파는 그대로 두고 색만 죽인다.</summary>
@@ -453,7 +455,7 @@ public partial class ShopWindow : CanvasLayer
         return thumb;
     }
 
-    private static StyleBoxFlat MakeBackground()
+    internal static StyleBoxFlat MakeBackground()
     {
         var box = new StyleBoxFlat
         {
