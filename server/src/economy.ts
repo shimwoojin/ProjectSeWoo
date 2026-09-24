@@ -195,12 +195,19 @@ export async function purchaseUpgrade(
     return response;
   }
 
+  // 레벨을 올리기 **전에** 지금까지 흐른 시간을 옛 레벨로 확정하고
+  // last_sync_utc 를 당긴다. 이걸 빼면 다음 요청이 같은 구간을 한 번 더 더하고,
+  // 새로 늘어난 슬롯도 0 이 아니라 그 구간만큼 자란 채로 생긴다.
+  const nowMs = Date.now();
+  player.slot_elapsed_ms = JSON.stringify(recomputeSlots(player, nowMs));
+  player.last_sync_utc = new Date(nowMs).toISOString();
+
   player.balance -= price;
   (player as unknown as Record<string, number>)[levelField] = currentLevel + 1;
 
-  // 나무 슬롯 수/성장 주기가 저장된 elapsed 배열 길이·의미와 바로 어긋나지
-  // 않게, 이 자리에서 한 번 재계산해서 반영한다.
-  const elapsed = recomputeSlots(player, Date.now());
+  // 흐른 시간이 0 이므로 이번 재계산은 새 레벨에 맞춰 배열 길이만 맞춘다
+  // (늘어난 슬롯은 0 부터). 성장 주기가 짧아졌으면 min(growth) 로 잘린다.
+  const elapsed = recomputeSlots(player, nowMs);
   player.slot_elapsed_ms = JSON.stringify(elapsed);
   await savePlayer(env, player);
 
