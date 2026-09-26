@@ -199,6 +199,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 투명은 창 생성 시점에 정해지므로 이 인자만 다른 것들보다 먼저 읽는다.
         _cursor.Build(opaque: Array.IndexOf(OS.GetCmdlineUserArgs(), "--cursor-opaque") >= 0);
 
+        // 커서 원숭이가 타건·클릭에 반응한다 (B17 §5). 횟수만 간다 - 헬퍼가 키를 모른다.
+        _input.OnKeystrokes += _cursor.OnKeystrokes;
+
         // 창 배율/투명도/위치/옵션 전부 복원 (§7-1, §7-4). SetScale 이 안에서
         // ApplyPassthrough 까지 걸어주므로 별도로 부를 필요가 없다.
         RestoreWindowState();

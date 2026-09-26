@@ -133,6 +133,36 @@ public partial class OverlayShell
         await Seconds(2.0);
         await Capture(dir, manifest, "idle");
 
+        // 0) 커서 원숭이 리그 (B17) - 가만히 → 합성 경로로 움직임(흔들림·버둥) → 멈춤 → 타건 반응.
+        for (int k = 0; k < 3; k++)
+        {
+            await Seconds(0.35);
+            await CaptureCursor(dir, manifest, $"rig_hang_{k}");
+        }
+
+        _cursor.Simulate = true;
+        for (int k = 0; k < 10; k++)
+        {
+            await Seconds(0.2);
+            await CaptureCursor(dir, manifest, $"rig_move_{k}");
+        }
+
+        _cursor.Simulate = false;
+        for (int k = 0; k < 6; k++)
+        {
+            await Seconds(0.2);
+            await CaptureCursor(dir, manifest, $"rig_stop_{k}");
+        }
+
+        _input.DebugInject(3);
+        for (int k = 0; k < 4; k++)
+        {
+            await Seconds(0.12);
+            await CaptureCursor(dir, manifest, $"rig_cheer_{k}");
+        }
+
+        await Seconds(1.0);
+
         // 1) 펀치 - 빈 줄기를 치는 게 아니라 익은 송이를 치는 중. 팔이 닿는 순간 앞뒤로 여러 장.
         _input.DebugInject(1);
         for (int k = 0; k < 6; k++)
@@ -255,6 +285,20 @@ public partial class OverlayShell
         }
 
         File.AppendAllLines(manifest, lines);
+    }
+
+    /// <summary>커서 창만 찍는다 - 리그 확인용. 파일 이름에 원숭이 상태를 붙인다.</summary>
+    private async Task CaptureCursor(string dir, string manifest, string shot)
+    {
+        await ToSignal(RenderingServer.Singleton, "frame_post_draw");
+        foreach (Node node in GetTree().Root.FindChildren("CursorWindow", "Window", true, false))
+        {
+            if (node is Window w)
+            {
+                w.GetTexture().GetImage().SavePng(Path.Combine(dir, $"{shot}__CursorWindow.png"));
+                File.AppendAllText(manifest, $"{shot}\tCursorWindow\t{w.Position.X}\t{w.Position.Y}\t{w.Size.X}\t{w.Size.Y}\t{_cursor.RigState}\n");
+            }
+        }
     }
 
     private async Task Seconds(double s) =>

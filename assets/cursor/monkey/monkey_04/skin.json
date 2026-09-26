@@ -1,0 +1,29 @@
+{
+  "$comment": "tools/make-monkey-parts.py 가 만든다 - 손으로 고치지 않는다",
+  "head": {
+    "size": [
+      207,
+      164
+    ],
+    "neck": [
+      97,
+      164
+    ],
+    "eyes": [
+      [
+        116,
+        119
+      ],
+      [
+        164,
+        119
+      ]
+    ]
+  },
+  "colors": {
+    "fur": "#9c77bd",
+    "furShade": "#7d5d99",
+    "belly": "#facda5",
+    "outline": "#3e2012"
+  }
+}

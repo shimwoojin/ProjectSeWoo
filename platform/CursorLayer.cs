@@ -18,31 +18,26 @@ namespace ProjectSeWoo.Platform;
 /// 이 게임의 재화 소비처이자 차별화 훅이 "커서 꾸미기"다. 채택된 방식(§1.3 C안):
 /// 시스템 커서 본체는 그대로 두고, 커서 좌표를 따라다니는 클릭 통과 투명 창에
 /// 장식만 그린다.
+///
+/// <b>2026-09-26 B17 재구성</b> (docs/B17-CURSOR-REWORK.md §4): 창 안에 장식(<see cref="DecoView"/>) → 바나나
+/// (커서 끝에 고정된 자리·모양) → 원숭이 리그(<see cref="MonkeyRig"/>, 바나나를 잡은 손이 원점)를 겹친다.
+/// 창은 커서에 딱 붙어 다니고(Direct), 매달린 느낌은 창이 아니라 리그의 진자가 만든다.
 /// </summary>
 public sealed class CursorLayer : ICursorLayer
 {
-    /// <summary>장식 창 한 변. 커서 주변 장식이 들어갈 만큼만. 작을수록 컴포지팅이 싸다.</summary>
-    private const int WindowSize = 128;
+    /// <summary>
+    /// 장식 창 한 변. 커서 주변 장식이 들어갈 만큼만 - 작을수록 컴포지팅이 싸다. B17 에서 128 → 224: 원숭이가
+    /// 바나나 아래로 매달리고 진자로 ±75px 흔들린다. A7 부하는 다시 잰다 (B17 §5-1).
+    /// </summary>
+    private const int WindowSize = 224;
+
+    /// <summary>창 안에서 커서 끝의 자리. 장식은 커서 아래·양옆으로 퍼지므로 위쪽 가운데에 둔다.</summary>
+    private static readonly Vector2I TipInWindow = new(104, 40);
+
+
 
     /// <summary>이동 주기 후보(ms). 0 = 매 프레임.</summary>
     public static readonly int[] IntervalsMs = { 0, 16, 33, 50, 100 };
-
-    // --- 3칸 레이아웃 (B17). 배열 인덱스는 CursorSlot 의 선언 순서(Monkey=0, Banana=1, Deco=2).
-    // **임시다** - B17 3단계에서 바나나 고정 자리 + 원숭이 리그로 바뀐다 (docs/B17-CURSOR-REWORK.md §4).
-    // 지금은 그림 한 장씩: 바나나는 커서 끝 아래, 원숭이는 그 바나나에 매달리고, 장식은 뒤에 깔린다.
-    private static readonly Vector2[] SlotOffset =
-    {
-        new(10, 34),  // Monkey: 바나나 아래에 매달림
-        new(10, 14),  // Banana: 커서 끝 바로 아래
-        new(0, 4),    // Deco: 커서 뒤
-    };
-
-    private static readonly float[] SlotScale = { 0.42f, 0.26f, 0.34f };
-
-    private static readonly float[] SlotAlpha = { 1.0f, 1.0f, 1.0f };
-
-    /// <summary>원숭이가 맨 위, 장식이 맨 아래, 바나나가 그 사이.</summary>
-    private static readonly int[] SlotZIndex = { 2, 1, 0 };
 
     // --- Win32 클릭 통과 ---------------------------------------------------
     //
@@ -92,15 +87,8 @@ public sealed class CursorLayer : ICursorLayer
     private readonly Node _host;
 
     private Window _win;
-    private readonly SlotVisual[] _slots = new SlotVisual[3];
-    private Texture2D _placeholderTexture;
-
-    /// <summary>슬롯 하나의 화면 요소 + 장착 상태.</summary>
-    private sealed class SlotVisual
-    {
-        public Sprite2D Sprite;
-        public string AssetId;
-    }
+    /// <summary>장식 → 바나나 → 원숭이 한 벌 (B17). 친구 창과 같은 조립이다.</summary>
+    private CursorOrnament _ornament;
 
     private Vector2 _pos;
     private double _sinceMove;
@@ -121,7 +109,11 @@ public sealed class CursorLayer : ICursorLayer
 
     public string FailureReason { get; private set; } = "";
 
-    public FollowMode Mode { get; private set; } = FollowMode.Spring;
+    /// <summary>
+    /// 기본은 Direct (B17) - 바나나가 커서 끝에 붙어 있어야 한다. 예전 Spring 은 창째로 늦게 따라오며 "매달린"
+    /// 느낌을 냈는데, 이제 그 일은 리그의 진자가 한다. 나머지 모드는 A2/A7 계측용으로 남긴다.
+    /// </summary>
+    public FollowMode Mode { get; private set; } = FollowMode.Direct;
 
     /// <summary>
     /// 실제 커서 대신 합성 경로를 따라간다.
@@ -197,27 +189,9 @@ public sealed class CursorLayer : ICursorLayer
         };
         _host.AddChild(_win);
 
-        _placeholderTexture = GD.Load<Texture2D>("res://icon.svg");
-        if (_placeholderTexture == null)
-        {
-            GD.PrintErr("[cursor] icon.svg 로드 실패");
-        }
-
-        for (int i = 0; i < _slots.Length; i++)
-        {
-            var sprite = new Sprite2D
-            {
-                Name = $"Slot_{(CursorSlot)i}",
-                Texture = _placeholderTexture,
-                Centered = true,
-                Scale = Vector2.One * SlotScale[i],
-                Position = new Vector2(WindowSize / 2f, WindowSize / 2f) + SlotOffset[i],
-                ZIndex = SlotZIndex[i],
-                Visible = false,
-            };
-            _win.AddChild(sprite);
-            _slots[i] = new SlotVisual { Sprite = sprite };
-        }
+        // 장식 → 바나나 → 원숭이. 원점이 창 안의 커서 끝이다.
+        _ornament = new CursorOrnament { Name = "Ornament", Position = TipInWindow };
+        _win.AddChild(_ornament);
 
         _pos = DisplayServer.MouseGetPosition();
 
@@ -313,12 +287,9 @@ public sealed class CursorLayer : ICursorLayer
     // ------------------------------------------------------------------ 장착 (ICursorLayer)
 
     /// <summary>
-    /// 슬롯에 에셋을 끼운다. <paramref name="assetId"/> 가 null 이면 슬롯을 비운다.
-    ///
-    /// 실제 아트(을의 B9, "1차 에셋: 커서 장식 16종")는 아직 없다. 그때까지는
-    /// <see cref="ResolveTexture"/> 가 자리표시자(icon.svg + assetId 해시 색상)를
-    /// 돌려준다. B9가 <c>res://assets/cursor/&lt;slot&gt;/&lt;assetId&gt;.png</c> 를
-    /// 채우면 그 경로를 먼저 찾으므로, **여기 호출부는 바뀔 필요가 없다.**
+    /// 칸에 아이템을 끼운다. <paramref name="assetId"/> 가 null 이면 비운다. 그림은 규칙으로 찾는다
+    /// (<see cref="ItemManifest.AssetDir"/>) - 원숭이는 스킨(<see cref="MonkeySkin"/>), 바나나는 <c>banana.png</c>,
+    /// 장식은 <c>icon.png</c> + 종류(<c>deco.kind</c>). 없는 그림은 그리지 않는다.
     /// </summary>
     public void Equip(CursorSlot slot, string assetId)
     {
@@ -327,70 +298,15 @@ public sealed class CursorLayer : ICursorLayer
             return;
         }
 
-        SlotVisual visual = _slots[(int)slot];
-        visual.AssetId = assetId;
-
-        if (assetId == null)
-        {
-            visual.Sprite.Visible = false;
-            return;
-        }
-
-        visual.Sprite.Texture = ResolveTexture(slot, assetId, out bool isPlaceholder);
-
-        // **자리표시자일 때만 물들인다.** 해시 색은 "실물이 없을 때도 아이템을
-        // 구분해 보이게" 하려고 둔 것이라, 실물 아트에 곱하면 그림이 통째로 그
-        // 색이 된다 - B9 로 실물 16종이 들어온 뒤 원숭이도 나무 단면도 전부
-        // 분홍으로 나왔다. 알파(슬롯별 투명도)는 양쪽 다 그대로 간다.
-        float alpha = SlotAlpha[(int)slot];
-        visual.Sprite.Modulate = isPlaceholder
-            ? TintFor(assetId, alpha)
-            : new Color(1f, 1f, 1f, alpha);
-
-        visual.Sprite.Visible = Enabled;
-
+        _ornament.Equip(slot, assetId);
         GD.Print($"[cursor] {slot} = {assetId}");
     }
 
-    /// <summary>
-    /// 슬롯+에셋id 를 텍스처로 바꾼다. 실제 파일이 있으면 그걸, 없으면 자리표시자를 쓴다.
-    /// </summary>
-    /// <param name="isPlaceholder">
-    /// 자리표시자로 떨어졌는가. 호출부가 이 값으로 해시 색을 걸지 말지 정한다 -
-    /// 실물에 걸면 그림이 통째로 그 색이 된다.
-    /// </param>
-    private Texture2D ResolveTexture(CursorSlot slot, string assetId, out bool isPlaceholder)
-    {
-        string realPath = ItemManifest.IconPath(slot, assetId);
-        if (ResourceLoader.Exists(realPath))
-        {
-            isPlaceholder = false;
-            return GD.Load<Texture2D>(realPath);
-        }
+    /// <summary>타건·클릭 (횟수만). 원숭이가 반응한다 - 셸이 입력 헬퍼에서 받아 넘긴다.</summary>
+    public void OnKeystrokes(int count) => _ornament?.Keystrokes(count);
 
-        isPlaceholder = true;
-        return _placeholderTexture;
-    }
-
-    /// <summary>
-    /// assetId 로부터 안정적인 색을 만든다. **`string.GetHashCode()`는 안 쓴다** -
-    /// .NET 은 보안을 위해 프로세스마다 다른 해시를 낸다. 같은 아이템이 실행할 때마다
-    /// 다른 색으로 보이면 자리표시자로도 못 쓴다. FNV-1a 로 직접 고정한다.
-    /// </summary>
-    private static Color TintFor(string assetId, float alpha)
-    {
-        uint hash = 2166136261u;
-        foreach (char c in assetId)
-        {
-            hash ^= c;
-            hash *= 16777619u;
-        }
-
-        float hue = (hash % 360u) / 360f;
-        Color c2 = Color.FromHsv(hue, 0.55f, 1.0f);
-        c2.A = alpha;
-        return c2;
-    }
+    /// <summary>원숭이 상태 (계측·스크린샷용).</summary>
+    public string RigState => _ornament?.RigState ?? "-";
 
     // ------------------------------------------------------------------ 루프
 
@@ -427,6 +343,10 @@ public sealed class CursorLayer : ICursorLayer
                 break;
         }
 
+        // 리그·장식은 창 이동 주기와 상관없이 스스로 초당 15번만 바꾼다 (MonkeyRig.UpdateHz).
+        _ornament.Follow(target, _win.Position + (Vector2)TipInWindow);
+        _ornament.Tick(delta);
+
         _sinceMove += delta * 1000.0;
         if (IntervalMs > 0 && _sinceMove < IntervalMs)
         {
@@ -456,8 +376,7 @@ public sealed class CursorLayer : ICursorLayer
     /// </summary>
     private void MoveWindow()
     {
-        var half = new Vector2I(WindowSize / 2, WindowSize / 2);
-        var next = new Vector2I(Mathf.RoundToInt(_pos.X), Mathf.RoundToInt(_pos.Y)) - half;
+        var next = new Vector2I(Mathf.RoundToInt(_pos.X), Mathf.RoundToInt(_pos.Y)) - TipInWindow;
 
         if (_win.Position == next)
         {
@@ -469,12 +388,6 @@ public sealed class CursorLayer : ICursorLayer
 
         _win.Position = next;
         _moves++;
-
-        if (Mode == FollowMode.Spring)
-        {
-            // "매달려 흔들리는" 연출은 원숭이 담당이다. B17 3단계에서 리그의 진자로 바뀐다.
-            _slots[(int)CursorSlot.Monkey].Sprite.Rotation = Mathf.Sin((float)_phase) * 0.18f;
-        }
     }
 
     // ------------------------------------------------------------------ 토글
@@ -502,11 +415,6 @@ public sealed class CursorLayer : ICursorLayer
 
             ApplyClickThrough();
 
-            foreach (SlotVisual slot in _slots)
-            {
-                slot.Sprite.Visible = slot.AssetId != null;
-            }
-
             _pos = DisplayServer.MouseGetPosition();
             MoveWindow();
         }
@@ -523,7 +431,6 @@ public sealed class CursorLayer : ICursorLayer
     public void CycleMode()
     {
         Mode = (FollowMode)(((int)Mode + 1) % 3);
-        _slots[(int)CursorSlot.Monkey].Sprite.Rotation = 0.0f;
         ResetCounters();
     }
 
@@ -548,7 +455,7 @@ public sealed class CursorLayer : ICursorLayer
 
         Vector2I mouse = DisplayServer.MouseGetPosition();
         Vector2I win = _win.Position;
-        Vector2I center = win + new Vector2I(WindowSize / 2, WindowSize / 2);
+        Vector2I center = win + TipInWindow;
         Vector2I off = center - mouse;
 
         return $"cursor pos: mouse {mouse.X},{mouse.Y}  deco-center {center.X},{center.Y}"
@@ -569,9 +476,9 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         string interval = IntervalMs == 0 ? "frame" : $"{IntervalMs}ms";
-        string equip = $"M:{_slots[(int)CursorSlot.Monkey].AssetId ?? "-"}"
-            + $" B:{_slots[(int)CursorSlot.Banana].AssetId ?? "-"}"
-            + $" D:{_slots[(int)CursorSlot.Deco].AssetId ?? "-"}";
+        string equip = $"M:{_ornament.EquippedIn(CursorSlot.Monkey) ?? "-"}"
+            + $" B:{_ornament.EquippedIn(CursorSlot.Banana) ?? "-"}"
+            + $" D:{_ornament.EquippedIn(CursorSlot.Deco) ?? "-"} rig {RigState}";
 
         return $"cursor {(Enabled ? "on" : "off")}{(Simulate ? " SIM" : "")},"
             + $" {Mode.ToString().ToLowerInvariant()}, every {interval},"

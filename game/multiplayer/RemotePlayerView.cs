@@ -60,25 +60,19 @@ public partial class RemotePlayerView : Node2D
     private static readonly Vector2 TreeAt = new(CellWidth / 2f + 6f, 76f);
     private static readonly Vector2 MonkeyFromTree = new Vector2(-70f, 98f) * MiniScale;
 
-    // 커서 장식 배치는 platform/CursorLayer 의 SlotOffset/SlotScale 을 줄인 것이다.
+    // 커서 장식은 내 커서 창과 같은 조립(CursorOrnament, B17)을 줄인 것이다. 친구의 커서 위치는 받지 않으므로
+    // 흔들리지 않고 매달림 · 반응(친구가 친 횟수) · 졸기만 한다.
     private const float CursorScale = 0.55f;
 
     /// <summary>이름표 띠의 위쪽. 여기부터 칸 아래 끝까지 이름·레벨·도감 세 줄.</summary>
     private const float LabelsTop = 144f;
-    private static readonly Vector2 CursorAt = new(CellWidth - 22f, 116f);
-    // 순서는 CursorSlot (원숭이, 바나나, 장식). 바나나는 커서 끝 아래, 원숭이는 그 바나나에 매달린다 -
-    // B17 3단계에서 리그가 들어오면 CursorLayer 와 같은 리그를 작게 재사용한다 (docs/B17-CURSOR-REWORK.md §7).
-    private static readonly Vector2[] SlotOffset = { new(10, 34), new(10, 14), new(0, 4) };
-    private static readonly float[] SlotScale = { 0.42f, 0.26f, 0.34f };
-    private static readonly float[] SlotAlpha = { 1.0f, 1.0f, 1.0f };
-
+    private static readonly Vector2 CursorAt = new(CellWidth - 30f, 34f);
     private Tree _tree;
     private Monkey _monkey;
     private Label _name;
     private Label _stats;
     private Label _collection;
-    private readonly Sprite2D[] _slots = new Sprite2D[3];
-    private readonly string[] _shownIds = new string[3];
+    private CursorOrnament _ornament;
 
     private long _totalKeystrokes = -1;
 
@@ -106,7 +100,9 @@ public partial class RemotePlayerView : Node2D
         _monkey.Scale = Vector2.One * MiniScale;
         AddChild(_monkey);
 
-        AddChild(BuildCursor());
+        _ornament = new CursorOrnament { Still = true, Position = CursorAt, Scale = Vector2.One * CursorScale };
+        AddChild(_ornament);
+        AddChild(MakeArrow(CursorAt));
 
         _name = MakeLabel(new Vector2(0, LabelsTop), 13);
         _stats = MakeLabel(new Vector2(0, 162), 11);
@@ -126,8 +122,8 @@ public partial class RemotePlayerView : Node2D
             return null;
         }
 
-        // 커서 장식은 화살표 끝 기준 위로 매달리고(Hang) 아래로 깔린다 - 대략 40x48.
-        var cursor = new Rect2(CursorAt + new Vector2(-18, -30), new Vector2(40, 48));
+        // 커서 장식: 화살표 끝 아래로 바나나, 그 아래 원숭이가 매달린다 (CursorOrnament 를 CursorScale 로 줄인 것).
+        var cursor = new Rect2(CursorAt + new Vector2(-30, -6), new Vector2(56, 82));
         Rect2 top = _tree.GetBounds().Merge(_monkey.GetBounds()).Merge(cursor);
 
         float left = Mathf.Clamp(top.Position.X, 0, CellWidth);
@@ -176,6 +172,7 @@ public partial class RemotePlayerView : Node2D
         ShowDecoration(CursorSlot.Monkey, state.EquippedMonkey);
         ShowDecoration(CursorSlot.Banana, state.EquippedBanana);
         ShowDecoration(CursorSlot.Deco, state.EquippedDeco);
+        _ornament.Keystrokes(state.KeystrokesInWindow);
 
         _totalKeystrokes = state.TotalKeystrokes;
         _collectionPercent = state.CollectionPercent;
@@ -319,58 +316,24 @@ public partial class RemotePlayerView : Node2D
     /// </summary>
     private void ShowDecoration(CursorSlot slot, string id)
     {
-        int index = (int)slot;
-        if (_shownIds[index] == id)
-        {
-            return;
-        }
-
-        _shownIds[index] = id;
-        Sprite2D sprite = _slots[index];
-
         ShopCatalog.Item item = id == null ? null : ShopCatalog.Find(id);
-        string path = item != null && item.Slot == slot ? item.IconPath : null;
-
-        sprite.Texture = path != null && ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
+        _ornament.Equip(slot, item != null && item.Slot == slot ? id : null);
     }
 
-    private Node2D BuildCursor()
-    {
-        var cursor = new Node2D { Position = CursorAt, Scale = Vector2.One * CursorScale };
-
-        // 그리는 순서: 장식(맨 아래) → 화살표 → 바나나 → 원숭이(맨 위). CursorLayer 와 같다.
-        cursor.AddChild(MakeSlotSprite(CursorSlot.Deco));
-        cursor.AddChild(MakeArrow());
-        cursor.AddChild(MakeSlotSprite(CursorSlot.Banana));
-        cursor.AddChild(MakeSlotSprite(CursorSlot.Monkey));
-        return cursor;
-    }
-
-    private Sprite2D MakeSlotSprite(CursorSlot slot)
-    {
-        int i = (int)slot;
-        var sprite = new Sprite2D
-        {
-            Position = SlotOffset[i],
-            Scale = Vector2.One * SlotScale[i],
-            Modulate = new Color(1f, 1f, 1f, SlotAlpha[i]),
-        };
-        _slots[i] = sprite;
-        return sprite;
-    }
+    public override void _Process(double delta) => _ornament?.Tick(delta);
 
     /// <summary>
     /// 흔한 화살표 커서. 커서 에셋이 따로 없고, 친구 "커서" 라는 것만 알아보면 된다.
     /// 끝점이 (0,0) 이라 장식 오프셋이 CursorLayer 와 같은 뜻이 된다.
     /// </summary>
-    private static Node2D MakeArrow()
+    private static Node2D MakeArrow(Vector2 at)
     {
         Vector2[] points =
         {
             new(0, 0), new(0, 17), new(4, 13), new(7, 20), new(9, 19), new(6, 12), new(12, 12),
         };
 
-        var arrow = new Polygon2D { Polygon = points, Color = Colors.White };
+        var arrow = new Polygon2D { Polygon = points, Color = Colors.White, Position = at, Scale = Vector2.One * CursorScale * 1.4f };
         var outline = new Line2D { Width = 1.5f, DefaultColor = Colors.Black, Closed = true, Points = points };
         arrow.AddChild(outline);
         return arrow;
