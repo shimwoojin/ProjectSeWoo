@@ -372,17 +372,71 @@ SHOTS = [
 ]
 
 
+# ---------- 긴 설명(About This Game) 섹션 이미지 ----------
+
+DESC_OUT = os.path.join(ROOT, "assets", "_store", "description")
+DESC_W = 616   # 스팀 설명란 너비. 더 크게 올려도 이 너비로 줄여 보여 준다
+
+# 스크린샷에서 잘라 쓸 영역 (x0, y0, x1, y1) - 섹션 제목 아래 한 장씩 (docs/C1-STORE.md §4-2)
+SECTIONS = [
+    ("section_cursor", "03_cursor", (190, 300, 1410, 870)),       # 커서를 꾸미세요 - 확대 원 + 커서
+    ("section_upgrade", "07_upgrade", (1250, 150, 1880, 470)),    # 나무를 키우세요 - 강화 탭
+    ("section_friends", "06_friends", (1262, 20, 1920, 330)),     # 친구와 같이 치세요 - 친구 창 3개
+    ("section_harvest", "02_harvest", (1260, 600, 1920, 955)),   # GIF 를 못 쓸 때 "치면 친다" 대신
+]
+
+# 펀치 GIF: 원판 프레임 순서와 한 장당 시간(ms). 첫 타격 → (중간 8타 생략) → 10번째 타격에 황금 송이 낙하
+GIF_FRAMES = ([("idle", 500)] + [(f"punch_{k}", 70) for k in range(6)] + [("idle", 250)]
+              + [(f"harvest_{k}", 80) for k in range(6)] + [("harvest_5", 900)])
+GIF_CROP = (40, 150, 530, 634)   # 원판(배율 1.5) 안에서 나무·원숭이만 - 버튼(635~)은 뺀다
+GIF_HUD = (0, 0, 150, 185)       # 나무 꼭대기 옆에 걸치는 HUD 마지막 줄(도감) - 지운다
+
+
+def resize_w(im, width):
+    return im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+
+
+def punch_gif(raw):
+    """"치면 친다" 섹션의 움짤. 게임 원판 프레임 그대로, 배경만 바탕화면 그림 한 조각."""
+    x0, y0, x1, y1 = GIF_CROP
+    back = wallpaper(1).crop((1300, 300, 1300 + (x1 - x0), 300 + (y1 - y0)))
+    frames, times = [], []
+    for shot, ms in GIF_FRAMES:
+        f = back.copy()
+        src = raw.img(shot)
+        src.paste((0, 0, 0, 0), GIF_HUD)
+        f.alpha_composite(src.crop(GIF_CROP))
+        frames.append(resize_w(f, 420).convert("RGB").quantize(colors=128, method=Image.Quantize.MEDIANCUT))
+        times.append(ms)
+    path = os.path.join(DESC_OUT, "section_punch.gif")
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=times, loop=0, optimize=True)
+    return path
+
+
+def sections(shots, raw):
+    os.makedirs(DESC_OUT, exist_ok=True)
+    for name, shot, box in SECTIONS:
+        im = resize_w(shots[shot].crop(box), DESC_W)
+        im.save(os.path.join(DESC_OUT, f"{name}.png"))
+        print(f"{name:16s} {im.width}x{im.height}")
+    path = punch_gif(raw)
+    print(f"section_punch.gif {os.path.getsize(path) // 1024}KB")
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     raw = Raw(sys.argv[1])
     os.makedirs(OUT, exist_ok=True)
+    shots = {}
     for name, make in SHOTS:
         im = make(raw).convert("RGB")
         assert im.size == (W, H)
         im.save(os.path.join(OUT, f"{name}.png"))
         im.save(os.path.join(OUT, f"{name}.jpg"), quality=92)
+        shots[name] = im
         print(name)
+    sections(shots, raw)
 
 
 if __name__ == "__main__":

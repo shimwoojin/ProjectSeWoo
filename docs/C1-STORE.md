@@ -222,7 +222,22 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 
 **Your total keystrokes are your level.** From your first thousand to a million punches — 10 achievements.
 
-### 4-4. 문장마다 확인할 것
+### 4-4. 설명란 이미지 (`assets/_store/description/`)
+
+`tools/make-store-screenshots.py` 가 스크린샷을 만들 때 같이 뽑는다. 너비 616px(스팀 설명란 너비). 섹션 제목(`[h2]`)
+바로 아래에 한 장씩 둔다. 한/영 설명에 같은 그림을 쓴다.
+
+| 섹션 | 파일 | 내용 |
+|---|---|---|
+| 치면 친다 / You type, it punches | `section_punch.gif` (420x404, 약 550KB) | 익은 송이를 치고 → 10번째에 황금 송이가 떨어진다. 원판 프레임 그대로 |
+| (GIF 를 못 쓰면) | `section_harvest.png` | 수확 순간 한 장 |
+| 커서를 꾸미세요 / Decorate your cursor | `section_cursor.png` | 커서 둘레 확대 원 |
+| 나무를 키우세요 / Grow your tree | `section_upgrade.png` | 강화 탭 |
+| 친구와 같이 치세요 / Punch together | `section_friends.png` | 친구 창 3개 (이름 · 레벨 · 로비 타수 · 도감) |
+
+개인정보 문구와 "방해하지 않습니다" 섹션에는 그림을 넣지 않는다 — 앞은 읽혀야 하는 글이고 뒤는 글머리표로 충분하다.
+
+### 4-5. 문장마다 확인할 것
 
 | 문장 | 근거 / 확인 |
 |---|---|
