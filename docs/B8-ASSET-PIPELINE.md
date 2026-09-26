@@ -148,6 +148,9 @@ overhead, legs hanging loose downward, dangling in mid air" 처럼 몸이 어떤
 | Pretendard (한글 폰트) | SIL OFL 1.1 | 가능 (`assets/fonts/Pretendard-OFL.txt`) |
 | 엔티티 시트 (`assets/_source/`) | 자체 생성물 (GPT) | 가능 |
 
+> `project.godot` 의 `gui/theme/custom` 이 이 폰트 테마를 쓰는 이유(기본 테마 폰트에 한글이 없어 두부로 깨졌다)를 거기 주석으로
+> 달아 뒀었는데, **Godot 에디터가 설정을 저장할 때 주석을 지운다** (2026-09-26 정리). 이유는 여기와 DEVLOG 9/21 에만 둔다.
+
 **배경 제거 모델이 이 표에서 가장 위험했다.** RMBG-2.0 이 품질은 좋은데 CC BY-NC 라
 상용 출시에 못 쓴다. `gen.py` 의 해당 노드에 주석으로 못을 박아 뒀다.
 

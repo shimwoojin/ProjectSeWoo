@@ -34,9 +34,6 @@ project/assembly_name="ProjectSeWoo"
 
 [gui]
 
-; B4 — 한글 글리프가 있는 폰트를 번들한다. 기본 테마 폰트에는 한글이 없어서
-; 옵션 창의 "닫기" 같은 기존 문자열이 두부(tofu)로 깨져 나오고 있었다.
-; Pretendard 는 SIL OFL 1.1 이라 상용 재배포가 된다 (assets/fonts/Pretendard-OFL.txt).
 theme/custom="res://assets/ui/theme.tres"
 
 [physics]
