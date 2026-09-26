@@ -39,6 +39,94 @@ public partial class OverlayShell
         "halo_01", "ring_01",
     };
 
+    private const string MakeIconsArg = "--make-icons";
+
+    /// <summary>
+    /// 원숭이 상점 아이콘을 실제 리그로 그려서 저장한다 (B17) - <c>assets/cursor/monkey/&lt;id&gt;/icon.png</c>.
+    /// 파이썬으로 리그를 흉내 내 그리면 게임의 원숭이와 달라진다. 디버그 빌드 무인 실행.
+    /// <code>Godot.exe --path . -- --make-icons</code> 뒤에 <c>--import</c> 를 다시 돌린다(게임은 임포트된 사본을 읽는다).
+    /// </summary>
+    private static bool IsMakeIconsRun() =>
+        OS.IsDebugBuild() && Array.IndexOf(OS.GetCmdlineUserArgs(), MakeIconsArg) >= 0;
+
+    private async void StartMakeIcons()
+    {
+        if (!IsMakeIconsRun())
+        {
+            return;
+        }
+
+        const int Icon = 128, Render = 2;
+        try
+        {
+            foreach (ItemManifest.Entry entry in ItemManifest.Items)
+            {
+                if (entry.Slot != CursorSlot.Monkey)
+                {
+                    continue;
+                }
+
+                // 두 배로 그려서 줄인다 - 외곽선이 매끈해진다. 원점(커서 끝) 기준 리그는 대략 x -45~+37, y 0~125 다.
+                var viewport = new SubViewport
+                {
+                    Size = new Vector2I(96 * Render, 132 * Render),
+                    TransparentBg = true,
+                    Disable3D = true,
+                    RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
+                };
+                AddChild(viewport);
+                var ornament = new CursorOrnament
+                {
+                    Still = true,
+                    Position = new Vector2(50, 2) * Render,
+                    Scale = Vector2.One * Render,
+                };
+                viewport.AddChild(ornament);
+                // 바나나는 안 그린다 - 목록 칸(44px)에서 원숭이가 작아진다. 잡은 팔이 아이콘 위로 나가서 "매달린" 건 보인다.
+                ornament.Equip(CursorSlot.Monkey, entry.Id);
+
+                // 꼬리 사슬이 자리를 잡을 때까지 몇 프레임 굴린다
+                for (int i = 0; i < 20; i++)
+                {
+                    ornament.Tick(0.05);
+                    await ToSignal(RenderingServer.Singleton, "frame_post_draw");
+                }
+
+                Image image = viewport.GetTexture().GetImage();
+                // 정사각형으로 - 세로로 긴 그림을 그대로 줄이면 원숭이가 가늘어진다.
+                Rect2I used = image.GetUsedRect();
+                int side = Math.Max(used.Size.X, used.Size.Y);   // 머리 꼭대기가 잡은 손 높이와 비슷해서 높이 전부가 한 변이다
+                var square = new Rect2I(
+                    used.Position.X + used.Size.X / 2 - side / 2,
+                    used.End.Y - side,
+                    side,
+                    side);
+                Image cropped = Image.CreateEmpty(side, side, false, Image.Format.Rgba8);
+                image.Convert(Image.Format.Rgba8);
+                cropped.BlitRect(image, square, Vector2I.Zero);
+                float k = (Icon - 6f) / Math.Max(cropped.GetWidth(), cropped.GetHeight());
+                cropped.Resize(Math.Max(1, (int)(cropped.GetWidth() * k)), Math.Max(1, (int)(cropped.GetHeight() * k)), Image.Interpolation.Lanczos);
+
+                Image icon = Image.CreateEmpty(Icon, Icon, false, Image.Format.Rgba8);
+                cropped.Convert(Image.Format.Rgba8);
+                icon.BlitRect(cropped, new Rect2I(Vector2I.Zero, cropped.GetSize()),
+                    new Vector2I((Icon - cropped.GetWidth()) / 2, (Icon - cropped.GetHeight()) / 2));
+
+                string path = ProjectSettings.GlobalizePath(ItemManifest.IconPath(CursorSlot.Monkey, entry.Id));
+                icon.SavePng(path);
+                GD.Print($"[make-icons] {entry.Id} -> {path}");
+                viewport.QueueFree();
+            }
+
+            GetTree().Quit(0);
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"[make-icons] 실패 - {e}");
+            GetTree().Quit(1);
+        }
+    }
+
     private static bool IsStoreShotRun() =>
         OS.IsDebugBuild() && Array.Exists(OS.GetCmdlineUserArgs(), a => a.StartsWith(StoreShotPrefix, StringComparison.Ordinal));
 

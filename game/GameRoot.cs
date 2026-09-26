@@ -627,6 +627,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         int harvested = 0;
         int flashIndex = -1;
         IReadOnlyList<SlotState> slots = _platform.Economy.Slots;
+
+        // 나무 그림을 지금 슬롯에 먼저 맞춘다. 타건은 셸의 _Process(입력 헬퍼)에서 오고 나무 동기화는 이 노드의
+        // _Process 에서 하므로, 슬롯 수가 바뀐 프레임(기동 직후 서버 동기화, "가지 늘리기" 강화)에 타건이 먼저 오면
+        // Tree.Hit 이 모르는 인덱스를 받아 IndexOutOfRange 가 났다 (2026-09-26 갑이 기동 로그에서 봤다).
+        _tree.SyncSlots(slots);
         for (int k = 0; k < count; k++)
         {
             int readyIndex = FindReadySlot(slots);

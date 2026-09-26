@@ -240,6 +240,12 @@ public partial class Tree : Node2D
     /// </summary>
     public bool Hit(int index)
     {
+        // 호출부(GameRoot.OnKeystrokes)가 먼저 SyncSlots 로 맞추지만, 틀어져도 게임을 죽이지 않는다.
+        if (index < 0 || index >= _hits.Length)
+        {
+            return false;
+        }
+
         if (++_hits[index] < HitsToDrop)
         {
             return false;

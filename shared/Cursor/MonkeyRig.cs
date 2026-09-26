@@ -81,6 +81,9 @@ public partial class MonkeyRig : Node2D
     private const float ArmWidth = 6f, LegWidth = 6.5f, LegLength = 15f, FreeArmLength = 20f;
     private const float TailSegment = 4.6f;
 
+    /// <summary>빈 팔의 외곽선이 시작되는 자리 (어깨 0 ~ 손 1). 그 앞은 몸통과 털색으로 이어진다.</summary>
+    private const float FreeArmOutlineFrom = 0.38f;
+
     /// <summary>빈 팔을 늘어뜨린 각도.</summary>
     private const float RestArm = 0.35f;
 
@@ -467,8 +470,10 @@ public partial class MonkeyRig : Node2D
 
         DrawCircle(grip, 3.6f, belly);
 
-        // 3) 빈 팔 - 몸 앞. 어깨 쪽 끝은 몸통 안에 묻혀서 외곽선 반원이 어깨 관절처럼 보인다.
-        Stroke(shoulderL, hand, ArmWidth + Edge, ol);
+        // 3) 빈 팔 - 몸 앞. **외곽선은 팔 중간부터 손까지만** 그린다. 어깨까지 외곽선을 두르면 둥근 끝이 "몸에
+        //    붙인 원통" 처럼 보였다 (2026-09-26 갑). 어깨 쪽은 털색끼리 이어져 몸에서 뻗어 나온 것처럼 보인다.
+        Vector2 outlineFrom = shoulderL.Lerp(hand, FreeArmOutlineFrom);
+        Stroke(outlineFrom, hand, ArmWidth + Edge, ol);
         DrawCircle(hand, 3.6f + Edge / 2, ol);
         Stroke(shoulderL, hand, ArmWidth, fur);
         DrawCircle(hand, 3.6f, belly);

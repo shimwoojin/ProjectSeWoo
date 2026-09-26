@@ -11,7 +11,7 @@
 스킨마다 (assets/cursor/monkey/<id>/):
   head.png   머리 (털 색만 바꾼다 — 얼굴·귀 안쪽·외곽선은 그대로)
   skin.json  몸을 그릴 색 + 머리의 목·눈 좌표 + 장신구
-  icon.png   상점·도감 아이콘 (128x128) — 머리 + 간단한 몸
+  (icon.png 는 여기서 안 만든다 - 게임이 실제 리그로 그린다: Godot.exe --path . -- --make-icons)
 
 원숭이 목록·이름은 game/shop/items.json. 여기 SKINS 에 규칙이 없는 id 는 만들지 않는다.
 """
@@ -120,26 +120,6 @@ def draw_tufts(head, color):
     return head
 
 
-def icon_for(head, colors):
-    """상점 아이콘: 머리 + 짧은 몸과 들어 올린 팔 (리그 모습을 대충 흉내)."""
-    size = 128
-    c = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(c)
-    fur, belly, ol = colors["fur"], colors["belly"], colors["outline"]
-    # 팔 (위로)
-    for x0, x1 in ((46, 30), (82, 98)):
-        d.line([(x0, 86), (x1, 18)], fill=ol + (255,), width=15)
-        d.line([(x0, 86), (x1, 18)], fill=fur + (255,), width=9)
-        d.ellipse((x1 - 8, 10, x1 + 8, 26), fill=belly + (255,), outline=ol + (255,), width=3)
-    # 몸
-    d.ellipse((38, 70, 90, 122), fill=fur + (255,), outline=ol + (255,), width=4)
-    d.ellipse((50, 84, 78, 116), fill=belly + (255,))
-    k = 86 / head.width
-    small = head.resize((round(head.width * k), round(head.height * k)), Image.LANCZOS)
-    c.alpha_composite(small, ((size - small.width) // 2 + 2, 78 - small.height))
-    return c
-
-
 def main():
     ids = [i["id"] for i in json.loads(ITEMS.read_text(encoding="utf-8"))["items"] if i["category"] == "monkey"]
     head, box = head_from_sheet()
@@ -162,7 +142,6 @@ def main():
         folder = OUT / item_id
         folder.mkdir(parents=True, exist_ok=True)
         h.save(folder / "head.png", optimize=True)
-        icon_for(h, colors).save(folder / "icon.png", optimize=True)
         skin = {
             "$comment": "tools/make-monkey-parts.py 가 만든다 - 손으로 고치지 않는다",
             "head": {"size": list(h.size), "neck": list(neck), "eyes": [list(e) for e in eyes]},

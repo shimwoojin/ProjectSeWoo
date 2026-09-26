@@ -302,6 +302,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         ParseAutoReportArgs();
         StartMeasureFriends();
         StartStoreShot();
+        StartMakeIcons();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
     }
@@ -350,7 +351,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 앞으로 --net-selftest 같은 게 늘어도 같은 실수가 반복되지 않게 접미사로 잡는다.
         return Array.Exists(args, a => a.EndsWith("selftest", StringComparison.Ordinal))
             || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal))
-            || IsStoreShotRun();
+            || IsStoreShotRun()
+            || IsMakeIconsRun();
     }
 
     /// <summary>
