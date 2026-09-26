@@ -171,13 +171,5 @@ public sealed class SaveData
         /// </summary>
         [JsonPropertyName("cursorIndependent")]
         public bool CursorIndependent { get; set; }
-
-        /// <summary>
-        /// 타건 수 집계 On/Off. 끄면 <see cref="IInputSource"/>가 사용 가능해도
-        /// 게임 레이어는 시간 기반 폴백만 쓴다 - 유저가 원하면 타건 카운트 자체를
-        /// 거부할 수 있어야 한다 (§7-2, §7-6 개인정보 문구와 짝을 이룬다).
-        /// </summary>
-        [JsonPropertyName("keystrokeCounting")]
-        public bool KeystrokeCounting { get; set; } = true;
     }
 }

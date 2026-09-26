@@ -24,7 +24,6 @@ public partial class OptionsWindow : CanvasLayer
     private CheckBox _cursorEnabled;
     private CheckBox _cursorIndependent;
     private CheckBox _hideOnFullscreen;
-    private CheckBox _keystrokeCounting;
     private CheckBox _autostart;
     private PanelContainer _panel;
 
@@ -44,7 +43,6 @@ public partial class OptionsWindow : CanvasLayer
     public event Action<bool> CursorEnabledChanged;
     public event Action<bool> CursorIndependentChanged;
     public event Action<bool> HideOnFullscreenChanged;
-    public event Action<bool> KeystrokeCountingChanged;
     public event Action<bool> AutostartChanged;
 
     /// <summary>
@@ -87,7 +85,6 @@ public partial class OptionsWindow : CanvasLayer
         _cursorIndependent.ButtonPressed = s.CursorIndependent;
         _cursorIndependent.Disabled = !s.CursorEnabled;
         _hideOnFullscreen.ButtonPressed = s.HideOnFullscreen;
-        _keystrokeCounting.ButtonPressed = s.KeystrokeCounting;
 
         // 자동 시작은 세이브 값이 아니라 레지스트리의 실제 값으로 맞춘다 - 유저가
         // Windows "시작 앱" 설정에서 수동으로 껐다면 체크박스도 그 사실을 보여줘야 한다.
@@ -154,9 +151,6 @@ public partial class OptionsWindow : CanvasLayer
 
         rows.AddChild(MakeCheckRow("전체화면 앱 위에서 숨김", out _hideOnFullscreen));
         _hideOnFullscreen.Toggled += on => Relay(() => HideOnFullscreenChanged?.Invoke(on));
-
-        rows.AddChild(MakeCheckRow("타건 수 집계", out _keystrokeCounting));
-        _keystrokeCounting.Toggled += on => Relay(() => KeystrokeCountingChanged?.Invoke(on));
 
         rows.AddChild(MakeCheckRow("Windows 시작 시 자동 실행", out _autostart));
         _autostart.Toggled += on => Relay(() => AutostartChanged?.Invoke(on));

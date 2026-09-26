@@ -13,7 +13,7 @@
 | **문의처 이메일** | ☐ `[문의 이메일]` 자리 — 사람이 정한다 |
 | **A10 (P2P) 전송 목록** | ☑ 2026-09-24 — 코드(`PlayerStateCodec`)와 대조해 §2-5 에 확정. 도감 수집률이 빠져 있던 것을 넣었다. P2P 는 스팀 릴레이만 쓰게 해서(직접 연결 끔) IP 비노출 문장을 넣었다 |
 | 게임 내 최초 실행에서 짧은 문구 노출 | ☑ 2026-09-26 B15 — 처음 안내 첫 장에 §1 한국어를 그대로 (`game/ui/OnboardingWindow.cs`). 이 문구를 고치면 거기도 고치고, 기존 유저에게 다시 보여 주려면 `OnboardingWindow.Version` 을 올린다 |
-| **옵션 "타건 카운트" 끄기** | ☐ **체크박스는 있지만 아무 동작도 안 한다**(설정값 저장만, 읽는 코드 없음 — 9/21 부터 남은 항목). 구현 전에는 §2-1 의 해당 문장을 쓰면 안 된다 — §4 |
+| ~~옵션 "타건 카운트" 끄기~~ | 2026-09-26 **옵션을 없앴다** (세이브 v7). 동작한 적이 없었고, 끄면 게임이 멈추는 구조라 필요 없다고 판단. 대신 "게임을 끄면 아무것도 세지 않는다" 를 §2-1 에 적었다 — 헬퍼가 게임과 같이 끝나는 것은 코드로 확인 |
 
 **원칙.** 이 게임은 전역 입력을 받는 상주 앱이라 "키로거 아니냐" 가 첫 의심이다. 문구가 한 문장이라도
 사실과 다르면 §10 이 "절대 자르지 않는 것" 으로 둔 약속이 거짓말이 된다. 그래서 **모든 문장을 코드로
@@ -59,7 +59,7 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 - 마우스 휠은 세지 않습니다.
 - 입력은 별도의 작은 프로그램(`InputHelper.exe`)이 Windows 표준 방식(Raw Input)으로 받습니다. 키보드 훅
   방식은 쓰지 않습니다.
-- `[옵션 동작 구현 후 확정: 옵션에서 타건 카운트를 끌 수 있습니다.]`
+- 게임을 끄면 입력을 받는 프로그램도 함께 꺼져서 아무것도 세지 않습니다.
 
 **2. 이 PC 에 저장하는 것** (`%APPDATA%\PunchMonkey\`)
 - 누적 타수, 옵션 설정, 장착한 커서 장식, 마지막 저장 시각
@@ -122,7 +122,7 @@ While PunchMonkey sits on your desktop, it only counts **that** a key or mouse b
 - Mouse wheel scrolling is not counted.
 - Input is received by a small separate program (`InputHelper.exe`) using the standard Windows Raw Input
   API. No keyboard hooks are used.
-- `[To be finalized once the option works: You can turn keystroke counting off in Options.]`
+- When you close the game, the input program closes with it and nothing is counted.
 
 **2. Stored on your PC** (`%APPDATA%\PunchMonkey\`)
 - Total keystroke count, option settings, equipped cursor decorations, last save time
@@ -190,7 +190,7 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 | 횟수만 센다 / 키 코드·버튼·커서 위치를 읽지 않는다 | `platform/InputHelper/RawKeyboardCounter.cs` `HandleRawInput` — 버퍼에서 읽는 값은 타입·누름/뗌 플래그·버튼 눌림 마스크(`!= 0` 비교 한 번)뿐. 스캔 코드(24)·가상 키(30)·좌표(36/40)는 어느 경로에서도 안 읽는다 |
 | 휠은 세지 않는다 | 같은 파일 `AnyButtonDown` 마스크 — 휠 비트(0x0400/0x0800) 제외 |
 | 별도 프로그램, Raw Input, 훅 아님 | `InputHelper` 프로젝트, `RegisterRawInputDevices`(`RIDEV_INPUTSINK`). `WH_KEYBOARD_LL` 없음 (A4 §2) |
-| ~~타건 카운트를 끌 수 있다~~ | **아직 거짓.** `SettingsState.KeystrokeCounting` 은 옵션 창이 저장만 하고 읽는 곳이 없다(2026-09-24 전수 검색) |
+| 게임을 끄면 아무것도 세지 않는다 | `platform/InputHelper/Program.cs` — 헬퍼는 `--pid=<게임 PID>` 없이는 안 뜨고, 루프마다 `_parent.HasExited` 를 봐서 게임이 끝나면 같이 끝난다. 게임은 헬퍼를 자기 자식으로만 띄운다(`HelperInputSource.Start`) |
 | PC 에 저장하는 것 | `shared/Save/SaveData.cs` — totalKeystrokes / settings / inventory.equipped / multi(friendPositions: 친구 스팀 ID → 화면 좌표, lastLobby) / lastQuitUtc. 경로는 `project.godot` 의 `custom_user_dir_name`. 세이브는 `SaveIO` 가 로컬 파일로만 쓴다 |
 | 로그에 스팀 이름·ID | `SteamService.TryInit` 의 `[steam] 연결됨 ... user= id=` 출력 → Godot 로그 파일. 멀티 로그(`[net]`)에는 로비 ID 만 남고 **친구의 스팀 ID 는 남기지 않는다** (`SteamNetSession.InviteFriend`) |
 | 시작 프로그램 등록 | A6 자동 시작 (레지스트리 Run 키) |
@@ -212,9 +212,8 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 
 ## 4. 출시 전에 채울 것 · 확인할 것
 
-1. **옵션 "타건 카운트" 를 실제로 동작시키거나, 문장을 뺀다.** 끄면 헬퍼가 입력을 받지 않아야(또는
-   적어도 게임이 세지 않아야) "끌 수 있다" 가 참이 된다. 개인정보 문구에 넣을 거라면 **헬퍼가 RawInput
-   등록 자체를 푸는 쪽**이 약속으로서 가장 강하다
+1. ~~**옵션 "타건 카운트"**~~ — 2026-09-26 옵션을 없앴다(맨 위 상태표). 다시 넣는다면 **헬퍼가 RawInput 등록 자체를
+   푸는 쪽**이어야 약속이 된다
 2. **문의 이메일** — §2-7, §2-8 의 `[문의 이메일]`. 스팀 파트너 사이트의 지원 이메일과 같게 한다
 3. ~~**A10 전송 목록**~~ — 2026-09-24 확정(§2-5). §7-6 의 목록에는 **도감 수집률이 빠져 있었다** — 코드
    (`PlayerStateCodec`)가 보내는 것에 맞춰 문구와 §7-6 을 같이 고쳤다. 필드를 늘리면 여기부터 고친다

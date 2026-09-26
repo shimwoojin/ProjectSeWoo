@@ -195,7 +195,6 @@ public partial class OverlayShell
         _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
         _options.CursorIndependentChanged += v => { _settings.CursorIndependent = v; ApplyVisibility(); PersistSettings(); };
         _options.HideOnFullscreenChanged += v => { _settings.HideOnFullscreen = v; PersistSettings(); };
-        _options.KeystrokeCountingChanged += v => { _settings.KeystrokeCounting = v; PersistSettings(); };
         _options.AutostartChanged += v =>
         {
             _settings.Autostart = v;

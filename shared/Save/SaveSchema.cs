@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 6;
+    public const int CurrentVersion = 7;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -69,6 +69,11 @@ public static class SaveSchema
                 case 5:
                     MigrateV5ToV6(root);
                     version = 6;
+                    break;
+
+                case 6:
+                    MigrateV6ToV7(root);
+                    version = 7;
                     break;
 
                 default:
@@ -151,6 +156,18 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v6 -> v7 (2026-09-26): <c>settings.keystrokeCounting</c> 를 걷어냈다. A6 이 옵션 "타건 수 집계" 체크박스와
+    /// 이 필드를 만들었지만 읽는 코드가 끝내 없었다 - 끄기를 눌러도 계속 셌다. 끄면 게임이 멈추는 구조(쳐야
+    /// 수확된다)라 동작시키기보다 옵션을 없앴다. 세기를 원하지 않으면 게임을 끈다 - 입력 헬퍼는 게임 프로세스가
+    /// 끝나면 같이 끝난다(InputHelper/Program.cs). <see cref="MigrateV3ToV4"/> 와 같은 이유로 지우는 코드는 없다 -
+    /// 모르는 필드는 읽을 때 버려진다.
+    /// </summary>
+    private static void MigrateV6ToV7(JsonNode root)
+    {
+        root["version"] = 7;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -177,7 +194,7 @@ public static class SaveSchema
             "version", "totalKeystrokes",
             "inventory", "equipped", "hang", "trail", "base",
             "settings", "scale", "opacity", "pos", "sound", "autostart",
-            "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen", "keystrokeCounting",
+            "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen",
             "cursorIndependent",
             "multi", "friendPositions", "lastLobby",
             "onboardingSeen",

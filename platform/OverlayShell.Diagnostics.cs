@@ -169,7 +169,7 @@ public partial class OverlayShell
                 + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
             $"opts  cursor {OnOff(_settings.CursorEnabled)}  indep {OnOff(_settings.CursorIndependent)}"
                 + $"  sound {OnOff(_settings.Sound)}  notify {OnOff(_settings.Notifications)}"
-                + $"  hideFs {OnOff(_settings.HideOnFullscreen)}  keys {OnOff(_settings.KeystrokeCounting)}"
+                + $"  hideFs {OnOff(_settings.HideOnFullscreen)}"
                 + $"  autostart {OnOff(_settings.Autostart)}",
             // winShown 은 OS 에 되물은 값이다. 나머지 둘이 "원하는 것" 이고 이게 "된 것" 이라,
             // 셋이 어긋나면 숨김이 먹지 않았다는 뜻이다 - 그걸 눈으로 못 봐서 생긴 버그가 있었다.
