@@ -86,6 +86,7 @@ public partial class OverlayShell
 
         SaveData data = _save.Data;
         data.TotalKeystrokes = 48_213;
+        data.OnboardingSeen = int.MaxValue;   // 처음 안내(B15)가 장면을 덮지 않게 - 안내는 따로 찍는다
         data.Inventory.Equipped.Hang = "monkey_05";
         data.Inventory.Equipped.Trail = "spark_01";
         data.Inventory.Equipped.Base = "halo_01";
@@ -200,6 +201,27 @@ public partial class OverlayShell
             await Seconds(0.6);
             await Capture(dir, manifest, "lobby_window");
             PressKey(Key.M);
+        }
+
+        // 5) 처음 안내(B15) 세 장. 게임 타입을 모르므로 노드 이름으로 찾아 열고 [다음] 버튼을 누른다.
+        Node onboarding = GetTree().GetFirstNodeInGroup(SceneGroups.GameRoot)?.GetNodeOrNull("OnboardingWindow");
+        if (onboarding != null)
+        {
+            await Seconds(0.3);
+            onboarding.Call("Open");
+            for (int page = 0; page < 3; page++)
+            {
+                await Seconds(0.4);
+                await Capture(dir, manifest, $"onboarding_{page}");
+                foreach (Node node in onboarding.FindChildren("*", "Button", true, false))
+                {
+                    if (node is Button { Text: "다음" } next)
+                    {
+                        next.EmitSignal(BaseButton.SignalName.Pressed);
+                        break;
+                    }
+                }
+            }
         }
     }
 

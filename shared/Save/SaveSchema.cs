@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -64,6 +64,11 @@ public static class SaveSchema
                 case 4:
                     MigrateV4ToV5(root);
                     version = 5;
+                    break;
+
+                case 5:
+                    MigrateV5ToV6(root);
+                    version = 6;
                     break;
 
                 default:
@@ -136,6 +141,16 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v5 -> v6 (2026-09-26): <c>onboardingSeen</c> 추가 - 처음 안내(B15)를 본 판. additive 라 버전 태그만
+    /// 올린다. 기본값 0 이라 v5 세이브를 들고 온 사람도 안내를 한 번 본다 - 출시 전이라 그 사람은 개발자뿐이고,
+    /// 안내 첫 장이 개인정보 문구라 한 번은 보는 게 맞다.
+    /// </summary>
+    private static void MigrateV5ToV6(JsonNode root)
+    {
+        root["version"] = 6;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -165,6 +180,7 @@ public static class SaveSchema
             "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen", "keystrokeCounting",
             "cursorIndependent",
             "multi", "friendPositions", "lastLobby",
+            "onboardingSeen",
             "lastQuitUtc",
         };
 

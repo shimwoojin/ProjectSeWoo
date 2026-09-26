@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://game/ui/ShopWindow.cs" id="6_shop"]
 [ext_resource type="PackedScene" path="res://game/effects/PunchEffect.tscn" id="7_punch"]
 [ext_resource type="Script" path="res://game/multiplayer/RoomWindow.cs" id="8_room"]
+[ext_resource type="Script" path="res://game/ui/OnboardingWindow.cs" id="9_onboarding"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
@@ -51,3 +52,15 @@ text = "옵션"
 
 [node name="RoomWindow" type="CanvasLayer" parent="."]
 script = ExtResource("8_room")
+
+[node name="HelpButton" type="Button" parent="."]
+offset_left = 354.0
+offset_top = 424.0
+offset_right = 382.0
+offset_bottom = 450.0
+custom_minimum_size = Vector2(28, 26)
+tooltip_text = "처음 안내 다시 보기"
+text = "?"
+
+[node name="OnboardingWindow" type="CanvasLayer" parent="."]
+script = ExtResource("9_onboarding")

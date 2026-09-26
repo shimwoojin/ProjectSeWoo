@@ -47,6 +47,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>옵션 창을 여는 버튼. 창은 셸 소유라 <see cref="IShell.ToggleOptions"/> 로 연다.</summary>
     private Button _optionsButton;
 
+    /// <summary>처음 안내 (B15). 처음 켤 때 저절로 열리고, [?] 로 다시 연다.</summary>
+    private OnboardingWindow _onboarding;
+    private Button _helpButton;
+
     /// <summary>
     /// 룸 창과 멀티 세션 사이 배선 (B12). <see cref="AttachPlatform"/> 전까지는 널이다 -
     /// 세션(<see cref="IPlatformServices.Net"/>)이 있어야 만들 수 있다.
@@ -147,10 +151,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _roomWindow = GetNode<RoomWindow>("RoomWindow");
         _roomButton = GetNode<Button>("RoomButton");
         _optionsButton = GetNode<Button>("OptionsButton");
+        _onboarding = GetNode<OnboardingWindow>("OnboardingWindow");
+        _helpButton = GetNode<Button>("HelpButton");
 
         _shopButton.Pressed += ToggleShop;
         _roomButton.Pressed += ToggleRoom;
         _optionsButton.Pressed += () => _platform?.Shell.ToggleOptions();
+        _helpButton.Pressed += OpenOnboarding;
+        _onboarding.Finished += OnOnboardingFinished;
         _shop.UpgradeRequested += OnUpgradeRequested;
         _shop.BuyRequested += OnBuyRequested;
         _shop.Opened += OnShopOpened;
@@ -426,6 +434,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         GD.Print($"[game] 세이브 로드 - 바나나 {_platform.Economy.Balance}, 누적 {Save.TotalKeystrokes}타"
             + $" (Lv.{_level}), 슬롯 {_platform.Economy.Slots.Count}개"
             + $", 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
+
+        // 처음 켰으면(또는 안내가 새 판이면) 안내부터 (B15). 첫 장이 개인정보 문구다 (§7-6).
+        if (Save.OnboardingSeen < OnboardingWindow.Version)
+        {
+            OpenOnboarding();
+        }
 
         if (OS.IsDebugBuild())
         {
@@ -1124,7 +1138,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     public Rect2 GetClickableBounds()
     {
-        if (_shop is { IsOpen: true } || _roomWindow is { IsOpen: true })
+        if (_shop is { IsOpen: true } || _roomWindow is { IsOpen: true } || _onboarding is { IsOpen: true })
         {
             return ViewportInParentSpace();
         }
@@ -1139,7 +1153,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        bounds = bounds.Merge(ButtonRect(_shopButton)).Merge(ButtonRect(_roomButton)).Merge(ButtonRect(_optionsButton));
+        bounds = bounds.Merge(ButtonRect(_shopButton)).Merge(ButtonRect(_roomButton)).Merge(ButtonRect(_optionsButton))
+            .Merge(ButtonRect(_helpButton));
 
         return Transform * bounds;
     }
@@ -1148,11 +1163,44 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         new(button.Position, button.Size.Max(button.GetCombinedMinimumSize()));
 
     /// <summary>
+    /// 처음 안내를 연다 (B15). 상점·로비가 열려 있으면 닫는다 - 셋 다 창 전체를 덮는 CanvasLayer 라 겹치면 아래
+    /// 것이 가려진 채로 남는다 (<see cref="ToggleShop"/> 와 같은 규칙).
+    /// </summary>
+    private void OpenOnboarding()
+    {
+        if (_shop.IsOpen)
+        {
+            _shop.Close();
+        }
+
+        if (_roomWindow.IsOpen)
+        {
+            _roomWindow.Close();
+        }
+
+        _onboarding.Open();
+    }
+
+    /// <summary>안내를 끝까지 봤거나 건너뛰었다. 다음부터는 안 뜬다 - 이미 본 판이면 쓸 것이 없다.</summary>
+    private void OnOnboardingFinished()
+    {
+        if (Save.OnboardingSeen >= OnboardingWindow.Version)
+        {
+            return;
+        }
+
+        Save.OnboardingSeen = OnboardingWindow.Version;
+        PersistNow();
+        GD.Print($"[game] 처음 안내 봄 (판 {OnboardingWindow.Version})");
+    }
+
+    /// <summary>
     /// 상점과 룸 창은 한 번에 하나만 연다 - 둘 다 창 전체를 덮는 CanvasLayer 라
     /// 겹쳐 열면 아래 것이 가려진 채로 클릭을 기다린다.
     /// </summary>
     private void ToggleShop()
     {
+        _onboarding.Close();
         if (_roomWindow.IsOpen)
         {
             _roomWindow.Close();
@@ -1163,6 +1211,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     private void ToggleRoom()
     {
+        _onboarding.Close();
         if (_shop.IsOpen)
         {
             _shop.Close();

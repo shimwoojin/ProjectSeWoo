@@ -35,6 +35,13 @@ public sealed class SaveData
     public MultiState Multi { get; set; } = new();
 
     /// <summary>
+    /// 처음 안내(B15)를 본 판(版). 0 이면 아직 안 봤다. 게임의 <c>OnboardingWindow.Version</c> 보다 작으면
+    /// 켤 때 안내를 연다 - 안내를 크게 고치면(개인정보 문구가 바뀌는 등) 판을 올려 기존 유저에게도 다시 보여 준다 (v6).
+    /// </summary>
+    [JsonPropertyName("onboardingSeen")]
+    public int OnboardingSeen { get; set; }
+
+    /// <summary>
     /// 마지막 종료 시각(UTC). 오프라인 성장 계산의 기준점이다 (§2-2).
     ///
     /// 슬롯이 상한이라 아무리 오래 비워도 포화까지만 찬다. 그래서 이 값이
