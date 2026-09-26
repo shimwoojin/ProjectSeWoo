@@ -49,7 +49,11 @@ public sealed class MockInventoryService : IInventoryService
 
     public bool Owns(string itemDefId) => itemDefId != null && _owned.Contains(itemDefId);
 
-    public Task Refresh() => Task.CompletedTask;
+    public Task Refresh()
+    {
+        SettleArrivals();
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// 스팀의 <c>AddItem</c> 지급을 흉내 낸다. <see cref="MockEconomyService"/> 가
@@ -58,7 +62,40 @@ public sealed class MockInventoryService : IInventoryService
     /// </summary>
     public void MockGrant(string itemDefId)
     {
+        if (GrantDelay > TimeSpan.Zero)
+        {
+            _arriving[itemDefId] = DateTime.UtcNow + GrantDelay;
+            return;
+        }
+
         if (_owned.Add(itemDefId))
+        {
+            OnItemsChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// [시험] 지급이 보유 목록에 늦게 보이게 한다 - 실물 스팀은 서버 지급 뒤 조금 늦게 보인다(2026-09-26 실측 약 1분 이내).
+    /// 상점의 "받는 중" 을 목으로 시험하려고 둔다. 셸이 <c>--mock-grant-delay=초</c> 로 켠다.
+    /// </summary>
+    public TimeSpan GrantDelay { get; set; }
+
+    private readonly Dictionary<string, DateTime> _arriving = new(StringComparer.Ordinal);
+
+    /// <summary>늦게 오기로 한 지급 중 때가 된 것을 보유로 옮긴다. <see cref="Refresh"/> 가 부른다 - 실물처럼 다시 물어야 보인다.</summary>
+    private void SettleArrivals()
+    {
+        bool changed = false;
+        foreach ((string id, DateTime due) in _arriving.ToArray())
+        {
+            if (DateTime.UtcNow >= due)
+            {
+                _arriving.Remove(id);
+                changed |= _owned.Add(id);
+            }
+        }
+
+        if (changed)
         {
             OnItemsChanged?.Invoke();
         }

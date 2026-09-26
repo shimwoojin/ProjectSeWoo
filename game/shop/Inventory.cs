@@ -105,7 +105,57 @@ public sealed class Inventory
     /// <summary>살 수 있는가. 이미 가진 것과 기본 지급품은 false 다.
     /// <b>UI 힌트용이다</b> - 진짜 판정은 서버가 <see cref="TryBuy"/> 안에서 다시 한다.</summary>
     public bool CanBuy(ShopCatalog.Item item) =>
-        item != null && !item.IsStarter && !Owns(item.Id) && _economy.Balance >= item.Price;
+        item != null && !item.IsStarter && !Owns(item.Id) && !IsReceiving(item.Id) && _economy.Balance >= item.Price;
+
+    // --- 받는 중 ------------------------------------------------------------------------------
+    //
+    // 서버가 구매 성공(잔액 차감 + 스팀 지급)을 답해도 **스팀 인벤토리에는 조금 늦게 보인다** (2026-09-26 풋바나나 실구매:
+    // 바로 다시 물었을 때 없음, 약 1분 뒤 있음). 그 사이 상점에 방금 산 것이 다시 "구매" 로 보이면 헷갈리고 또 누르게 된다.
+    // 그래서 "샀는데 아직 안 보이는" 것을 따로 기억해 상점이 "받는 중" 으로 그린다. 들어오면 풀리고, 너무 오래 안
+    // 오면(ReceiveTimeout) 표시만 풀린다 - 다시 누르면 서버가 판정한다(이미 지급했으면 이미 가진 것으로 거절).
+
+    /// <summary>"받는 중" 을 포기하는 시간. 이보다 늦으면 스팀 쪽 문제다 - 로그를 남긴다.</summary>
+    public static readonly TimeSpan ReceiveTimeout = TimeSpan.FromMinutes(3);
+
+    private readonly Dictionary<string, DateTime> _receiving = new(StringComparer.Ordinal);
+
+    /// <summary>샀는데 스팀 인벤토리에 아직 안 보인다.</summary>
+    public bool IsReceiving(string id) => id != null && _receiving.ContainsKey(id);
+
+    public bool HasReceiving => _receiving.Count > 0;
+
+    /// <summary>구매 성공 직후 부른다. 이미 보이면 아무것도 안 한다.</summary>
+    public void MarkReceiving(string id)
+    {
+        if (!Owns(id))
+        {
+            _receiving[id] = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// 들어온 것과 너무 오래된 것을 "받는 중" 에서 뺀다. 인벤토리를 다시 물은 뒤 부른다.
+    /// </summary>
+    /// <returns>이번에 들어온 id 들 (도감·도전과제를 다시 볼 계기).</returns>
+    public List<string> SettleReceiving()
+    {
+        var arrived = new List<string>();
+        foreach ((string id, DateTime since) in _receiving.ToArray())
+        {
+            if (Owns(id))
+            {
+                arrived.Add(id);
+                _receiving.Remove(id);
+            }
+            else if (DateTime.UtcNow - since > ReceiveTimeout)
+            {
+                GD.PushWarning($"[game] {id} 를 샀는데 {ReceiveTimeout.TotalMinutes:F0}분이 지나도 스팀 인벤토리에 안 보인다 - \"받는 중\" 을 푼다");
+                _receiving.Remove(id);
+            }
+        }
+
+        return arrived;
+    }
 
     /// <summary>
     /// 구매. 서버가 잔액을 깎고 스팀 인벤토리에 지급하는 것까지 한 트랜잭션으로

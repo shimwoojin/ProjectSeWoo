@@ -256,7 +256,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         else
         {
             var mockEconomy = new MockEconomyService();
-            var mockInventory = new MockInventoryService();
+            var mockInventory = new MockInventoryService { GrantDelay = MockGrantDelay() };
 
             // 실물에서는 서버 한 트랜잭션인 "구매→지급"을 목 둘로 재현하려면
             // 서로를 알아야 한다 (docs/ECONOMY-SERVER.md).
@@ -377,6 +377,17 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// 룸 화면을 혼자 고칠 때는 목이 편하고, 친구와 실제로 붙어 볼 때
     /// <c>--real-net</c> 으로 켠다.
     /// </summary>
+    /// <summary>
+    /// <c>--mock-grant-delay=초</c> (디버그 목 전용): 산 장식이 보유 목록에 늦게 보이게 한다 - 실물 스팀처럼.
+    /// 상점의 "받는 중" 을 시험하려고 둔다.
+    /// </summary>
+    private static TimeSpan MockGrantDelay()
+    {
+        const string Prefix = "--mock-grant-delay=";
+        string arg = Array.Find(OS.GetCmdlineUserArgs(), a => a.StartsWith(Prefix, StringComparison.Ordinal));
+        return arg != null && double.TryParse(arg[Prefix.Length..], out double s) ? TimeSpan.FromSeconds(s) : TimeSpan.Zero;
+    }
+
     private static bool ShouldUseRealNet() =>
         !OS.IsDebugBuild() || Array.IndexOf(OS.GetCmdlineUserArgs(), "--real-net") >= 0;
 

@@ -334,6 +334,62 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _ = ResyncAsync(healthy);
     }
 
+    /// <summary>"받는 중" 이 있는 동안 스팀 인벤토리를 다시 묻는 주기(초).</summary>
+    private const double ReceivePollSec = 5.0;
+
+    private double _sinceReceivePoll;
+    private bool _receivePolling;
+
+    /// <summary>
+    /// 샀는데 스팀 인벤토리에 아직 안 보이는 것이 있으면 몇 초마다 다시 물어서, 들어오는 순간 상점·도감·도전과제를 맞춘다
+    /// (<see cref="Inventory.MarkReceiving"/>).
+    /// </summary>
+    private void TickReceiving(double delta)
+    {
+        if (_inventory == null || !_inventory.HasReceiving || _receivePolling)
+        {
+            return;
+        }
+
+        _sinceReceivePoll += delta;
+        if (_sinceReceivePoll < ReceivePollSec)
+        {
+            return;
+        }
+
+        _sinceReceivePoll = 0;
+        _ = PollReceivingAsync();
+    }
+
+    private async Task PollReceivingAsync()
+    {
+        _receivePolling = true;
+        try
+        {
+            await _platform.Inventory.Refresh();
+            List<string> arrived = _inventory.SettleReceiving();
+            if (arrived.Count > 0)
+            {
+                GD.Print($"[game] 스팀 인벤토리 도착 - {string.Join(", ", arrived)}");
+                RefreshCollectionHud();
+                CheckCollection();
+            }
+
+            if (_shop.IsOpen)
+            {
+                _shop.Refresh();
+            }
+        }
+        catch (Exception e)
+        {
+            GD.PushWarning($"[game] 받는 중 재조회 실패 - {e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            _receivePolling = false;
+        }
+    }
+
     private async Task ResyncAsync(bool wasHealthy)
     {
         _syncing = true;
@@ -390,12 +446,23 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         string itemId = arg[Prefix.Length..];
         GD.Print($"[game][테스트] 구매 시도 - {itemId} (잔액 {_platform.Economy.Balance})");
 
-        PurchaseResult result = await _platform.Economy.PurchaseItem(itemId);
-        GD.Print($"[game][테스트] 구매 결과 - {result.Outcome}, 잔액 {result.NewBalance}"
-            + (result.GrantedItemDefId != null ? $", 지급 {result.GrantedItemDefId}" : string.Empty));
+        // 상점 [구매] 와 같은 경로를 탄다 (2026-09-26) - 예전에는 서버 호출만 따로 해서 "받는 중" 같은 상점 쪽 처리를
+        // 시험할 수 없었다. 결과는 BuyAsync 의 로그("[game] 구매 ...", "받는 중", 뒤이어 "스팀 인벤토리 도착")로 본다.
+        ShopCatalog.Item item = ShopCatalog.Find(itemId);
+        if (item == null)
+        {
+            GD.PrintErr($"[game][테스트] 목록에 없는 id - {itemId}");
+            return;
+        }
 
-        await _platform.Inventory.Refresh();
-        GD.Print($"[game][테스트] 인벤토리 재조회 - Owns({itemId}) = {_platform.Inventory.Owns(itemId)}");
+        // 목은 잔액 0 으로 시작한다 - 모자란 만큼 얹는다 (실물 서버에는 이 길이 없다)
+        if (_platform.Economy is MockEconomyService mock && mock.Balance < item.Price)
+        {
+            mock.GrantBananas(item.Price - mock.Balance);
+        }
+
+        await BuyAsync(item);
+        GD.Print($"[game][테스트] 구매 뒤 - Owns({itemId}) = {_platform.Inventory.Owns(itemId)}, 받는 중 = {_inventory.IsReceiving(itemId)}, 잔액 {_platform.Economy.Balance}");
     }
 
     /// <summary>
@@ -483,6 +550,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             _tree.SyncSlots(_platform.Economy.Slots);
             TickResync(delta);
+            TickReceiving(delta);
             UpdateOfflineNotice();
             _room.Tick(delta);
             _stateSender.Tick(delta);
@@ -795,7 +863,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 즉시" 로 못 박았다 - 로컬 장착 상태가 구매 직후 세이브에 안 남으면
     /// 강제 종료 시 잃는다.
     /// </summary>
-    private async void OnBuyRequested(ShopCatalog.Item item)
+    private async void OnBuyRequested(ShopCatalog.Item item) => await BuyAsync(item);
+
+    /// <summary>상점 [구매] 와 <c>--test-purchase</c> 가 같이 타는 구매 경로.</summary>
+    private async Task BuyAsync(ShopCatalog.Item item)
     {
         PurchaseOutcome outcome = await _inventory.TryBuy(item);
         if (outcome != PurchaseOutcome.Success)
@@ -823,8 +894,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 실물(EconomyClient + SteamInventoryService)은 서로 남남이라 - 서버가 성공을
         // 답해도 스팀 인벤토리 캐시는 다시 물어봐야 갱신된다 (docs/ECONOMY-SERVER.md §5-6).
         await _platform.Inventory.Refresh();
+        _inventory.MarkReceiving(item.Id);
 
-        GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {_platform.Economy.Balance}");
+        GD.Print($"[game] 구매 {item.Id} (-{item.Price}) 잔액 {_platform.Economy.Balance}"
+            + (_inventory.IsReceiving(item.Id) ? " - 스팀 인벤토리에 아직 안 보여서 받는 중" : string.Empty));
 
         if (TrustEconomyForAchievements)
         {

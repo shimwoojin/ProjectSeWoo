@@ -166,6 +166,14 @@ public partial class ShopWindow : CanvasLayer
                 row.Action.Text = canEmpty ? "해제" : "사용 중";
                 row.Action.Disabled = !canEmpty;
             }
+            else if (_inventory.IsReceiving(item.Id))
+            {
+                // 샀는데 스팀 인벤토리에 아직 안 보인다 - 다시 사지 못하게 잠근다 (Inventory.MarkReceiving)
+                row.State.Text = "받는 중...";
+                row.State.AddThemeColorOverride("font_color", Accent);
+                row.Action.Text = "받는 중";
+                row.Action.Disabled = true;
+            }
             else if (owned)
             {
                 row.State.Text = "보유";
