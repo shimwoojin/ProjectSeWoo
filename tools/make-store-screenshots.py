@@ -10,8 +10,8 @@
 실제 바탕화면을 찍지 않으므로 파일명·메신저 같은 개인 화면이 섞이지 않는다.
 
 게임 창 그림은 손대지 않는다(크기·색 그대로). 바탕화면은 150% 배율 모니터처럼 그린다 - 원판도 옵션 배율
-1.5 로 찍었다. 시스템 커서(화살표)는 창 텍스처에 없으므로 여기서 그린다. 커서 장식 창의 가운데가 커서
-끝점이다(platform/CursorLayer.cs MoveWindow).
+1.5 로 찍었다. 시스템 커서(화살표)는 창 텍스처에 없으므로 여기서 그린다. 커서 장식 창(224x224) 안에서 커서
+끝점은 CURSOR_TIP 이다(platform/CursorLayer.cs TipInWindow - B17 전에는 창 가운데였다).
 
 출력: assets/_store/screenshots/NN_이름.png / .jpg (1920x1080).
 """
@@ -243,11 +243,14 @@ def arrow(size):
     return im
 
 
+CURSOR_TIP = (104, 40)
+
+
 def cursor(bg, raw, shot, tip):
-    """커서 장식 창(가운데 = 커서 끝점) + 시스템 화살표(150% 배율 크기)."""
+    """커서 장식 창(CURSOR_TIP = 커서 끝점) + 시스템 화살표(150% 배율 크기)."""
     if raw.has(shot, "CursorWindow"):
         deco = raw.img(shot, "CursorWindow")
-        bg.alpha_composite(deco, (round(tip[0] - deco.width / 2), round(tip[1] - deco.height / 2)))
+        bg.alpha_composite(deco, (round(tip[0] - CURSOR_TIP[0]), round(tip[1] - CURSOR_TIP[1])))
     a = arrow(46)
     bg.alpha_composite(a, (round(tip[0] - 3), round(tip[1] - 3)))
 
@@ -262,7 +265,7 @@ def magnifier(bg, center, radius, zoom):
     return src, mask
 
 
-def place_magnifier(bg, src, mask, at, line_to):
+def place_magnifier(bg, src, mask, at, line_to, src_r=60):
     r = src.width // 2
     d = ImageDraw.Draw(bg)
     d.line([line_to, (at[0], at[1])], fill=(255, 255, 255, 200), width=3)
@@ -271,7 +274,7 @@ def place_magnifier(bg, src, mask, at, line_to):
     bg.alpha_composite(sh.filter(ImageFilter.GaussianBlur(16)))
     bg.paste(src, (at[0] - r, at[1] - r), mask)
     d.ellipse((at[0] - r, at[1] - r, at[0] + r, at[1] + r), outline=(255, 255, 255, 255), width=6)
-    d.ellipse((line_to[0] - 60, line_to[1] - 60, line_to[0] + 60, line_to[1] + 60), outline=(255, 255, 255, 200), width=3)
+    d.ellipse((line_to[0] - src_r, line_to[1] - src_r, line_to[0] + src_r, line_to[1] + src_r), outline=(255, 255, 255, 200), width=3)
 
 
 # ---------- 장면 ----------
@@ -314,10 +317,12 @@ def shot_cursor(raw):
     bg = wallpaper(0)
     code_editor(bg, (40, 30, 1270, H - TASKBAR - 30))
     game_at(bg, raw, "shop_tab0")
-    tip = (760, 420)
+    tip = (820, 300)
     cursor(bg, raw, "shop_tab0", tip)
-    src, mask = magnifier(bg, (tip[0] + 6, tip[1] - 4), 200, 3.4)
-    place_magnifier(bg, src, mask, (400, 640), (tip[0] + 6, tip[1] - 4))
+    # 원숭이(바나나 아래 약 125px)를 두 배로 - B17 전에는 작은 장식이라 3.4배였다
+    focus = (tip[0] - 4, tip[1] + 62)
+    src, mask = magnifier(bg, focus, 210, 2.0)
+    place_magnifier(bg, src, mask, (420, 640), focus, src_r=105)
     taskbar(bg)
     return bg
 

@@ -12,9 +12,13 @@ public partial class CursorOrnament : Node2D
     /// <summary>바나나 그림(banana.png) 안의 꼭지 윗점과 원숭이가 잡는 점, 픽셀. 모든 변형이 같은 실루엣이다.</summary>
     private static readonly Vector2 BananaStem = new(102, 6), BananaGrip = new(95, 190);
 
-    /// <summary>바나나 높이(px)와, 꼭지를 커서 끝에서 얼마나 떨어뜨려 붙이는가.</summary>
+    /// <summary>
+    /// 바나나 높이(px)와, 꼭지를 커서 끝에서 얼마나 떨어뜨려 붙이는가. 화살표 아래로 뺀다 - 예전 (6, 8) 은 150% 배율
+    /// 모니터의 화살표(약 28px)가 바나나를 덮었다 (2026-09-26 스크린샷 확대에서 발견). 200% 화살표(약 38px)는 여전히
+    /// 꼭지 끝에 조금 걸친다.
+    /// </summary>
     private const float BananaHeight = 36f;
-    private static readonly Vector2 StemFromTip = new(6, 8);
+    private static readonly Vector2 StemFromTip = new(10, 24);
 
     private DecoView _deco;
     private Sprite2D _banana;

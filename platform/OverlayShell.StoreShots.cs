@@ -66,10 +66,10 @@ public partial class OverlayShell
                     continue;
                 }
 
-                // 두 배로 그려서 줄인다 - 외곽선이 매끈해진다. 원점(커서 끝) 기준 리그는 대략 x -45~+37, y 0~125 다.
+                // 두 배로 그려서 줄인다 - 외곽선이 매끈해진다. 원점(커서 끝) 기준 리그는 대략 x -45~+37, y 0~150 다 (바나나를 화살표 아래로 뺀 뒤).
                 var viewport = new SubViewport
                 {
-                    Size = new Vector2I(96 * Render, 132 * Render),
+                    Size = new Vector2I(96 * Render, 160 * Render),
                     TransparentBg = true,
                     Disable3D = true,
                     RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
@@ -118,6 +118,7 @@ public partial class OverlayShell
                 viewport.QueueFree();
             }
 
+            await SaveShowcase();
             GetTree().Quit(0);
         }
         catch (Exception e)
@@ -125,6 +126,48 @@ public partial class OverlayShell
             GD.PrintErr($"[make-icons] 실패 - {e}");
             GetTree().Quit(1);
         }
+    }
+
+    /// <summary>캡슐 아트용 커서 원숭이 (C1). 이 그림 안에서 커서 끝(화살표 끝점)의 자리 - tools/make-store-capsules.py 가 쓴다.</summary>
+    public static readonly Vector2I ShowcaseTip = new(50 * 4, 2 * 4);
+
+    /// <summary>
+    /// 캡슐 아트(tools/make-store-capsules.py)에 쓸 커서 원숭이 한 장 - 갈색 원숭이 + 기본 바나나, 신난 표정, 네 배 크기.
+    /// <c>assets/_store/cursor_showcase.png</c> (자르지 않는다 - 커서 끝이 <see cref="ShowcaseTip"/> 이다).
+    /// </summary>
+    private async Task SaveShowcase()
+    {
+        const int Render = 4;
+        var viewport = new SubViewport
+        {
+            Size = new Vector2I(96 * Render, 160 * Render),
+            TransparentBg = true,
+            Disable3D = true,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
+        };
+        AddChild(viewport);
+        var ornament = new CursorOrnament { Still = true, Position = ShowcaseTip, Scale = Vector2.One * Render };
+        viewport.AddChild(ornament);
+        ornament.Equip(CursorSlot.Banana, ItemManifest.StarterFor(CursorSlot.Banana));
+        ornament.Equip(CursorSlot.Monkey, ItemManifest.StarterFor(CursorSlot.Monkey));
+        for (int i = 0; i < 20; i++)
+        {
+            ornament.Tick(0.05);
+            await ToSignal(RenderingServer.Singleton, "frame_post_draw");
+        }
+
+        // 신남 - 빈 팔을 번쩍 들고 웃는 눈. 팔이 올라가는 동안 몇 프레임 굴린다.
+        ornament.Keystrokes(1);
+        for (int i = 0; i < 5; i++)
+        {
+            ornament.Tick(0.05);
+            await ToSignal(RenderingServer.Singleton, "frame_post_draw");
+        }
+
+        string path = ProjectSettings.GlobalizePath("res://assets/_store/cursor_showcase.png");
+        viewport.GetTexture().GetImage().SavePng(path);
+        GD.Print($"[make-icons] 캡슐용 커서 원숭이 -> {path} ({ornament.RigState})");
+        viewport.QueueFree();
     }
 
     private static bool IsStoreShotRun() =>

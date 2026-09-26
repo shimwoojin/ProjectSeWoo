@@ -178,17 +178,33 @@ def cursor_arrow(size):
     return im
 
 
-def decorated_cursor(canvas, x, y, size):
-    """커서 + 매달린 원숭이(hang) + 반짝이 잔상(trail). 바닥(base) 장식은 작게 줄이면 무엇인지 안 읽혀서 뺐다."""
+# 캡슐용 커서 원숭이 (B17) - 게임이 실제 리그로 그린 것: Godot.exe --path . -- --make-icons
+# 네 배 크기로 그렸고, 그림 안에서 커서 끝(화살표 끝점)이 SHOWCASE_TIP 이다 (OverlayShell.StoreShots.ShowcaseTip).
+SHOWCASE = os.path.join(ROOT, "assets", "_store", "cursor_showcase.png")
+SHOWCASE_TIP = (200, 8)
+SHOWCASE_RENDER = 4
+ARROW_PX = 19          # 1배 크기에서 화살표 높이 - 원숭이와의 비율을 게임 그대로 두는 기준
+
+
+def decorated_cursor(canvas, x, y, size, monkey_scale=0.6):
+    """커서 + 바나나에 매달린 원숭이 + 반짝이 잔상. size 는 화살표 높이(px).
+
+    원숭이는 게임 비율(화살표 19px 에 원숭이 약 125px)이면 캡슐에서 너무 커서 monkey_scale 만큼 줄인다.
+    """
     rnd = random.Random(3)
     for k in range(4):
         sp = scaled(asset("cursor", "deco", "spark_01", "icon.png"), height=size * (0.55 - k * 0.09))
         sp = sp.rotate(rnd.uniform(-25, 25), resample=Image.BICUBIC, expand=True)
         sp.putalpha(sp.getchannel("A").point(lambda a, k=k: a * (1 - k * 0.2)))
         canvas.alpha_composite(sp, (round(x - size * (0.55 + k * 0.5)), round(y + size * (0.35 + k * 0.28))))
-    hang = scaled(trim(asset("cursor", "monkey", "monkey_01", "icon.png")), height=size * 2.1)
+
+    show = Image.open(SHOWCASE).convert("RGBA")
+    k = size / ARROW_PX / SHOWCASE_RENDER * monkey_scale
+    show = show.resize((max(1, round(show.width * k)), max(1, round(show.height * k))), Image.LANCZOS)
+    # 원숭이를 줄였으니(게임 비율보다 작다) 바나나가 화살표에 안 가리게 조금 더 오른쪽 아래로 붙인다
+    with_shadow(canvas, show, x - SHOWCASE_TIP[0] * k + size * 0.2, y - SHOWCASE_TIP[1] * k + size * 0.35,
+                offset=(0.01, 0.015), blur=0.01, strength=0.3)
     arrow = cursor_arrow(size)
-    canvas.alpha_composite(hang, (round(x - hang.width * 0.28), round(y + size * 0.55)))
     with_shadow(canvas, arrow, x, y, offset=(0.05, 0.08), blur=0.05, strength=0.5)
 
 
@@ -267,9 +283,9 @@ def wide(W, H, logo_w=0.46, keys=True, cursor=True):
     mh = H * 0.46
     punch_scene(c, gy, mh, W * 0.52)
     if cursor:
-        decorated_cursor(c, W * 0.30, H * 0.62, H * 0.1)
+        decorated_cursor(c, W * 0.38, H * 0.50, H * 0.09, monkey_scale=0.42)   # 로고 아래, 키캡 오른쪽 위
     if keys:
-        keycaps(c, H * 0.84, H * 0.1, "PUNCH", x0=W * 0.05, pressed=2)
+        keycaps(c, H * 0.85, H * 0.085, "PUNCH", x0=W * 0.03, pressed=2)
     lg = logo(round(W * logo_w), lines=2)
     place_logo(c, lg, W * 0.26, H * 0.33)
     return c
@@ -291,7 +307,7 @@ def tall(W, H, keys=True):
     gy = H * 0.88
     mh = H * 0.27
     punch_scene(c, gy, mh, W * 0.02)
-    decorated_cursor(c, W * 0.14, H * 0.43, H * 0.065)
+    decorated_cursor(c, W * 0.17, H * 0.33, H * 0.06, monkey_scale=0.42)   # 로고 아래 왼쪽 - 펀치 원숭이 머리 위를 피한다
     if keys:
         keycaps(c, H * 0.9, H * 0.065, "PUNCH", pressed=2)
     lg = logo(round(W * 0.8), lines=2)
@@ -303,7 +319,7 @@ def hero(W, H):
     """라이브러리 히어로 3840x1240: 글자 없음. 스팀이 왼쪽 아래에 로고를 얹으므로 장면은 가운데~오른쪽."""
     c = background(W, H, horizon=0.8, sun=(0.75, 0.15))
     punch_scene(c, H * 0.9, H * 0.46, W * 0.46)
-    decorated_cursor(c, W * 0.36, H * 0.42, H * 0.09)
+    decorated_cursor(c, W * 0.36, H * 0.22, H * 0.09, monkey_scale=0.5)
     return c
 
 
