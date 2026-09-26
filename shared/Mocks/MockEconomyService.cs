@@ -128,6 +128,23 @@ public sealed class MockEconomyService : IEconomyService
         OnStateChanged?.Invoke();
     }
 
+    /// <summary>
+    /// [디버그] 슬롯 하나를 정해진 모습으로 둔다 - 성장 비율(0~1)과 황금 여부. 스토어 스크린샷
+    /// (<c>--store-shot</c>)이 "익은 송이 + 황금 송이 + 자라는 중" 을 매번 같게 찍으려고 쓴다.
+    /// 황금은 원래 굴림이라 이게 없으면 찍을 때마다 나무가 달라진다.
+    /// </summary>
+    public void DebugSetSlot(int index, double grown, bool golden)
+    {
+        if (index < 0 || index >= _slots.Count)
+        {
+            return;
+        }
+
+        long growth = _slots[index].GrowthMs;
+        _slots[index] = new SlotState((long)(growth * Math.Clamp(grown, 0.0, 1.0)), growth, golden);
+        OnStateChanged?.Invoke();
+    }
+
     public void RequestHarvest(int slotIndex)
     {
         if (slotIndex < 0 || slotIndex >= _slots.Count || !_slots[slotIndex].Ready)

@@ -256,6 +256,16 @@ public sealed class HelperInputSource : IInputSource, IDisposable
     }
 
     /// <summary>
+    /// [디버그] 헬퍼를 거치지 않고 타건을 흘려보낸다. 스토어 스크린샷(<c>--store-shot</c>)이 펀치·수확
+    /// 순간을 정해진 때에 만들려고 쓴다 - 그 모드에서는 헬퍼를 안 띄워서 실제 키보드가 섞이지 않는다.
+    /// </summary>
+    internal void DebugInject(int count)
+    {
+        TotalCount += count;
+        OnKeystrokes?.Invoke(count);
+    }
+
+    /// <summary>
     /// 헬퍼가 죽었으면 다시 띄운다.
     ///
     /// 상주 앱은 며칠씩 켜져 있으므로 헬퍼가 한 번 죽으면 그날 하루의 타수가

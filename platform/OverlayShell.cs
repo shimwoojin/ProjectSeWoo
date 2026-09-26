@@ -188,7 +188,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
         // A4 실물. 별도 헬퍼 프로세스로 전역 타건 수를 받는다 (docs/A4-GLOBAL-INPUT.md).
         _input = new HelperInputSource();
-        _input.Start();
+        if (!IsStoreShotRun())
+        {
+            _input.Start();
+        }
 
         // A2 커서 추종 창. 여기서 IsSupported 가 false 로 나오면 기획서 §1.3 의
         // C안이 성립하지 않는다는 뜻이고, 그게 이 스파이크가 먼저 답해야 할 질문이다.
@@ -260,6 +263,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 여기까지 와야 실물 5종이 전부 존재한다. 그래서 게임 레이어에 넘기는 것도
         // 여기가 처음 가능한 지점이다 - BuildScene() 에서 찾아둔 그 노드지만,
         // 그때는 _input/_cursor/_steam 이 아직 없었다.
+        PrepareStoreShot();
         AttachPlatformToGame();
 
         var tick = new Timer { WaitTime = 0.5, Autostart = true };
@@ -285,6 +289,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
         ParseAutoReportArgs();
         StartMeasureFriends();
+        StartStoreShot();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
     }
@@ -332,7 +337,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 돌리던 것을 창 있는 채로 돌리자 세이브 파일을 덮고 Run 키를 건드렸다.
         // 앞으로 --net-selftest 같은 게 늘어도 같은 실수가 반복되지 않게 접미사로 잡는다.
         return Array.Exists(args, a => a.EndsWith("selftest", StringComparison.Ordinal))
-            || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal));
+            || Array.Exists(args, a => a.StartsWith("--report=", StringComparison.Ordinal))
+            || IsStoreShotRun();
     }
 
     /// <summary>
