@@ -43,7 +43,7 @@
 ```
 
 도전과제 아이콘(A15 §6)과 같은 방식이다 — **손으로 그리지 않고 게임 스프라이트를 배치한다.** 원숭이 펀치
-시트(프레임 2), 바나나 나무, 바나나, 타격 이펙트(프레임 1), 커서 장식(매달림 `monkey_01`, 잔상 `spark_01`),
+시트(프레임 2), 바나나 나무, 바나나, 타격 이펙트(프레임 1), 커서 원숭이(게임이 실제 리그로 그린 `assets/_store/cursor_showcase.png` — `--make-icons`), 잔상 `spark_01`,
 로고는 Pretendard Bold. 배경(하늘·구름·언덕)은 코드로 그린다.
 
 | 파일 | 크기 | 올리는 곳 | 구도 |
@@ -98,7 +98,7 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 |---|---|
 | `idle`, `punch_0~5` | 가만히 / 익은 송이를 치는 순간 연속 |
 | `harvest_0~5` | 10번째 타격 — 황금 송이가 떨어지는 연속 |
-| `shop_tab0~4` | 상점 탭 5개 (매달림 · 잔상 · 바닥 · 강화 · 도감) |
+| `shop_tab0~4` | 상점 탭 5개 (원숭이 · 바나나 · 장식 · 강화 · 도감) |
 | `lobby_0~3`, `lobby_window` | 가짜 친구 3명(바나나킹 · 타자왕 · 고릴라)이 치고 따는 로비 / 로비 창 |
 | `onboarding_0~2` | 처음 안내(B15) 세 장 — 합성은 안 한다. 안내 화면 확인용 |
 
@@ -115,7 +115,7 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 |---|---|---|
 | `01_work` | 코드 편집기 옆에서 원숭이가 익은 송이를 친다, 꾸민 커서 | **1번** — 일하면서 켜 두는 게임 |
 | `02_harvest` | 문서 작업 옆, 황금 송이가 떨어진다 | **2번** |
-| `03_cursor` | 상점(매달림 탭) + 커서 둘레 확대 원 | **3번** — 커서 꾸미기 |
+| `03_cursor` | 상점(원숭이 탭) + 커서 원숭이 확대 원 | **3번** — 커서 꾸미기 |
 | `04_collection` | 도감 11/16 | 4번 후보 |
 | `05_lobby` | 로비 창(랭킹·친구 목록) + 친구 창 3개 | **5번** |
 | `06_friends` | 친구 창 3개를 화면 위쪽에 둔 모습 + 내 나무 | 4번 후보 |
@@ -166,10 +166,11 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 타자를 치거나 클릭할 때마다 원숭이가 나무를 펀치합니다. 바나나는 시간이 지나면 저절로 익고, 익은
 송이는 열 번 맞으면 떨어집니다. 자리를 비워도 나무는 자랍니다 — 돌아와서 수확하세요.
 
-**커서를 꾸미세요**
-바나나로 커서 장식을 삽니다. 커서에 매달리는 원숭이, 따라오는 잔상, 커서 밑의 바닥 장식 — 세 칸을
-골라 끼우고, 장식은 업데이트로 계속 늘어납니다. 커서 자체는 윈도우 기본 커서 그대로이고, 장식이 곁에 붙어 다닙니다. 모은 장식은 스팀 인벤토리에
-들어갑니다.
+**커서에 원숭이가 매달립니다**
+커서 끝에 바나나가 달리고, 원숭이가 거기 매달려 따라다닙니다. 마우스를 움직이면 흔들리고, 세게 휘두르면
+손을 놓쳤다가 다시 잡고, 타자를 치면 신이 나고, 오래 쉬면 꾸벅꾸벅 좁니다.
+바나나로 원숭이 · 바나나 · 장식 세 칸을 골라 꾸미세요 — 장식은 업데이트로 계속 늘어납니다. 커서 자체는
+윈도우 기본 커서 그대로이고, 원숭이가 곁에 붙어 다닙니다. 모은 장식은 스팀 인벤토리에 들어갑니다.
 
 **나무를 키우세요**
 빨리 익기, 황금 바나나(따면 ×5), 가지 늘리기. 장식을 먼저 살지, 나무를 먼저 키울지는 당신 몫입니다.
@@ -203,10 +204,12 @@ the monkey keeps itself busy in the corner of your screen.
 Every keystroke or click makes the monkey punch the tree. Bananas ripen over time on their own, and a ripe
 bunch drops after ten hits. The tree keeps growing while you're away — come back and harvest.
 
-**Decorate your cursor**
-Spend bananas on cursor decorations: a monkey hanging from your cursor, a sparkling trail, a glow underneath —
-mix and match across three slots, with more decorations arriving in updates. Your actual cursor stays the standard Windows cursor; the decorations
-tag along. Decorations you collect go into your Steam inventory.
+**A monkey hangs from your cursor**
+A banana dangles from the tip of your cursor, and a monkey hangs from it wherever you go. It sways as you move,
+loses its grip when you fling the mouse and climbs back up, cheers when you type, and dozes off when you rest.
+Spend bananas to customize three slots — monkey, banana and decoration — with more arriving in updates. Your
+actual cursor stays the standard Windows cursor; the monkey just tags along. Everything you collect goes into
+your Steam inventory.
 
 **Grow your tree**
 Faster ripening, golden bananas (worth ×5), more branches. Decorations first or a bigger tree first? Your call.
@@ -232,7 +235,7 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 |---|---|---|
 | 치면 친다 / You type, it punches | `section_punch.gif` (420x404, 약 550KB) | 익은 송이를 치고 → 10번째에 황금 송이가 떨어진다. 원판 프레임 그대로 |
 | (GIF 를 못 쓰면) | `section_harvest.png` | 수확 순간 한 장 |
-| 커서를 꾸미세요 / Decorate your cursor | `section_cursor.png` | 커서 둘레 확대 원 |
+| 커서에 원숭이가 매달립니다 / A monkey hangs from your cursor | `section_cursor.png` | 커서 원숭이 확대 원 (GIF 로 바꾸면 더 좋다 - 흔들림) |
 | 나무를 키우세요 / Grow your tree | `section_upgrade.png` | 강화 탭 |
 | 친구와 같이 치세요 / Punch together | `section_friends.png` | 친구 창 3개 (이름 · 레벨 · 로비 타수 · 도감) |
 
@@ -243,7 +246,8 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 | 문장 | 근거 / 확인 |
 |---|---|
 | 열 번 맞으면 떨어진다 | `17ed534` 10타 수확 |
-| 세 칸, 업데이트로 늘어난다 | 지금 매달림 6 · 잔상 6 · 바닥 4 (B9). **개수를 문구에 박지 않는다** — 장식은 계속 늘어난다. 칸 이름은 커서 장식 재구성(원숭이 · 바나나 · 장식) 때 다시 고친다 |
+| 원숭이 · 바나나 · 장식 세 칸, 업데이트로 늘어난다 | B17 (`game/shop/items.json` — 지금 원숭이 6 · 바나나 6 · 장식 10). **개수를 문구에 박지 않는다** |
+| 흔들림 · 놓쳤다 다시 잡기 · 타자에 신남 · 오래 쉬면 졺 | B17 `MonkeyRig` 상태 (Swing · Drop · Cheer · Sleep). 조정값이 바뀌어도 문장은 맞다 |
 | 스팀 인벤토리에 들어간다 | ECONOMY-SERVER — 장식은 스팀 인벤토리 아이템 |
 | 황금 ×5, 세 축 이름 | B13-UPGRADES — **B14 밸런스에서 이름·배율이 바뀌면 같이 고친다** |
 | 친구 창 끌어서 두기, 로비 랭킹 | B10 · B12. **2계정 전체 시나리오 확인 전** — 공개 전에 한 번은 돌려 볼 것 |
