@@ -1,12 +1,21 @@
 import { getState, harvest, purchaseItem, purchaseUpgrade } from "./economy";
 import { authenticateUserTicket } from "./steam";
 import { bearerTokenFrom, issueSessionToken, verifySessionToken } from "./session";
+import { allow, D1Limiter, localApiLimiter, PERIOD_MS, RETRY_AFTER_SECONDS, SESSION_LIMIT, sessionKey } from "./ratelimit";
 import type { Env, UpgradeAxis } from "./types";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "content-type": "application/json" },
+  });
+}
+
+/** 429. 클라이언트는 이걸 받으면 잠시 오프라인처럼 동작하다 다시 붙는다 (EconomyClient). */
+function tooMany(): Response {
+  return new Response(JSON.stringify({ error: "rate_limited" }), {
+    status: 429,
+    headers: { "content-type": "application/json", "retry-after": String(RETRY_AFTER_SECONDS) },
   });
 }
 
@@ -42,6 +51,11 @@ export default {
     try {
       // -------------------------------------------------------------- 세션 (인증 불필요)
       if (request.method === "POST" && url.pathname === "/v1/session") {
+        // 세션 발급은 D1 로 정확히 센다 (요청마다 밸브 API 를 부른다) - src/ratelimit.ts
+        if (!(await allow(env.SESSION_LIMITER, new D1Limiter(env.DB, SESSION_LIMIT, PERIOD_MS), sessionKey(request)))) {
+          return tooMany();
+        }
+
         const body = await readJson<{ ticket?: string }>(request);
         if (!body?.ticket) {
           return json({ error: "missing_ticket" }, 400);
@@ -62,6 +76,11 @@ export default {
         return session;
       }
       const { steamId } = session;
+
+      if (!(await allow(env.API_LIMITER, localApiLimiter, `steam:${steamId}`))) {
+        console.warn(`[economy-server] rate limited ${steamId} ${request.method} ${url.pathname}`);
+        return tooMany();
+      }
 
       if (request.method === "GET" && url.pathname === "/v1/economy/state") {
         return json(await getState(env, steamId));

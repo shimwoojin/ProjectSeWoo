@@ -13,3 +13,17 @@ database_id = "d36cbd34-76c0-4568-8fd1-2bd7b955055e"
 # `wrangler secret put`으로 넣는다 - 이 파일은 커밋되는 파일이다.
 [vars]
 STEAM_APP_ID = "5281130"
+
+# 레이트리밋 (src/ratelimit.ts, docs/ECONOMY-SERVER-API.md §3). period 는 10 또는 60 만 된다.
+# namespace_id 는 이 계정 안에서 겹치지 않는 아무 정수 문자열 - 바꾸면 카운터가 새로 시작한다.
+[[unsafe.bindings]]
+name = "SESSION_LIMITER"
+type = "ratelimit"
+namespace_id = "5281001"
+simple = { limit = 30, period = 60 }
+
+[[unsafe.bindings]]
+name = "API_LIMITER"
+type = "ratelimit"
+namespace_id = "5281002"
+simple = { limit = 120, period = 60 }

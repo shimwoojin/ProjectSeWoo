@@ -1,3 +1,5 @@
+import type { RateLimiter } from "./ratelimit";
+
 // 클라이언트 계약(shared/Contracts/IEconomyService.cs, IInventoryService.cs)과
 // 1:1로 맞춘 타입. 한쪽을 바꾸면 반드시 다른 쪽도 같이 본다 - 서버는 컴파일
 // 타임에 그 어긋남을 잡아주지 못한다 (docs/ECONOMY-SERVER-API.md).
@@ -13,6 +15,12 @@ export interface Env {
 
   /** 세션 토큰 서명용 대칭키. */
   SESSION_SIGNING_SECRET: string;
+
+  /** 세션 발급 레이트리밋 (IP 기준). 없으면 통과 - src/ratelimit.ts. */
+  SESSION_LIMITER?: RateLimiter;
+
+  /** 나머지 API 레이트리밋 (스팀 ID 기준). 없으면 통과 - src/ratelimit.ts. */
+  API_LIMITER?: RateLimiter;
 }
 
 /** shared/Contracts/IEconomyService.cs 의 SlotState 와 대응. */

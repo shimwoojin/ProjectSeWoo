@@ -39,3 +39,10 @@ CREATE TABLE IF NOT EXISTS owned_items_mirror (
   granted_at   TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (steam_id, item_def_id)
 );
+
+-- 세션 발급 레이트리밋 카운터 (migrations/0003_rate_limits.sql, src/ratelimit.ts D1Limiter).
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key          TEXT PRIMARY KEY,
+  window_start INTEGER NOT NULL,
+  count        INTEGER NOT NULL
+);

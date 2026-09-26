@@ -25,7 +25,7 @@ import type {
 // 같은 표(shared/UpgradeTable.cs)를 쓴다 - 목과 서버가 같은 그림으로 보여야 시험이 의미 있다.
 
 /** 나무 슬롯 전부. 같은 인덱스끼리 한 송이다. DB 에는 JSON 배열 두 칸으로 들어간다. */
-interface Slots {
+export interface Slots {
   elapsed: number[];
   golden: boolean[];
 }
@@ -74,7 +74,7 @@ function storeSlots(player: PlayerRow, slots: Slots): void {
  * **호출부가 반드시 결과를 저장해야 한다.** 이 함수는 DB 를 안 건드린다 - 순수 계산이라 시험하기
  * 쉽게 하려는 것이고, `last_sync_utc` 갱신까지 하는 것은 `syncAndPersist`.
  */
-function recomputeSlots(player: PlayerRow, nowMs: number): Slots {
+export function recomputeSlots(player: PlayerRow, nowMs: number): Slots {
   const growth = growthMsAt(player.cycle_level);
   const count = slotCountAt(player.slots_level);
   const deltaMs = Math.max(0, nowMs - Date.parse(player.last_sync_utc));
