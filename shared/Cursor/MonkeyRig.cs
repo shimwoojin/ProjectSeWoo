@@ -212,8 +212,10 @@ public partial class MonkeyRig : Node2D
 
         _stepAccum += delta;
         bool moving = _hasCursor && _cursor.DistanceSquaredTo(_lastStepCursor) > 0.25f;
-        bool active = moving || State != Pose.Hang || _idleAction != 0 || Mathf.Abs(_angularVelocity) > 0.03f
-            || Mathf.Abs(_freeArmAngle - RestArm) > 0.05f || _bob > 0.1f;
+        // 친구 원숭이(Still)는 반응 중에도 초당 IdleHz 번이면 된다 - 친구 3명이 칠 때마다 매 프레임 그려서 릴리스에서
+        // cpu 1.95% 였다 (2026-09-26 측정). 매 프레임은 내 커서만.
+        bool active = !Still && (moving || State != Pose.Hang || _idleAction != 0 || Mathf.Abs(_angularVelocity) > 0.03f
+            || Mathf.Abs(_freeArmAngle - RestArm) > 0.05f || _bob > 0.1f);
         if (!active && _stepAccum < 1.0 / IdleHz)
         {
             return;

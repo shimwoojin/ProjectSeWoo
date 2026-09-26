@@ -60,7 +60,7 @@ export function steamItemDefIdOf(itemDefId: string): number | null {
 }
 
 /**
- * 강화 3축의 단계별 효과와 가격 (B13, 2026-09-24 — docs/B13-UPGRADES.md).
+ * 강화 3축의 단계별 효과와 가격 (B13, 2026-09-24 — docs/B13-UPGRADES.md). 가격은 B14(2026-09-26)에서 두 배 - docs/B14-BALANCE.md.
  *
  * **C# 사본이 따로 있다** — shared/UpgradeTable.cs (목 경제와 강화 UI 가 쓴다). 두 표가
  * 갈라지면 조용히 갈라지므로 한쪽을 고치면 다른 쪽도 같이 고친다. 진짜 판정은 이 표로 한다.
@@ -70,11 +70,11 @@ export function steamItemDefIdOf(itemDefId: string): number | null {
  */
 export const UPGRADES = {
   /** 가지 늘리기: 슬롯 수. */
-  slots: { effect: [3, 4, 5, 6], price: [60, 200, 600] },
+  slots: { effect: [3, 4, 5, 6], price: [120, 400, 1200] },
   /** 빨리 익기: 한 송이가 익는 시간(ms). 8분에서 1분씩. */
-  cycle: { effect: [480_000, 420_000, 360_000, 300_000, 240_000], price: [40, 120, 350, 900] },
+  cycle: { effect: [480_000, 420_000, 360_000, 300_000, 240_000], price: [80, 240, 700, 1800] },
   /** 황금 바나나: 한 송이가 황금일 확률(%). */
-  golden: { effect: [0, 5, 10, 15, 20], price: [50, 150, 450, 1200] },
+  golden: { effect: [0, 5, 10, 15, 20], price: [100, 300, 900, 2400] },
 } as const;
 
 /** 황금 바나나 한 송이의 값. 보통 바나나는 1. */

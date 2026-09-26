@@ -54,7 +54,7 @@ describe("catalog", () => {
   });
 
   it("강화 표: 최대 단계에서 다음 가격은 null, 표보다 큰 레벨은 마지막 단계", () => {
-    expect(upgradePriceOf("golden", 0)).toBe(50);
+    expect(upgradePriceOf("golden", 0)).toBe(100);   // B14: B13 의 두 배
     expect(upgradePriceOf("golden", 4)).toBeNull();
     expect(upgradePriceOf("slots", 3)).toBeNull();
     expect(slotCountAt(99)).toBe(6);

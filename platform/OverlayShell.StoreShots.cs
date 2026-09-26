@@ -202,11 +202,15 @@ public partial class OverlayShell
         }
 
         // 강화: 황금 2단계(10%), 가지 2단계(5송이), 빨리 익기 1단계. 사고 남는 잔액이 1,284.
-        economy.GrantBananas(1_284 + 50 + 150 + 60 + 200 + 40);
-        foreach (UpgradeAxis axis in new[] { UpgradeAxis.Golden, UpgradeAxis.Golden, UpgradeAxis.Slots, UpgradeAxis.Slots, UpgradeAxis.Cycle })
+        // 가격은 표에서 센다 - B14 에서 강화 가격이 두 배가 되자 박아 둔 합계로는 강화 구매가 실패했다.
+        UpgradeAxis[] plan = { UpgradeAxis.Golden, UpgradeAxis.Golden, UpgradeAxis.Slots, UpgradeAxis.Slots, UpgradeAxis.Cycle };
+        foreach (UpgradeAxis axis in plan)
         {
+            economy.GrantBananas(UpgradeTable.NextPrice(axis, economy.UpgradeLevel(axis)) ?? 0);
             economy.PurchaseUpgrade(axis);
         }
+
+        economy.GrantBananas(1_284);
 
         // 송이 5개: 황금(익음) · 보통(익음) · 황금(익음) · 자라는 중 · 막 달림.
         // 수확은 앞에서부터 하므로 0 번이 수확 장면에서 떨어지는 황금 송이다.

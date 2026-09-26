@@ -13,19 +13,21 @@ namespace ProjectSeWoo.Shared;
 /// 그래서 <c>Price.Length == Effect.Length - 1</c> 이고, 최대 레벨은 <c>Price.Length</c>.
 /// 표보다 큰 레벨(예전 곡선으로 올린 개발 계정)은 마지막 단계로 본다.
 /// </summary>
+/// <b>가격은 B14(2026-09-26)에서 B13 의 두 배가 됐다</b> - 첫 강화가 반나절 플레이로 본전을 뽑아 "강화 먼저" 가 늘 정답이었다.
+/// 두 배면 본전이 16~25시간이 되어 꾸미기와 효율 사이에 고민이 생긴다 (docs/B14-BALANCE.md).
 public static class UpgradeTable
 {
     /// <summary>가지 늘리기: 슬롯 수. 슬롯 = 오프라인 저장고 크기이기도 하다 (기획서 §2-2).</summary>
     public static readonly int[] SlotCount = { 3, 4, 5, 6 };
-    public static readonly long[] SlotPrice = { 60, 200, 600 };
+    public static readonly long[] SlotPrice = { 120, 400, 1200 };
 
     /// <summary>빨리 익기: 한 송이가 익는 데 걸리는 시간(ms). 8분에서 1분씩.</summary>
     public static readonly long[] GrowthMs = { 480_000, 420_000, 360_000, 300_000, 240_000 };
-    public static readonly long[] CyclePrice = { 40, 120, 350, 900 };
+    public static readonly long[] CyclePrice = { 80, 240, 700, 1800 };
 
     /// <summary>황금 바나나: 한 송이가 익을 때 황금일 확률(%).</summary>
     public static readonly int[] GoldenChancePercent = { 0, 5, 10, 15, 20 };
-    public static readonly long[] GoldenPrice = { 50, 150, 450, 1200 };
+    public static readonly long[] GoldenPrice = { 100, 300, 900, 2400 };
 
     /// <summary>황금 바나나 한 송이의 값. 보통 바나나는 1.</summary>
     public const int GoldenMultiplier = 5;

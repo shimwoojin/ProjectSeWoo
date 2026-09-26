@@ -4,9 +4,10 @@
     "게임(ShopCatalog, SteamInventoryService), 서버(server/src/catalog.ts), 스팀 아이템 정의(tools/make-itemdefs.py)가 전부 이 파일을 읽는다.",
     "steamItemDefId 는 한 번 정하면 바꾸지 않는다 - 이미 지급된 아이템이 그 번호로 스팀에 있다. 새 아이템은 뒤 번호를 쓴다.",
     "tier 0 = 기본 지급품: 가격이 없고 스팀 인벤토리에도 없다.",
+    "가격(B14, 2026-09-26): 1·2티어는 첫 재미라 그대로, 3~5티어를 올려 하루 4시간 기준 완주 6~8주. 바나나 변형은 원숭이보다 한 티어 싸다(커서에서 작게 보이는 부품) - docs/B14-BALANCE.md",
     "그림은 규칙으로 찾는다: res://assets/cursor/<category>/<id>/icon.png (+ 분류별 리소스)."
   ],
-  "tierPrices": [10, 40, 150, 500, 1500],
+  "tierPrices": [10, 40, 250, 900, 3000],
   "items": [
     { "id": "monkey_01", "category": "monkey", "tier": 0, "name": { "ko": "갈색 원숭이", "en": "Brown Monkey" } },
     { "id": "monkey_02", "category": "monkey", "tier": 1, "steamItemDefId": 1, "name": { "ko": "노랑 원숭이", "en": "Yellow Monkey" } },
@@ -17,10 +18,10 @@
 
     { "id": "banana_01", "category": "banana", "tier": 0, "name": { "ko": "노란 바나나", "en": "Yellow Banana" } },
     { "id": "banana_02", "category": "banana", "tier": 1, "steamItemDefId": 16, "name": { "ko": "풋바나나", "en": "Green Banana" } },
-    { "id": "banana_03", "category": "banana", "tier": 2, "steamItemDefId": 17, "name": { "ko": "초코 바나나", "en": "Choco Banana" } },
-    { "id": "banana_04", "category": "banana", "tier": 3, "steamItemDefId": 18, "name": { "ko": "딸기 바나나", "en": "Strawberry Banana" } },
-    { "id": "banana_05", "category": "banana", "tier": 4, "steamItemDefId": 19, "name": { "ko": "은 바나나", "en": "Silver Banana" } },
-    { "id": "banana_06", "category": "banana", "tier": 5, "steamItemDefId": 20, "name": { "ko": "다이아 바나나", "en": "Diamond Banana" } },
+    { "id": "banana_03", "category": "banana", "tier": 1, "steamItemDefId": 17, "name": { "ko": "초코 바나나", "en": "Choco Banana" } },
+    { "id": "banana_04", "category": "banana", "tier": 2, "steamItemDefId": 18, "name": { "ko": "딸기 바나나", "en": "Strawberry Banana" } },
+    { "id": "banana_05", "category": "banana", "tier": 3, "steamItemDefId": 19, "name": { "ko": "은 바나나", "en": "Silver Banana" } },
+    { "id": "banana_06", "category": "banana", "tier": 4, "steamItemDefId": 20, "name": { "ko": "다이아 바나나", "en": "Diamond Banana" } },
 
     { "id": "leaf_01", "category": "deco", "tier": 1, "steamItemDefId": 6, "deco": { "kind": "trail" }, "name": { "ko": "초록 잎", "en": "Green Leaf" } },
     { "id": "chunk_01", "category": "deco", "tier": 2, "steamItemDefId": 7, "deco": { "kind": "trail" }, "name": { "ko": "과일 조각", "en": "Fruit Chunk" } },
