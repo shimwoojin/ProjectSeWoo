@@ -19,7 +19,6 @@ public partial class OptionsWindow : CanvasLayer
     private HSlider _scaleSlider;
     private HSlider _opacitySlider;
     private CheckBox _positionLocked;
-    private CheckBox _sound;
     private CheckBox _notifications;
     private CheckBox _cursorEnabled;
     private CheckBox _cursorIndependent;
@@ -38,7 +37,6 @@ public partial class OptionsWindow : CanvasLayer
     public event Action<float> ScaleChanged;
     public event Action<float> OpacityChanged;
     public event Action<bool> PositionLockedChanged;
-    public event Action<bool> SoundChanged;
     public event Action<bool> NotificationsChanged;
     public event Action<bool> CursorEnabledChanged;
     public event Action<bool> CursorIndependentChanged;
@@ -79,7 +77,6 @@ public partial class OptionsWindow : CanvasLayer
         _scaleSlider.Value = s.Scale;
         _opacitySlider.Value = s.Opacity;
         _positionLocked.ButtonPressed = s.PositionLocked;
-        _sound.ButtonPressed = s.Sound;
         _notifications.ButtonPressed = s.Notifications;
         _cursorEnabled.ButtonPressed = s.CursorEnabled;
         _cursorIndependent.ButtonPressed = s.CursorIndependent;
@@ -129,9 +126,6 @@ public partial class OptionsWindow : CanvasLayer
 
         rows.AddChild(MakeCheckRow("위치 잠금", out _positionLocked));
         _positionLocked.Toggled += on => Relay(() => PositionLockedChanged?.Invoke(on));
-
-        rows.AddChild(MakeCheckRow("사운드", out _sound));
-        _sound.Toggled += on => Relay(() => SoundChanged?.Invoke(on));
 
         rows.AddChild(MakeCheckRow("알림", out _notifications));
         _notifications.Toggled += on => Relay(() => NotificationsChanged?.Invoke(on));

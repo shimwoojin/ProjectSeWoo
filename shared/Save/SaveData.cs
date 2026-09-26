@@ -125,9 +125,6 @@ public sealed class SaveData
         [JsonPropertyName("pos")]
         public int[] Pos { get; set; } = { 0, 0 };
 
-        [JsonPropertyName("sound")]
-        public bool Sound { get; set; } = true;
-
         [JsonPropertyName("autostart")]
         public bool Autostart { get; set; }
 

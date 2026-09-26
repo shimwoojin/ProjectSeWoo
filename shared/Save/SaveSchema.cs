@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 7;
+    public const int CurrentVersion = 8;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -74,6 +74,11 @@ public static class SaveSchema
                 case 6:
                     MigrateV6ToV7(root);
                     version = 7;
+                    break;
+
+                case 7:
+                    MigrateV7ToV8(root);
+                    version = 8;
                     break;
 
                 default:
@@ -168,6 +173,15 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v7 -> v8 (2026-09-26): <c>settings.sound</c> 를 걷어냈다 - v1 부터 있던 필드다. 소리를 아예 지원하지 않기로
+    /// 했다(B16 취소). 체크박스만 있고 나오는 소리가 하나도 없었다. v7 과 같이 지우는 코드는 없다.
+    /// </summary>
+    private static void MigrateV7ToV8(JsonNode root)
+    {
+        root["version"] = 8;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -193,7 +207,7 @@ public static class SaveSchema
         {
             "version", "totalKeystrokes",
             "inventory", "equipped", "hang", "trail", "base",
-            "settings", "scale", "opacity", "pos", "sound", "autostart",
+            "settings", "scale", "opacity", "pos", "autostart",
             "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen",
             "cursorIndependent",
             "multi", "friendPositions", "lastLobby",

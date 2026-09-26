@@ -168,7 +168,7 @@ public partial class OverlayShell
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
                 + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
             $"opts  cursor {OnOff(_settings.CursorEnabled)}  indep {OnOff(_settings.CursorIndependent)}"
-                + $"  sound {OnOff(_settings.Sound)}  notify {OnOff(_settings.Notifications)}"
+                + $"  notify {OnOff(_settings.Notifications)}"
                 + $"  hideFs {OnOff(_settings.HideOnFullscreen)}"
                 + $"  autostart {OnOff(_settings.Autostart)}",
             // winShown 은 OS 에 되물은 값이다. 나머지 둘이 "원하는 것" 이고 이게 "된 것" 이라,
