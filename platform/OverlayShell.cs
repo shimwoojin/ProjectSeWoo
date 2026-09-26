@@ -202,6 +202,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 커서 원숭이가 타건·클릭에 반응한다 (B17 §5). 횟수만 간다 - 헬퍼가 키를 모른다.
         _input.OnKeystrokes += _cursor.OnKeystrokes;
 
+        // 메인 창을 클릭(활성화)하면 그 창이 "항상 위" 무리의 맨 위로 온다 - 커서 창을 바로 다시 올린다.
+        GetWindow().FocusEntered += _cursor.BringToFront;
+
         // 창 배율/투명도/위치/옵션 전부 복원 (§7-1, §7-4). SetScale 이 안에서
         // ApplyPassthrough 까지 걸어주므로 별도로 부를 필요가 없다.
         RestoreWindowState();
@@ -575,6 +578,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             closed => _satellites.Remove(closed));
         satellite.SetOpacity(_settings.Opacity);
         _satellites.Add(satellite);
+        Callable.From(_cursor.BringToFront).CallDeferred();   // 새 창이 커서 창 위로 뜬다 - 뜬 다음 다시 올린다
 
         // 메인 창이 지금 숨겨져 있으면(트레이·전체화면) 같이 숨긴 채로 시작한다.
         satellite.SetVisible(_shellWindowVisible);
@@ -851,6 +855,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         SampleDiagnostics();
         CheckFullscreen();
         EnforceTaskbarMinimize();
+
+        // 커서 장식은 늘 맨 위 (B17) - 메인 창·친구 창도 "항상 위" 라 활성화 순서로 뒤집힌다.
+        _cursor.BringToFront();
     }
 
     // ------------------------------------------------------------------ 입력

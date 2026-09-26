@@ -66,6 +66,20 @@ public sealed class CursorLayer : ICursorLayer
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
 
+    // --- 맨 위 유지 ---------------------------------------------------------
+    //
+    // 메인 창·친구 창·커서 창이 전부 "항상 위" 라 **그들 사이의 순서는 마지막에 활성화된 쪽이 위다.** 메인 창을
+    // 클릭하거나 친구 창이 새로 뜨면 커서 창이 그 밑에 깔렸다 (2026-09-26 갑). 커서 장식은 커서의 일부라 늘 맨
+    // 위여야 한다 - 활성화하지 않고(포커스를 안 뺏고) 맨 위로만 다시 올린다.
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x0001, SwpNoMove = 0x0002, SwpNoActivate = 0x0010, SwpNoOwnerZOrder = 0x0200;
+
+    private IntPtr _hwnd;
+
     /// <summary>
     /// 추종 모드. Lazy 는 §1.3의 폴백안("고빈도 추종 없이 느슨하게 따라옴")을
     /// 미리 만들어 둔 것이다. A2에서 "고무줄 현상"을 옵션으로 노출하기로 했으므로
@@ -264,6 +278,7 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         var hwnd = new IntPtr(handle);
+        _hwnd = hwnd;
 
         long before = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
         SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent | WsExLayered));
@@ -300,6 +315,20 @@ public sealed class CursorLayer : ICursorLayer
 
         _ornament.Equip(slot, assetId);
         GD.Print($"[cursor] {slot} = {assetId}");
+    }
+
+    /// <summary>
+    /// 커서 창을 "항상 위" 창들 중 맨 위로 다시 올린다 (포커스는 안 뺏는다). 셸이 0.5초 틱마다, 메인 창이 포커스를
+    /// 받을 때, 친구 창을 띄울 때 부른다. 이미 맨 위면 OS 가 거의 아무것도 안 한다.
+    /// </summary>
+    public void BringToFront()
+    {
+        if (!Enabled || !IsSupported || _hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        SetWindowPos(_hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate | SwpNoOwnerZOrder);
     }
 
     /// <summary>타건·클릭 (횟수만). 원숭이가 반응한다 - 셸이 입력 헬퍼에서 받아 넘긴다.</summary>
@@ -343,7 +372,7 @@ public sealed class CursorLayer : ICursorLayer
                 break;
         }
 
-        // 리그·장식은 창 이동 주기와 상관없이 스스로 초당 15번만 바꾼다 (MonkeyRig.UpdateHz).
+        // 리그·장식은 창 이동 주기와 상관없이 스스로 갱신 빈도를 정한다 (움직이면 매 프레임, 가만히 있으면 MonkeyRig.IdleHz).
         _ornament.Follow(target, _win.Position + (Vector2)TipInWindow);
         _ornament.Tick(delta);
 

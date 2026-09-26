@@ -15,8 +15,9 @@ namespace ProjectSeWoo.Shared;
 /// 움직임 대부분은 물리다: 잡은 손을 축으로 한 진자에 커서의 가속도가 걸린다(<see cref="Follow"/>). 상태는 커서
 /// 속도·가속도와 입력(횟수만 — <see cref="Keystrokes"/>)으로 정한다.
 ///
-/// <b>저부하 (A7):</b> 초당 <see cref="UpdateHz"/> 번만 모양을 바꾼다 — 저전력 모드라 안 바뀐 프레임은 다시 그리지
-/// 않는다. 졸기에 들어가 몇 초 지나면 아예 멈춘다(<see cref="IsFrozen"/>). 오래 켜 두는 시간의 대부분이 졸기다.
+/// <b>갱신 빈도:</b> 움직이는 동안(흔들림·반응·대기 동작)은 매 프레임, 가만히 숨만 쉴 때는 초당 <see cref="IdleHz"/> 번,
+/// 졸기에 들어가 몇 초 지나면 아예 멈춘다(<see cref="IsFrozen"/>) — 저전력 모드라 안 바뀐 프레임은 다시 그리지 않는다.
+/// 처음엔 늘 초당 15번이었는데 움직임이 탁탁 끊겨 보였다 (2026-09-26 갑). 오래 켜 두는 시간의 대부분은 졸기다.
 /// </summary>
 public partial class MonkeyRig : Node2D
 {
@@ -43,26 +44,35 @@ public partial class MonkeyRig : Node2D
 
     // --- 조정 표 (체감으로 맞춘다 - B17 §5) ---------------------------------------------------
 
-    public const float UpdateHz = 15f;
+    /// <summary>가만히 숨만 쉴 때의 갱신 빈도. 움직이는 동안은 매 프레임이다.</summary>
+    public const float IdleHz = 20f;
+
 
     /// <summary>커서 속도(px/s)가 이보다 크면 흔들림, 그 위는 버둥.</summary>
     private const float SwingSpeed = 60f, FlailSpeed = 1100f;
 
-    /// <summary>커서 가속도(px/s²)가 이보다 크면 손을 놓친다.</summary>
-    private const float DropAccel = 22000f;
+    /// <summary>커서 가속도(px/s², 살짝 거른 값)가 이보다 크면 손을 놓친다.</summary>
+    private const float DropAccel = 26000f;
 
     /// <summary>입력·이동이 이만큼(초) 없으면 존다. 졸기 들어가고 이만큼 뒤 멈춘다.</summary>
     private const float SleepAfter = 180f, FreezeAfter = 4f;
 
-    private const float Gravity = 1600f, Damping = 3.8f, MaxAccel = 12000f, MaxAngle = 0.95f;
+    // 진자. 예전 값(중력 1400, 감쇠 3.8, 가속 상한 12000, 가속도를 안 거름)은 흔들림이 급작스러웠다 (2026-09-26 갑) -
+    // 주기를 늘리고(중력↓), 커서 가속도를 부드럽게 거른 뒤(AccelSmoothing), 상한을 낮췄다.
+    private const float Gravity = 1000f, Damping = 3.2f, MaxAccel = 6500f, MaxAngle = 0.9f, AccelCoupling = 0.7f;
+
+    /// <summary>진자에 넣는 커서 가속도의 저역 통과 (1/s). 작을수록 부드럽고 늦다.</summary>
+    private const float AccelSmoothing = 7f;
 
     /// <summary>머리 너비(px). 그림(207px)을 이만큼으로 줄인다.</summary>
     private const float HeadWidth = 44f;
 
     // --- 기본 자세의 뼈대 (원점 = 잡은 손, y 아래) — 진자 각도 0 일 때 ------------------------------
 
-    private static readonly Vector2 ShoulderR = new(4, 36);   // 잡은 팔의 어깨
-    private static readonly Vector2 ShoulderL = new(-17, 41);  // 빈 팔의 어깨 (머리 아래)
+    // 어깨는 몸통 **안쪽**에 둔다 - 몸통 가장자리에 붙이면 팔이 따로 붙인 막대처럼 보였다 (2026-09-26 갑).
+    // 외곽선을 전부 먼저 그리고 채움을 나중에 그려서(_Draw) 이음매의 외곽선도 없앤다.
+    private static readonly Vector2 ShoulderR = new(-1, 43);  // 잡은 팔의 어깨
+    private static readonly Vector2 ShoulderL = new(-13, 45); // 빈 팔의 어깨 (머리 아래)
     private static readonly Vector2 Neck = new(-20, 39);
     private static readonly Vector2 Chest = new(-7, 50);
     private static readonly Vector2 HipL = new(-13, 60), HipR = new(-2, 62);
@@ -71,6 +81,9 @@ public partial class MonkeyRig : Node2D
     private const float ArmWidth = 6f, LegWidth = 6.5f, LegLength = 15f, FreeArmLength = 20f;
     private const float TailSegment = 4.6f;
 
+    /// <summary>빈 팔을 늘어뜨린 각도.</summary>
+    private const float RestArm = 0.35f;
+
     private MonkeySkin _skin;
     private Sprite2D _head;
     private Node2D _face;
@@ -78,7 +91,7 @@ public partial class MonkeyRig : Node2D
 
     // 물리
     private float _angle, _angularVelocity;
-    private Vector2 _cursor, _lastStepCursor, _velocity, _accel;
+    private Vector2 _cursor, _lastStepCursor, _velocity, _accel, _jerk;
     private bool _hasCursor;
 
     // 상태
@@ -179,7 +192,7 @@ public partial class MonkeyRig : Node2D
         IsFrozen = false;
     }
 
-    /// <summary>매 프레임. 모양은 초당 <see cref="UpdateHz"/> 번만 바꾼다.</summary>
+    /// <summary>매 프레임. 움직이는 동안은 매 프레임, 가만히 있으면 초당 <see cref="IdleHz"/> 번 모양을 바꾼다.</summary>
     public void Tick(double delta)
     {
         if (IsFrozen)
@@ -195,13 +208,15 @@ public partial class MonkeyRig : Node2D
         }
 
         _stepAccum += delta;
-        double step = 1.0 / UpdateHz;
-        if (_stepAccum < step)
+        bool moving = _hasCursor && _cursor.DistanceSquaredTo(_lastStepCursor) > 0.25f;
+        bool active = moving || State != Pose.Hang || _idleAction != 0 || Mathf.Abs(_angularVelocity) > 0.03f
+            || Mathf.Abs(_freeArmAngle - RestArm) > 0.05f || _bob > 0.1f;
+        if (!active && _stepAccum < 1.0 / IdleHz)
         {
             return;
         }
 
-        double dt = Math.Min(_stepAccum, 0.25);
+        double dt = Math.Min(_stepAccum, 0.1);
         _stepAccum = 0;
         Step((float)dt);
         QueueRedraw();
@@ -215,16 +230,19 @@ public partial class MonkeyRig : Node2D
         _sinceActivity += dt;
 
         // --- 커서 움직임 ---
-        Vector2 v = Vector2.Zero;
+        // 마우스 좌표는 프레임마다 들쭉날쭉 온다 - 속도·가속도를 그대로 쓰면 진자가 튄다. 둘 다 거른다.
+        Vector2 raw = Vector2.Zero;
         if (_hasCursor && !Still)
         {
-            v = (_cursor - _lastStepCursor) / dt;
+            raw = (_cursor - _lastStepCursor) / dt;
             _lastStepCursor = _cursor;
         }
 
+        Vector2 v = _velocity.Lerp(raw, 1f - Mathf.Exp(-20f * dt));
         Vector2 a = (v - _velocity) / dt;
         _velocity = v;
-        _accel = a.LimitLength(MaxAccel);
+        _jerk = _jerk.Lerp(a, 1f - Mathf.Exp(-25f * dt));                                  // 놓침 판정용 (거의 안 거름)
+        _accel = _accel.Lerp(a.LimitLength(MaxAccel), 1f - Mathf.Exp(-AccelSmoothing * dt)); // 진자용 (부드럽게)
         float speed = v.Length();
         if (speed > 5f)
         {
@@ -241,7 +259,7 @@ public partial class MonkeyRig : Node2D
                 SetState(Pose.Hang);
             }
         }
-        else if (!Still && a.Length() > DropAccel)
+        else if (!Still && _jerk.Length() > DropAccel)
         {
             SetState(Pose.Drop);
             _dropLeft = 0.9;
@@ -272,12 +290,13 @@ public partial class MonkeyRig : Node2D
             IsFrozen = true;
         }
 
-        // --- 진자 (잡은 손이 축). 몇 번 쪼개서 적분해야 15Hz 에서 안 튄다 ---
+        // --- 진자 (잡은 손이 축). 쪼개서 적분해야 느린 프레임에서도 안 튄다 ---
         const int Sub = 4;
         float h = dt / Sub;
+        Vector2 push = _accel * AccelCoupling;
         for (int i = 0; i < Sub; i++)
         {
-            float torque = ((-_accel.X) * Mathf.Cos(_angle) - (Gravity - _accel.Y) * Mathf.Sin(_angle)) / PendulumLength;
+            float torque = ((-push.X) * Mathf.Cos(_angle) - (Gravity - push.Y) * Mathf.Sin(_angle)) / PendulumLength;
             _angularVelocity += (torque - Damping * _angularVelocity) * h;
             _angle = Mathf.Clamp(_angle + _angularVelocity * h, -MaxAngle, MaxAngle);
         }
@@ -303,9 +322,9 @@ public partial class MonkeyRig : Node2D
             Pose.Flail => -1.6f + Mathf.Sin((float)_time * 22f) * 0.6f,
             Pose.Sleep => 0.2f,
             _ when _idleAction == 1 => -2.2f + Mathf.Sin((float)_time * 9f) * 0.45f,   // 손 흔들기
-            _ => 0.35f + Mathf.Sin((float)_time * 1.6f) * 0.08f,                    // 늘어뜨림
+            _ => RestArm + Mathf.Sin((float)_time * 1.6f) * 0.08f,                  // 늘어뜨림
         };
-        _freeArmAngle = Mathf.Lerp(_freeArmAngle, targetArm, 1f - Mathf.Exp(-12f * dt));
+        _freeArmAngle = Mathf.Lerp(_freeArmAngle, targetArm, 1f - Mathf.Exp(-9f * dt));
 
         float targetTilt = State switch
         {
@@ -402,62 +421,74 @@ public partial class MonkeyRig : Node2D
 
         Color ol = _skin.Outline, fur = _skin.Fur, belly = _skin.Belly;
 
-        // 꼬리 (맨 뒤)
-        DrawPolyline(_tail, ol, 6.5f, true);
-        DrawPolyline(_tail, fur, 3.5f, true);
-
-        // 다리
+        // 자세 계산
+        Vector2 grip = State == Pose.Drop ? new Vector2(0, _dropY) : Vector2.Zero;
+        Vector2 shoulderR = At(ShoulderR), shoulderL = At(ShoulderL), chest = At(Chest);
+        Vector2 hand = shoulderL + new Vector2(0, FreeArmLength).Rotated(_angle + _freeArmAngle);
+        float bodyRot = _angle - 0.35f;
+        var hips = new Vector2[2];
+        var feet = new Vector2[2];
         for (int side = 0; side < 2; side++)
         {
-            Vector2 hip = At(side == 0 ? HipL : HipR);
+            hips[side] = At(side == 0 ? HipL : HipR);
             float swing = Mathf.Sin(_legPhase + side * Mathf.Pi) * (State is Pose.Flail or Pose.Drop ? 0.7f : _idleAction == 3 ? 0.55f : 0.08f);
-            Vector2 foot = hip + new Vector2(side == 0 ? -3 : 3, LegLength).Rotated(_angle * 0.5f + swing);
-            Limb(hip, foot, LegWidth, ol, fur);
-            Oval(foot + new Vector2(side == 0 ? -2 : 2, 1), 5.5f, 3.6f, 0, belly, ol);
+            feet[side] = hips[side] + new Vector2(side == 0 ? -3 : 3, LegLength).Rotated(_angle * 0.5f + swing);
         }
 
-        // 잡은 팔 (손은 원점에 붙어 있다 — 놓친 동안은 위로 뻗은 채 같이 떨어진다)
-        Vector2 grip = State == Pose.Drop ? new Vector2(0, _dropY) : Vector2.Zero;
-        Limb(At(ShoulderR), grip, ArmWidth, ol, fur);
+        // 1) 외곽선을 전부 먼저 — 몸통·잡은 팔·다리가 한 덩어리 실루엣이 되고, 이음매에는 외곽선이 안 생긴다.
+        //    **빈 팔은 여기 안 넣는다** - 한 덩어리에 섞으면 몸통 채움이 팔을 덮어서 팔이 등 뒤로 간 것처럼
+        //    보였다 (2026-09-26 갑). 빈 팔은 맨 끝에 자기 외곽선과 함께 몸 앞에 그린다 (3).
+        const float Edge = 3.6f;
+        DrawPolyline(_tail, ol, 3.5f + Edge, true);
+        for (int side = 0; side < 2; side++)
+        {
+            Stroke(hips[side], feet[side], LegWidth + Edge, ol);
+            Oval(feet[side] + new Vector2(side == 0 ? -2 : 2, 1), 5.5f + Edge / 2, 3.6f + Edge / 2, 0, ol);
+        }
 
-        // 몸통
-        Vector2 chest = At(Chest);
-        Oval(chest, 12.5f, 14.5f, _angle - 0.35f, fur, ol);
-        Oval(chest + new Vector2(1.5f, 2.5f).Rotated(_angle), 7.5f, 9.5f, _angle - 0.35f, belly, null);
+        Stroke(shoulderR, grip, ArmWidth + Edge, ol);
+        Oval(chest, 12.5f + Edge / 2, 14.5f + Edge / 2, bodyRot, ol);
+        DrawCircle(grip, 3.6f + Edge / 2, ol);
 
-        // 빈 팔
-        Vector2 shoulderL = At(ShoulderL);
-        Vector2 hand = shoulderL + new Vector2(0, FreeArmLength).Rotated(_angle + _freeArmAngle);
-        Limb(shoulderL, hand, ArmWidth, ol, fur);
-        Hand(hand, belly, ol);
+        // 2) 채움 — 꼬리 → 다리 → 잡은 팔 → 몸통 → 배 → 발 · 잡은 손
+        DrawPolyline(_tail, fur, 3.5f, true);
+        for (int side = 0; side < 2; side++)
+        {
+            Stroke(hips[side], feet[side], LegWidth, fur);
+        }
 
-        // 잡은 손 (바나나 위에)
-        Hand(grip, belly, ol);
+        Stroke(shoulderR, grip, ArmWidth, fur);
+        Oval(chest, 12.5f, 14.5f, bodyRot, fur);
+        Oval(chest + new Vector2(1.5f, 2.5f).Rotated(_angle), 7.5f, 9.5f, bodyRot, belly);
+        for (int side = 0; side < 2; side++)
+        {
+            Oval(feet[side] + new Vector2(side == 0 ? -2 : 2, 1), 5.5f, 3.6f, 0, belly);
+        }
+
+        DrawCircle(grip, 3.6f, belly);
+
+        // 3) 빈 팔 - 몸 앞. 어깨 쪽 끝은 몸통 안에 묻혀서 외곽선 반원이 어깨 관절처럼 보인다.
+        Stroke(shoulderL, hand, ArmWidth + Edge, ol);
+        DrawCircle(hand, 3.6f + Edge / 2, ol);
+        Stroke(shoulderL, hand, ArmWidth, fur);
+        DrawCircle(hand, 3.6f, belly);
 
         // 머리는 자식 스프라이트 (몸 위에 그려진다)
         _head.Position = At(Neck);
         _head.Rotation = _angle * 0.8f - 0.22f + _headTilt;
     }
 
-    private void Limb(Vector2 a, Vector2 b, float width, Color outline, Color fill)
+    /// <summary>둥근 끝 막대 - 팔·다리. 외곽선 단계와 채움 단계에서 굵기만 달리 두 번 부른다.</summary>
+    private void Stroke(Vector2 a, Vector2 b, float width, Color color)
     {
-        DrawLine(a, b, outline, width + 3.5f, true);
-        DrawCircle(a, (width + 3.5f) / 2, outline);
-        DrawCircle(b, (width + 3.5f) / 2, outline);
-        DrawLine(a, b, fill, width, true);
-        DrawCircle(a, width / 2, fill);
-        DrawCircle(b, width / 2, fill);
+        DrawLine(a, b, color, width, true);
+        DrawCircle(a, width / 2, color);
+        DrawCircle(b, width / 2, color);
     }
 
-    private void Hand(Vector2 at, Color fill, Color outline)
+    private void Oval(Vector2 c, float rx, float ry, float rot, Color color)
     {
-        DrawCircle(at, 5.2f, outline);
-        DrawCircle(at, 3.6f, fill);
-    }
-
-    private void Oval(Vector2 c, float rx, float ry, float rot, Color fill, Color? outline)
-    {
-        const int N = 20;
+        const int N = 22;
         var pts = new Vector2[N];
         for (int i = 0; i < N; i++)
         {
@@ -465,19 +496,7 @@ public partial class MonkeyRig : Node2D
             pts[i] = c + new Vector2(Mathf.Cos(t) * rx, Mathf.Sin(t) * ry).Rotated(rot);
         }
 
-        if (outline is Color ol)
-        {
-            var edge = new Vector2[N];
-            for (int i = 0; i < N; i++)
-            {
-                float t = Mathf.Tau * i / N;
-                edge[i] = c + new Vector2(Mathf.Cos(t) * (rx + 1.8f), Mathf.Sin(t) * (ry + 1.8f)).Rotated(rot);
-            }
-
-            DrawColoredPolygon(edge, ol);
-        }
-
-        DrawColoredPolygon(pts, fill);
+        DrawColoredPolygon(pts, color);
     }
 
     /// <summary>표정을 머리 그림 위에 덧그린다 (머리 그림의 픽셀 좌표). 졸기 = 감은 눈, 신남 = 웃는 눈.</summary>

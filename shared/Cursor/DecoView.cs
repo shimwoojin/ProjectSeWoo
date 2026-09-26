@@ -15,7 +15,7 @@ namespace ProjectSeWoo.Shared;
 ///   <item><c>float</c> — 커서 옆에 떠서 둥실거린다. "뜬금없는 물건" 자리.</item>
 /// </list>
 ///
-/// 원점은 커서 끝이다. <see cref="MonkeyRig"/> 와 같이 초당 <see cref="MonkeyRig.UpdateHz"/> 번만 바꾼다.
+/// 원점은 커서 끝이다. 갱신 빈도는 <see cref="MonkeyRig"/> 와 같은 규칙 - 움직이는 동안 매 프레임, 아니면 초당 <see cref="MonkeyRig.IdleHz"/> 번.
 /// </summary>
 public partial class DecoView : Node2D
 {
@@ -69,13 +69,16 @@ public partial class DecoView : Node2D
             return;
         }
 
+        // 잔상은 입자가 있거나 커서가 움직이는 동안 매 프레임 - 초당 15번이면 입자가 탁탁 끊겨 보였다.
+        // 후광·떠 있는 물건은 느린 움직임이라 원숭이가 가만히 있을 때와 같은 빈도면 된다.
         _stepAccum += delta;
-        if (_stepAccum < 1.0 / MonkeyRig.UpdateHz)
+        bool live = _kind == "trail" && (_particles.Count > 0 || _cursor.DistanceSquaredTo(_lastSpawn) > 1f);
+        if (!live && _stepAccum < 1.0 / MonkeyRig.IdleHz)
         {
             return;
         }
 
-        float dt = (float)Math.Min(_stepAccum, 0.25);
+        float dt = (float)Math.Min(_stepAccum, 0.1);
         _stepAccum = 0;
         _time += dt;
 
