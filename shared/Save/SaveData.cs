@@ -87,19 +87,19 @@ public sealed class SaveData
     }
 
     /// <summary>
-    /// 장착 상태. 키 이름은 <see cref="CursorSlot"/> 을 소문자로 쓴 것이다.
-    /// null 은 빈 슬롯이다.
+    /// 장착 상태 (v9, docs/B17-CURSOR-REWORK.md §3-2). 키 이름은 <see cref="CursorSlot"/> 을 소문자로 쓴 것이다.
+    /// 원숭이·바나나는 비울 수 없고(기본 지급품), 장식은 null 이면 빈 칸이다.
     /// </summary>
     public sealed class EquippedState
     {
-        [JsonPropertyName("hang")]
-        public string Hang { get; set; } = "monkey_01";
+        [JsonPropertyName("monkey")]
+        public string Monkey { get; set; } = "monkey_01";
 
-        [JsonPropertyName("trail")]
-        public string Trail { get; set; }
+        [JsonPropertyName("banana")]
+        public string Banana { get; set; } = "banana_01";
 
-        [JsonPropertyName("base")]
-        public string Base { get; set; }
+        [JsonPropertyName("deco")]
+        public string Deco { get; set; }
     }
 
     /// <summary>

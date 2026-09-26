@@ -8,70 +8,43 @@ namespace ProjectSeWoo.Game;
 /// <summary>
 /// 상점 상품표 (§3-2 · §2-2 성장 커브).
 ///
+/// <b>목록의 원본은 <c>game/shop/items.json</c> 이다</b> (<see cref="ItemManifest"/>, docs/B17-CURSOR-REWORK.md §2).
+/// 2026-09-26 전에는 이 파일에 배열로 적혀 있었고 서버·스팀 매핑·스팀 아이템 정의에 같은 목록이 세 벌 더
+/// 있었다. 장식이 업데이트로 계속 늘어나므로 한 곳으로 모았다 — 새 장식은 그 JSON 한 줄 + 그림 폴더다.
+/// 개수를 코드나 문구에 박지 않는다. 필요하면 <see cref="All"/> 에서 센다.
+///
 /// <b>전 상품 상시 노출이고 랜덤 뽑기가 없다</b> - 기획서가 "1달짜리 게임에 확률
 /// UI를 붙일 이유가 없고, 유저가 '다음 목표'를 눈으로 볼 수 있어야 커브가 작동한다"
 /// 고 못 박았다. 그래서 이 표는 통째로 화면에 뿌려지고, 못 사는 것도 가격과 함께
 /// 보인다.
 ///
-/// <b>가격은 §2-2 의 5티어를 그대로 쓴다.</b> 티어당 시간 기준이 문서에 적혀 있어서
-/// (T1 30분 ~ T5 3일) 숫자를 여기서 새로 정하면 그 근거와 끊긴다. 밸런싱(B14)은
-/// <see cref="TierPrices"/> 한 줄만 고치면 된다.
+/// <b>가격은 §2-2 의 5티어를 그대로 쓴다</b> (JSON 의 <c>tierPrices</c>). 티어는 칸을 가로질러 고르게 편다 -
+/// 한 칸을 싸게 몰아 두면 그 칸만 먼저 채우고 나머지는 한참 빈 채로 남는다.
 ///
-/// <b>id 는 에셋 파일명과 같다.</b> `res://assets/cursor/{slot}/{id}.png` 로 바로
-/// 이어지고(A5 `CursorLayer.ResolveTexture`), 세이브의 `inventory.owned` 에도 이
-/// 문자열이 그대로 들어간다. 표시 이름만 사람 말이다.
+/// <b>id 는 에셋 폴더 이름과 같다</b> (<see cref="ItemManifest.AssetDir"/>). 세이브의 장착에도 이 문자열이 그대로
+/// 들어간다. 표시 이름만 사람 말이다.
 /// </summary>
 public static class ShopCatalog
 {
-    /// <summary>§2-2 성장 커브. 인덱스가 곧 티어-1 이다.</summary>
-    public static readonly int[] TierPrices = { 10, 40, 150, 500, 1500 };
-
-    /// <summary>
-    /// 첫 실행에 이미 가진 것. 세이브 스키마의 <c>inventory.owned</c> 기본값과
-    /// 같아야 한다 (shared/Save/SaveData.cs) - **가격이 없는 유일한 상품이다.**
-    /// 빈손으로 시작하면 커서 꾸미기가 뭔지 보여줄 방법이 없다.
-    /// </summary>
-    public const string StarterId = "monkey_01";
-
-    public sealed record Item(string Id, CursorSlot Slot, int Tier, string Name)
+    public sealed record Item(string Id, CursorSlot Slot, int Tier, string Name, string NameEn, string DecoKind)
     {
         /// <summary>0 이면 기본 지급품이라 살 수 없다.</summary>
-        public int Price => Tier == 0 ? 0 : TierPrices[Tier - 1];
+        public int Price => Tier == 0 ? 0 : ItemManifest.TierPrices[Tier - 1];
 
+        /// <summary>
+        /// 처음부터 가진 것 (원숭이 하나, 바나나 하나). 빈손으로 시작하면 커서 꾸미기가 뭔지 보여줄 방법이 없고,
+        /// 원숭이는 바나나가 있어야 매달린다.
+        /// </summary>
         public bool IsStarter => Tier == 0;
+
+        /// <summary>상점·도감에 그리는 아이콘.</summary>
+        public string IconPath => ItemManifest.IconPath(Slot, Id);
     }
 
-    /// <summary>
-    /// 지금 16종(슬롯별 6 / 6 / 4). **개수는 고정이 아니다** - 업데이트로 늘어난다. 개수를 쓰는 곳은 이 배열에서 센다.
-    ///
-    /// 티어는 슬롯을 가로질러 고르게 폈다 - 한 슬롯을 싸게 몰아 두면 그 슬롯만
-    /// 먼저 채우고 나머지는 한참 빈 채로 남는다. 티어마다 세 슬롯이 하나씩 있어야
-    /// "다음에 뭘 살까" 가 매 구간에 생긴다.
-    /// </summary>
-    public static readonly Item[] All =
-    {
-        // Hang - 커서에 매달려 흔들리는 원숭이 (6)
-        new(StarterId,   CursorSlot.Hang,  0, "갈색 원숭이"),
-        new("monkey_02", CursorSlot.Hang,  1, "노랑 원숭이"),
-        new("monkey_03", CursorSlot.Hang,  2, "회색 원숭이"),
-        new("monkey_04", CursorSlot.Hang,  3, "보라 원숭이"),
-        new("monkey_05", CursorSlot.Hang,  4, "빨간 모자 원숭이"),
-        new("monkey_06", CursorSlot.Hang,  5, "오랑우탄"),
-
-        // Trail - 커서를 따라오는 잔상 (6)
-        new("leaf_01",   CursorSlot.Trail, 1, "초록 잎"),
-        new("chunk_01",  CursorSlot.Trail, 2, "과일 조각"),
-        new("leaf_02",   CursorSlot.Trail, 3, "단풍잎"),
-        new("chunk_02",  CursorSlot.Trail, 4, "바나나"),
-        new("spark_01",  CursorSlot.Trail, 3, "노란 반짝임"),
-        new("spark_02",  CursorSlot.Trail, 5, "푸른 반짝임"),
-
-        // Base - 커서 뒤에 깔리는 장식 (4)
-        new("halo_01",   CursorSlot.Base,  1, "금빛 고리"),
-        new("ring_01",   CursorSlot.Base,  2, "잎 화환"),
-        new("halo_02",   CursorSlot.Base,  4, "연잎"),
-        new("ring_02",   CursorSlot.Base,  5, "나무 단면"),
-    };
+    /// <summary>JSON 순서 그대로.</summary>
+    public static readonly Item[] All = ItemManifest.Items
+        .Select(e => new Item(e.Id, e.Slot, e.Tier, e.NameKo, e.NameEn, e.DecoKind))
+        .ToArray();
 
     private static readonly Dictionary<string, Item> ById =
         All.ToDictionary(i => i.Id, StringComparer.Ordinal);
@@ -82,22 +55,28 @@ public static class ShopCatalog
     public static IEnumerable<Item> ForSlot(CursorSlot slot) =>
         All.Where(i => i.Slot == slot);
 
+    /// <summary>칸의 기본 지급품. 장식 칸은 없다(null).</summary>
+    public static string StarterFor(CursorSlot slot) => ItemManifest.StarterFor(slot);
+
     /// <summary>도감 수집률 (§3-3). 0.0 ~ 1.0.</summary>
     public static float CollectionRate(ICollection<string> owned) =>
         All.Length == 0 ? 0f : (float)All.Count(i => owned.Contains(i.Id)) / All.Length;
 
-    /// <summary>슬롯 하나의 수집 수 (B7 도감의 슬롯별 진행도).</summary>
+    /// <summary>칸 하나의 수집 수 (B7 도감의 칸별 진행도).</summary>
     public static int OwnedInSlot(CursorSlot slot, ICollection<string> owned) =>
         All.Count(i => i.Slot == slot && owned.Contains(i.Id));
 
     public static int CountInSlot(CursorSlot slot) => All.Count(i => i.Slot == slot);
 
-    /// <summary>슬롯의 사람 말 이름. 도감·탭 라벨이 같은 문자열을 봐야 한다.</summary>
+    /// <summary>칸의 사람 말 이름. 도감·탭 라벨이 같은 문자열을 봐야 한다.</summary>
     public static string SlotName(CursorSlot slot) => slot switch
     {
-        CursorSlot.Hang => "매달림",
-        CursorSlot.Trail => "잔상",
-        CursorSlot.Base => "바닥",
+        CursorSlot.Monkey => "원숭이",
+        CursorSlot.Banana => "바나나",
+        CursorSlot.Deco => "장식",
         _ => slot.ToString(),
     };
+
+    /// <summary>원숭이·바나나는 비울 수 없다 - 바나나가 원숭이의 손잡이고, 원숭이가 이 게임의 얼굴이다.</summary>
+    public static bool CanBeEmpty(CursorSlot slot) => slot == CursorSlot.Deco;
 }

@@ -3,19 +3,21 @@ using System;
 namespace ProjectSeWoo.Shared;
 
 /// <summary>
-/// 커서에 동시에 붙일 수 있는 장착 슬롯 (기획확정-일감분배-260907.md §3-1).
-/// 슬롯 3개에 각각 하나씩 끼우고, 조합으로 개성이 난다.
+/// 커서 장식의 세 칸 (docs/B17-CURSOR-REWORK.md §3). 칸마다 하나씩 끼운다.
+///
+/// 2026-09-26 전에는 매달림(Hang) · 잔상(Trail) · 바닥(Base) 이었다 — 원숭이는 매달림 그대로, 잔상과 바닥은
+/// 장식 한 칸으로 합쳤고, 바나나가 새로 생겼다. 아이템 목록은 <see cref="ItemManifest"/>(items.json).
 /// </summary>
 public enum CursorSlot
 {
-    /// <summary>커서에 매달려 흔들리는 원숭이. 초기 6종.</summary>
-    Hang,
+    /// <summary>바나나에 매달린 원숭이. 컷아웃 리그로 커서 움직임·입력에 반응한다. 비울 수 없다.</summary>
+    Monkey,
 
-    /// <summary>커서를 따라오는 잔상. 바나나 조각, 잎, 반짝임. 초기 6종.</summary>
-    Trail,
+    /// <summary>원숭이가 잡는 바나나. 모양·위치는 고정이고 변형은 색·재질만 다르다. 비울 수 없다.</summary>
+    Banana,
 
-    /// <summary>커서 뒤에 깔리는 작은 장식. 초기 4종.</summary>
-    Base,
+    /// <summary>장식 한 칸 — 후광(halo) · 잔상(trail) · 떠 있는 물건(float). 비울 수 있다.</summary>
+    Deco,
 }
 
 /// <summary>
@@ -148,12 +150,12 @@ public readonly record struct PlayerState
     /// </summary>
     public long TotalKeystrokes { get; init; }
 
-    /// <summary>장착 중인 커서 장식. null 이면 그 슬롯은 비어 있다.</summary>
-    public string EquippedHang { get; init; }
+    /// <summary>장착 중인 커서 장식 (B17 세 칸). null 이면 그 칸은 비어 있다.</summary>
+    public string EquippedMonkey { get; init; }
 
-    public string EquippedTrail { get; init; }
+    public string EquippedBanana { get; init; }
 
-    public string EquippedBase { get; init; }
+    public string EquippedDeco { get; init; }
 
     /// <summary>도감 수집률 0~100 (§3-3).</summary>
     public byte CollectionPercent { get; init; }

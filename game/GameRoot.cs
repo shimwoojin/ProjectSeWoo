@@ -561,9 +561,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             CycleEquip(key.Keycode switch
             {
-                Key.Key2 => CursorSlot.Hang,
-                Key.Key3 => CursorSlot.Trail,
-                _ => CursorSlot.Base,
+                Key.Key2 => CursorSlot.Monkey,
+                Key.Key3 => CursorSlot.Banana,
+                _ => CursorSlot.Deco,
             });
             return;
         }
@@ -975,11 +975,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
                 continue;
             }
 
+            // API Name 은 파트너 사이트에서 굳어서 못 바꾼다 - 뜻만 새 칸으로 옮겼다 (docs/B17-CURSOR-REWORK.md §3-4).
+            // HANG = 원숭이 수집가, TRAIL = 장식 수집가, BASE = 바나나 수집가.
             string id = slot switch
             {
-                CursorSlot.Hang => AchievementIds.SlotCompleteHang,
-                CursorSlot.Trail => AchievementIds.SlotCompleteTrail,
-                CursorSlot.Base => AchievementIds.SlotCompleteBase,
+                CursorSlot.Monkey => AchievementIds.SlotCompleteHang,
+                CursorSlot.Deco => AchievementIds.SlotCompleteTrail,
+                CursorSlot.Banana => AchievementIds.SlotCompleteBase,
                 _ => null,
             };
 
@@ -1120,9 +1122,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private PlayerState SnapshotForPeers() => new()
     {
         TotalKeystrokes = Save.TotalKeystrokes,
-        EquippedHang = _inventory?.EquippedIn(CursorSlot.Hang),
-        EquippedTrail = _inventory?.EquippedIn(CursorSlot.Trail),
-        EquippedBase = _inventory?.EquippedIn(CursorSlot.Base),
+        EquippedMonkey = _inventory?.EquippedIn(CursorSlot.Monkey),
+        EquippedBanana = _inventory?.EquippedIn(CursorSlot.Banana),
+        EquippedDeco = _inventory?.EquippedIn(CursorSlot.Deco),
         CollectionPercent = _inventory == null
             ? (byte)0
             : (byte)(_inventory.OwnedCount * 100 / ShopCatalog.All.Length),

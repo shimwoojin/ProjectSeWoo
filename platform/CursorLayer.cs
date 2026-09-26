@@ -27,23 +27,22 @@ public sealed class CursorLayer : ICursorLayer
     /// <summary>이동 주기 후보(ms). 0 = 매 프레임.</summary>
     public static readonly int[] IntervalsMs = { 0, 16, 33, 50, 100 };
 
-    // --- 3슬롯 레이아웃 (§3-1). 배열 인덱스는 CursorSlot 의 선언 순서(Hang=0,
-    // Trail=1, Base=2)와 맞춘다. 실제 아트(을의 B9)가 나오기 전까지는 위치/크기/
-    // z-순서만으로 세 슬롯을 구분한다.
+    // --- 3칸 레이아웃 (B17). 배열 인덱스는 CursorSlot 의 선언 순서(Monkey=0, Banana=1, Deco=2).
+    // **임시다** - B17 3단계에서 바나나 고정 자리 + 원숭이 리그로 바뀐다 (docs/B17-CURSOR-REWORK.md §4).
+    // 지금은 그림 한 장씩: 바나나는 커서 끝 아래, 원숭이는 그 바나나에 매달리고, 장식은 뒤에 깔린다.
     private static readonly Vector2[] SlotOffset =
     {
-        new(0, -24),  // Hang: 커서 위로 매달린 것처럼
-        new(12, 16),  // Trail: 뒤쪽·아래로 처진 잔상
-        new(0, 4),    // Base: 커서 바로 아래 깔림
+        new(10, 34),  // Monkey: 바나나 아래에 매달림
+        new(10, 14),  // Banana: 커서 끝 바로 아래
+        new(0, 4),    // Deco: 커서 뒤
     };
 
-    private static readonly float[] SlotScale = { 0.42f, 0.30f, 0.34f };
+    private static readonly float[] SlotScale = { 0.42f, 0.26f, 0.34f };
 
-    /// <summary>Trail은 잔상이라 반투명, 나머지는 불투명.</summary>
-    private static readonly float[] SlotAlpha = { 1.0f, 0.6f, 1.0f };
+    private static readonly float[] SlotAlpha = { 1.0f, 1.0f, 1.0f };
 
-    /// <summary>Hang이 맨 위, Trail이 맨 아래(잔상이 뒤에 깔린다), Base가 그 사이.</summary>
-    private static readonly int[] SlotZIndex = { 2, 0, 1 };
+    /// <summary>원숭이가 맨 위, 장식이 맨 아래, 바나나가 그 사이.</summary>
+    private static readonly int[] SlotZIndex = { 2, 1, 0 };
 
     // --- Win32 클릭 통과 ---------------------------------------------------
     //
@@ -362,7 +361,7 @@ public sealed class CursorLayer : ICursorLayer
     /// </param>
     private Texture2D ResolveTexture(CursorSlot slot, string assetId, out bool isPlaceholder)
     {
-        string realPath = $"res://assets/cursor/{slot.ToString().ToLowerInvariant()}/{assetId}.png";
+        string realPath = ItemManifest.IconPath(slot, assetId);
         if (ResourceLoader.Exists(realPath))
         {
             isPlaceholder = false;
@@ -473,9 +472,8 @@ public sealed class CursorLayer : ICursorLayer
 
         if (Mode == FollowMode.Spring)
         {
-            // "매달려 흔들리는" 연출은 Hang 슬롯 담당이다 (§3-1). 슬롯이 비어 있어도
-            // 숨겨진 스프라이트에 회전값을 넣는 것뿐이라 해가 없다.
-            _slots[(int)CursorSlot.Hang].Sprite.Rotation = Mathf.Sin((float)_phase) * 0.18f;
+            // "매달려 흔들리는" 연출은 원숭이 담당이다. B17 3단계에서 리그의 진자로 바뀐다.
+            _slots[(int)CursorSlot.Monkey].Sprite.Rotation = Mathf.Sin((float)_phase) * 0.18f;
         }
     }
 
@@ -525,7 +523,7 @@ public sealed class CursorLayer : ICursorLayer
     public void CycleMode()
     {
         Mode = (FollowMode)(((int)Mode + 1) % 3);
-        _slots[(int)CursorSlot.Hang].Sprite.Rotation = 0.0f;
+        _slots[(int)CursorSlot.Monkey].Sprite.Rotation = 0.0f;
         ResetCounters();
     }
 
@@ -571,9 +569,9 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         string interval = IntervalMs == 0 ? "frame" : $"{IntervalMs}ms";
-        string equip = $"H:{_slots[(int)CursorSlot.Hang].AssetId ?? "-"}"
-            + $" T:{_slots[(int)CursorSlot.Trail].AssetId ?? "-"}"
-            + $" B:{_slots[(int)CursorSlot.Base].AssetId ?? "-"}";
+        string equip = $"M:{_slots[(int)CursorSlot.Monkey].AssetId ?? "-"}"
+            + $" B:{_slots[(int)CursorSlot.Banana].AssetId ?? "-"}"
+            + $" D:{_slots[(int)CursorSlot.Deco].AssetId ?? "-"}";
 
         return $"cursor {(Enabled ? "on" : "off")}{(Simulate ? " SIM" : "")},"
             + $" {Mode.ToString().ToLowerInvariant()}, every {interval},"

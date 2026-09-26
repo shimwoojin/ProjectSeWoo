@@ -91,7 +91,7 @@
     "cursor": [
       {
         "id": "monkey_01",
-        "out": "assets/cursor/hang/monkey_01.png",
+        "out": "assets/cursor/monkey/monkey_01/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 111,
@@ -100,7 +100,7 @@
       },
       {
         "id": "monkey_02",
-        "out": "assets/cursor/hang/monkey_02.png",
+        "out": "assets/cursor/monkey/monkey_02/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 112,
@@ -109,7 +109,7 @@
       },
       {
         "id": "monkey_03",
-        "out": "assets/cursor/hang/monkey_03.png",
+        "out": "assets/cursor/monkey/monkey_03/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 123,
@@ -118,7 +118,7 @@
       },
       {
         "id": "monkey_04",
-        "out": "assets/cursor/hang/monkey_04.png",
+        "out": "assets/cursor/monkey/monkey_04/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 114,
@@ -127,7 +127,7 @@
       },
       {
         "id": "monkey_05",
-        "out": "assets/cursor/hang/monkey_05.png",
+        "out": "assets/cursor/monkey/monkey_05/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 105,
@@ -136,7 +136,7 @@
       },
       {
         "id": "monkey_06",
-        "out": "assets/cursor/hang/monkey_06.png",
+        "out": "assets/cursor/monkey/monkey_06/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 116,
@@ -145,7 +145,7 @@
       },
       {
         "id": "leaf_01",
-        "out": "assets/cursor/trail/leaf_01.png",
+        "out": "assets/cursor/deco/leaf_01/icon.png",
         "px": 96,
         "pivot": "center",
         "seed": 201,
@@ -154,7 +154,7 @@
       },
       {
         "id": "leaf_02",
-        "out": "assets/cursor/trail/leaf_02.png",
+        "out": "assets/cursor/deco/leaf_02/icon.png",
         "px": 96,
         "pivot": "center",
         "seed": 212,
@@ -163,7 +163,7 @@
       },
       {
         "id": "chunk_01",
-        "out": "assets/cursor/trail/chunk_01.png",
+        "out": "assets/cursor/deco/chunk_01/icon.png",
         "px": 96,
         "pivot": "center",
         "seed": 233,
@@ -172,7 +172,7 @@
       },
       {
         "id": "chunk_02",
-        "out": "assets/cursor/trail/chunk_02.png",
+        "out": "assets/cursor/deco/chunk_02/icon.png",
         "px": 96,
         "pivot": "center",
         "seed": 204,
@@ -181,7 +181,7 @@
       },
       {
         "id": "spark_01",
-        "out": "assets/cursor/trail/spark_01.png",
+        "out": "assets/cursor/deco/spark_01/icon.png",
         "px": 96,
         "pivot": "center",
         "seed": 205,
@@ -190,7 +190,7 @@
       },
       {
         "id": "spark_02",
-        "out": "assets/cursor/trail/spark_02.png",
+        "out": "assets/cursor/deco/spark_02/icon.png",
         "px": 96,
         "pivot": "center",
         "seed": 216,
@@ -199,7 +199,7 @@
       },
       {
         "id": "halo_01",
-        "out": "assets/cursor/base/halo_01.png",
+        "out": "assets/cursor/deco/halo_01/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 301,
@@ -208,7 +208,7 @@
       },
       {
         "id": "halo_02",
-        "out": "assets/cursor/base/halo_02.png",
+        "out": "assets/cursor/deco/halo_02/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 322,
@@ -217,7 +217,7 @@
       },
       {
         "id": "ring_01",
-        "out": "assets/cursor/base/ring_01.png",
+        "out": "assets/cursor/deco/ring_01/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 303,
@@ -226,7 +226,7 @@
       },
       {
         "id": "ring_02",
-        "out": "assets/cursor/base/ring_02.png",
+        "out": "assets/cursor/deco/ring_02/icon.png",
         "px": 128,
         "pivot": "center",
         "seed": 304,

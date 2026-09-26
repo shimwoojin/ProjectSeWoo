@@ -26,9 +26,9 @@
 | `ACH_KEYSTROKES_100K` | Keyboard Warrior / Reach 100,000 total keystrokes. | 키보드 전사 / 누적 100,000타를 친다. | 누적 100,000타 (Lv.24) |
 | `ACH_KEYSTROKES_1M` | Million Punches / Reach 1,000,000 total keystrokes. | 백만 펀치 / 누적 1,000,000타를 친다. | 누적 1,000,000타 (Lv.31) |
 | `ACH_FIRST_PURCHASE` | First Decoration / Buy your first cursor decoration. | 첫 장식 / 상점에서 커서 장식을 처음 산다. | 기본 지급품 말고 장식이 하나라도 생김 |
-| `ACH_SLOT_HANG` | Hanging Around / Collect every hanging decoration. | 매달림 수집가 / 매달림 장식을 모두 모은다. | 매달림 6종 (기본 지급품 포함) |
-| `ACH_SLOT_TRAIL` | Trailblazer / Collect every trail decoration. | 잔상 수집가 / 잔상 장식을 모두 모은다. | 잔상 6종 |
-| `ACH_SLOT_BASE` | Solid Ground / Collect every base decoration. | 바닥 수집가 / 바닥 장식을 모두 모은다. | 바닥 4종 |
+| `ACH_SLOT_HANG` | Monkey Collector / Collect every monkey. | 원숭이 수집가 / 원숭이를 모두 모은다. | 원숭이 전부 (기본 지급품 포함). 2026-09-26 전엔 "매달림 수집가" — B17 §3-4 |
+| `ACH_SLOT_TRAIL` | Decorator / Collect every decoration. | 장식 수집가 / 장식을 모두 모은다. | 장식 칸 전부. 2026-09-26 전엔 "잔상 수집가" — B17 §3-4 |
+| `ACH_SLOT_BASE` | Banana Collector / Collect every banana. | 바나나 수집가 / 바나나를 모두 모은다. | 바나나 전부 (기본 지급품 포함). 2026-09-26 전엔 "바닥 수집가" — B17 §3-4 |
 | `ACH_COLLECTION_100` | Complete Collection / Collect every cursor decoration. | 도감 완성 / 커서 장식을 모두 모은다. | 도감 100% (§3-3) — 장식이 늘면 조건도 같이 는다. 이미 딴 사람은 그대로(스팀은 해금을 되돌리지 않는다) |
 | `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
 

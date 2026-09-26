@@ -355,7 +355,7 @@ public partial class OverlayShell
         if (!string.IsNullOrEmpty(_autoCursorEquip))
         {
             string[] ids = _autoCursorEquip.Split(',');
-            CursorSlot[] order = { CursorSlot.Hang, CursorSlot.Trail, CursorSlot.Base };
+            CursorSlot[] order = { CursorSlot.Monkey, CursorSlot.Banana, CursorSlot.Deco };
             for (int i = 0; i < order.Length && i < ids.Length; i++)
             {
                 _cursor.Equip(order[i], string.IsNullOrEmpty(ids[i]) ? null : ids[i]);

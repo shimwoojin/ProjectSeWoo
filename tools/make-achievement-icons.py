@@ -119,7 +119,7 @@ def single(sprite_fn, top, bottom, ring, size=178, extra=None):
 
 def first_purchase():
     c = gradient((74, 150, 86), (24, 62, 34))
-    paste_with_shadow(c, fit(asset("cursor", "hang", "monkey_02.png"), 170), (SIZE / 2 - 10, SIZE / 2 - 6))
+    paste_with_shadow(c, fit(asset("cursor", "monkey", "monkey_02", "icon.png"), 170), (SIZE / 2 - 10, SIZE / 2 - 6))
     paste_with_shadow(c, fit(asset("entities", "banana_04.png"), 92), (SIZE - 74, SIZE - 70))
     frame(c, (150, 220, 120, 255))
     return c
@@ -127,16 +127,18 @@ def first_purchase():
 
 def slot_trail():
     c = gradient((48, 150, 150), (14, 58, 66))
-    paste_with_shadow(c, fit(asset("cursor", "trail", "leaf_02.png"), 118), (SIZE / 2 - 34, SIZE / 2 + 20))
-    paste_with_shadow(c, fit(asset("cursor", "trail", "spark_02.png"), 130), (SIZE / 2 + 30, SIZE / 2 - 24))
+    paste_with_shadow(c, fit(asset("cursor", "deco", "leaf_02", "icon.png"), 118), (SIZE / 2 - 34, SIZE / 2 + 20))
+    paste_with_shadow(c, fit(asset("cursor", "deco", "spark_02", "icon.png"), 130), (SIZE / 2 + 30, SIZE / 2 - 24))
     frame(c, (110, 225, 215, 255))
     return c
 
 
 def slot_base():
+    """ACH_SLOT_BASE = 바나나 수집가 (B17 §3-4 - API Name 은 예전 "바닥 슬롯" 그대로). 바나나 변형 셋을 부채꼴로."""
     c = gradient((150, 110, 60), (60, 38, 18))
-    paste_with_shadow(c, fit(asset("cursor", "base", "halo_01.png"), 196), (SIZE / 2, SIZE / 2 + 8))
-    paste_with_shadow(c, fit(asset("cursor", "base", "ring_02.png"), 120), (SIZE / 2, SIZE / 2 + 8))
+    for item_id, dx, rot in (("banana_02", -48, 18), ("banana_04", 48, -18), ("banana_06", 0, 0)):
+        b = fit(asset("cursor", "banana", item_id, "banana.png"), 130).rotate(rot, resample=Image.BICUBIC, expand=True)
+        paste_with_shadow(c, b, (SIZE / 2 + dx, SIZE / 2 + 6))
     frame(c, (230, 180, 110, 255))
     return c
 
@@ -151,8 +153,8 @@ def collection():
 
 def room():
     c = gradient((64, 110, 200), (18, 34, 84))
-    paste_with_shadow(c, fit(asset("cursor", "hang", "monkey_03.png"), 150), (SIZE / 2 - 42, SIZE / 2 + 8))
-    paste_with_shadow(c, ImageOps.mirror(fit(asset("cursor", "hang", "monkey_02.png"), 150)), (SIZE / 2 + 42, SIZE / 2 + 8))
+    paste_with_shadow(c, fit(asset("cursor", "monkey", "monkey_03", "icon.png"), 150), (SIZE / 2 - 42, SIZE / 2 + 8))
+    paste_with_shadow(c, ImageOps.mirror(fit(asset("cursor", "monkey", "monkey_02", "icon.png"), 150)), (SIZE / 2 + 42, SIZE / 2 + 8))
     frame(c, (140, 180, 255, 255))
     return c
 
@@ -163,7 +165,8 @@ ICONS = {
     "ACH_KEYSTROKES_100K": keystrokes("100K", GOLD, (220, 170, 50), (96, 60, 8)),
     "ACH_KEYSTROKES_1M": keystrokes("1M", DIAMOND, (70, 150, 210), (16, 40, 80)),
     "ACH_FIRST_PURCHASE": first_purchase,
-    "ACH_SLOT_HANG": single(lambda: asset("cursor", "hang", "monkey_06.png"),
+    # 원숭이 수집가. monkey_06(오랑우탄)은 팔이 4개로 뽑힌 결함 그림이라 보라 원숭이를 쓴다 (B17 §6-1).
+    "ACH_SLOT_HANG": single(lambda: asset("cursor", "monkey", "monkey_04", "icon.png"),
                             (130, 80, 170), (46, 22, 70), (200, 150, 240, 255)),
     "ACH_SLOT_TRAIL": slot_trail,
     "ACH_SLOT_BASE": slot_base,

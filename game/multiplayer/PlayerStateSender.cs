@@ -85,9 +85,9 @@ public sealed class PlayerStateSender
         // 새 로비에 들어왔으면 바로 한 번 보낸다 - 친구 화면에 내 장식이 곧장 떠야 한다.
         bool newRoom = _sentToRoom != room.Uid;
         bool active = state.KeystrokesInWindow > 0 || state.HarvestsInWindow > 0;
-        bool looksChanged = state.EquippedHang != _lastSent.EquippedHang
-            || state.EquippedTrail != _lastSent.EquippedTrail
-            || state.EquippedBase != _lastSent.EquippedBase
+        bool looksChanged = state.EquippedMonkey != _lastSent.EquippedMonkey
+            || state.EquippedBanana != _lastSent.EquippedBanana
+            || state.EquippedDeco != _lastSent.EquippedDeco
             || state.CollectionPercent != _lastSent.CollectionPercent;
 
         if (!newRoom && !active && !looksChanged && _sinceSent < HeartbeatSec)

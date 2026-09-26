@@ -97,13 +97,13 @@ public static class AchievementIds
     /// <summary>상점에서 장식을 처음 샀다 (보유 장식이 기본 지급품 말고 하나라도 생겼다).</summary>
     public const string FirstPurchase = "ACH_FIRST_PURCHASE";
 
-    /// <summary>매달림 슬롯의 장식을 전부 모았다.</summary>
+    /// <summary>원숭이를 전부 모았다. (예전 "매달림 슬롯" - API Name 은 굳어서 그대로, B17 §3-4)</summary>
     public const string SlotCompleteHang = "ACH_SLOT_HANG";
 
-    /// <summary>잔상 슬롯의 장식을 전부 모았다.</summary>
+    /// <summary>장식을 전부 모았다. (예전 "잔상 슬롯" - API Name 은 굳어서 그대로, B17 §3-4)</summary>
     public const string SlotCompleteTrail = "ACH_SLOT_TRAIL";
 
-    /// <summary>바닥 슬롯의 장식을 전부 모았다.</summary>
+    /// <summary>바나나를 전부 모았다. (예전 "바닥 슬롯" - API Name 은 굳어서 그대로, B17 §3-4)</summary>
     public const string SlotCompleteBase = "ACH_SLOT_BASE";
 
     /// <summary>멀티 룸에 처음 들어갔다 (만들거나 참가). 실물 스팀 로비(<c>SteamNetSession</c>, A9)에서만 풀린다 - 목 룸은 안 된다.</summary>

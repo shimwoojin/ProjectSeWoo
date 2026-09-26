@@ -35,7 +35,7 @@ public partial class TreeSlot : Node2D
     private static readonly Color GoldGlow = new(1.08f, 1.04f, 1.0f);
 
     /// <summary>황금 송이 옆에 붙이는 반짝임. 잔상 장식(spark_01) 그림을 그대로 쓴다.</summary>
-    private const string SparkleTexture = "res://assets/cursor/trail/spark_01.png";
+    private const string SparkleTexture = "res://assets/cursor/deco/spark_01/icon.png";
 
     private Sprite2D _sparkle;
 

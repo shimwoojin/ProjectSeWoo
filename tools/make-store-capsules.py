@@ -182,11 +182,11 @@ def decorated_cursor(canvas, x, y, size):
     """커서 + 매달린 원숭이(hang) + 반짝이 잔상(trail). 바닥(base) 장식은 작게 줄이면 무엇인지 안 읽혀서 뺐다."""
     rnd = random.Random(3)
     for k in range(4):
-        sp = scaled(asset("cursor", "trail", "spark_01.png"), height=size * (0.55 - k * 0.09))
+        sp = scaled(asset("cursor", "deco", "spark_01", "icon.png"), height=size * (0.55 - k * 0.09))
         sp = sp.rotate(rnd.uniform(-25, 25), resample=Image.BICUBIC, expand=True)
         sp.putalpha(sp.getchannel("A").point(lambda a, k=k: a * (1 - k * 0.2)))
         canvas.alpha_composite(sp, (round(x - size * (0.55 + k * 0.5)), round(y + size * (0.35 + k * 0.28))))
-    hang = scaled(trim(asset("cursor", "hang", "monkey_01.png")), height=size * 2.1)
+    hang = scaled(trim(asset("cursor", "monkey", "monkey_01", "icon.png")), height=size * 2.1)
     arrow = cursor_arrow(size)
     canvas.alpha_composite(hang, (round(x - hang.width * 0.28), round(y + size * 0.55)))
     with_shadow(canvas, arrow, x, y, offset=(0.05, 0.08), blur=0.05, strength=0.5)

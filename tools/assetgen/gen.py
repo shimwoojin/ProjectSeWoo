@@ -66,6 +66,11 @@ def workflow(style, entry):
                          "background": "Alpha", "background_color": "#222222"}},
         "10": {"class_type": "SaveImage",
                "inputs": {"images": ["9", 0], "filename_prefix": f"punchmonkey/{entry['id']}_alpha"}},
+        # 배경 제거 **전** 원본. INSPYRENET 은 흰자위처럼 배경색과 비슷한 안쪽 영역을 배경으로 보고 알파와
+        # 색을 같이 지운다 (2026-09-26, 원숭이 6종 중 4종의 눈에 구멍). 후처리가 작은 구멍을 이 원본 색으로
+        # 메운다 - postprocess.py fill_holes.
+        "11": {"class_type": "SaveImage",
+               "inputs": {"images": ["7", 0], "filename_prefix": f"punchmonkey/{entry['id']}_rgb"}},
     }
 
 
@@ -165,8 +170,12 @@ def main():
             continue
         # 원본 1024 알파를 _raw/ 에 남긴다. 후처리 수치를 바꿔 다시 돌릴 때
         # 22초짜리 생성을 또 하지 않기 위해서다 (_raw/ 는 git 에 안 올린다).
+        alpha_out = [o for o in outs if "_alpha" in o.name] or outs[-1:]
+        rgb_out = [o for o in outs if "_rgb" in o.name]
         dst = raw_dir / f"{e['id']}.png"
-        dst.write_bytes(outs[-1].read_bytes())
+        dst.write_bytes(alpha_out[-1].read_bytes())
+        if rgb_out:
+            (raw_dir / f"{e['id']}_rgb.png").write_bytes(rgb_out[-1].read_bytes())
         print(f" {secs}s -> {dst.name}")
 
     if failed:

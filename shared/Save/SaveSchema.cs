@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 8;
+    public const int CurrentVersion = 9;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -79,6 +79,11 @@ public static class SaveSchema
                 case 7:
                     MigrateV7ToV8(root);
                     version = 8;
+                    break;
+
+                case 8:
+                    MigrateV8ToV9(root);
+                    version = 9;
                     break;
 
                 default:
@@ -182,6 +187,31 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v8 -> v9 (2026-09-26, docs/B17-CURSOR-REWORK.md §3-2): 장착 칸이 매달림·잔상·바닥에서 원숭이·바나나·장식으로
+    /// 바뀌었다. <b>처음으로 값을 옮기는 마이그레이션이다</b> - 키 이름만 바뀐 게 아니라 두 칸이 한 칸으로 합쳐졌다.
+    /// <c>monkey = hang</c>, <c>banana = "banana_01"</c>(기본 지급품), <c>deco = trail ?? base</c> - 둘 다 끼워 뒀으면
+    /// 더 눈에 띄는 잔상을 남긴다. 예전 키는 지운다(남겨 두면 다음 저장까지 파일에 두 벌이 보인다).
+    /// </summary>
+    private static void MigrateV8ToV9(JsonNode root)
+    {
+        if (root["inventory"]?["equipped"] is JsonObject equipped)
+        {
+            string hang = equipped["hang"]?.GetValue<string>();
+            string trail = equipped["trail"]?.GetValue<string>();
+            string @base = equipped["base"]?.GetValue<string>();
+
+            equipped.Remove("hang");
+            equipped.Remove("trail");
+            equipped.Remove("base");
+            equipped["monkey"] = hang ?? "monkey_01";
+            equipped["banana"] = "banana_01";
+            equipped["deco"] = trail ?? @base;
+        }
+
+        root["version"] = 9;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -206,7 +236,7 @@ public static class SaveSchema
         string[] required =
         {
             "version", "totalKeystrokes",
-            "inventory", "equipped", "hang", "trail", "base",
+            "inventory", "equipped", "monkey", "banana", "deco",
             "settings", "scale", "opacity", "pos", "autostart",
             "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen",
             "cursorIndependent",
@@ -238,6 +268,17 @@ public static class SaveSchema
         // 마이그레이션 훅이 현재 버전 문서를 그대로 통과시키는지.
         JsonNode node = JsonNode.Parse(json);
         Migrate(node);
+
+        // v8 -> v9 는 값을 옮긴다 (B17). 잔상·바닥을 둘 다 낀 v8 세이브가 원숭이 그대로 + 기본 바나나 + 잔상이 되는지.
+        JsonNode v8 = JsonNode.Parse(
+            "{\"version\":8,\"inventory\":{\"equipped\":{\"hang\":\"monkey_04\",\"trail\":\"spark_01\",\"base\":\"halo_01\"}}}");
+        Migrate(v8);
+        JsonNode moved = v8["inventory"]["equipped"];
+        if (moved["monkey"]?.GetValue<string>() != "monkey_04" || moved["banana"]?.GetValue<string>() != "banana_01"
+            || moved["deco"]?.GetValue<string>() != "spark_01" || moved["hang"] != null)
+        {
+            return $"v8 -> v9 장착 이동이 틀렸다: {moved.ToJsonString()}";
+        }
 
         return null;
     }

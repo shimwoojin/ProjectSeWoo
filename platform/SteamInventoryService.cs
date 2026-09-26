@@ -27,22 +27,14 @@ namespace ProjectSeWoo.Platform;
 public sealed class SteamInventoryService : IInventoryService, IDisposable
 {
     /// <summary>
-    /// id → 스팀 itemdefid. <c>game/shop/ShopCatalog.All</c> 의 순서를 그대로
-    /// 따랐다(기본 지급품 <c>monkey_01</c> 제외 - §0바나나짜리라 스팀 인벤토리에
-    /// 안 넣는다, docs/ECONOMY-SERVER.md). <b>server/src/catalog.ts 와 손으로
-    /// 맞춰야 한다</b> - 둘 다 고치는 자동화는 아직 없다.
+    /// id → 스팀 itemdefid. <b><c>game/shop/items.json</c> 에서 만든다</b> (<see cref="ItemManifest"/>,
+    /// docs/B17-CURSOR-REWORK.md §2) — 2026-09-26 전에는 여기 손으로 적은 표였고 서버와 따로 맞춰야 했다.
+    /// 기본 지급품(tier 0)은 0바나나짜리라 스팀 인벤토리에 없다(docs/ECONOMY-SERVER.md) - 번호도 없다.
     /// </summary>
-    private static readonly (string Id, SteamItemDef_t SteamItemDefId)[] Catalog =
-    {
-        ("monkey_02", (SteamItemDef_t)1), ("monkey_03", (SteamItemDef_t)2),
-        ("monkey_04", (SteamItemDef_t)3), ("monkey_05", (SteamItemDef_t)4),
-        ("monkey_06", (SteamItemDef_t)5), ("leaf_01", (SteamItemDef_t)6),
-        ("chunk_01", (SteamItemDef_t)7), ("leaf_02", (SteamItemDef_t)8),
-        ("chunk_02", (SteamItemDef_t)9), ("spark_01", (SteamItemDef_t)10),
-        ("spark_02", (SteamItemDef_t)11), ("halo_01", (SteamItemDef_t)12),
-        ("ring_01", (SteamItemDef_t)13), ("halo_02", (SteamItemDef_t)14),
-        ("ring_02", (SteamItemDef_t)15),
-    };
+    private static readonly (string Id, SteamItemDef_t SteamItemDefId)[] Catalog = ItemManifest.Items
+        .Where(i => i.SteamItemDefId != null)
+        .Select(i => (i.Id, (SteamItemDef_t)i.SteamItemDefId.Value))
+        .ToArray();
 
     private static readonly Dictionary<SteamItemDef_t, string> SteamDefToId =
         Catalog.ToDictionary(c => c.SteamItemDefId, c => c.Id);

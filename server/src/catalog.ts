@@ -1,25 +1,21 @@
-// 상점 상품표 서버 사본. **원본은 game/shop/ShopCatalog.cs 다.**
+// 상점 상품표. **원본은 game/shop/items.json 이다** (docs/B17-CURSOR-REWORK.md §2).
 //
-// 진실은 한 군데(C# 클라이언트)인데 서버가 같은 표를 또 들고 있는 이유는,
-// 가격을 클라이언트가 보내게 하면 클라이언트가 가격을 조작할 여지가 생기기
-// 때문이다 (docs/ECONOMY-SERVER-API.md §2-3) - 그래서 서버가 자기 사본으로
-// 가격을 판정해야 한다.
-//
-// **두 표가 갈라지면 조용히 갈라진다.** ShopCatalog.cs 에 아이템을 추가/변경할
-// 때 이 파일도 같이 고칠 것 - 지금은 이 주석이 유일한 안전장치다. 아이템
-// 수가 늘어나면 빌드 스크립트로 ShopCatalog.cs 에서 이 파일을 생성하는 쪽을
-// 고려한다 (지금은 16종 고정이라 손으로 맞추는 비용이 낮다).
+// 서버가 가격을 스스로 판정해야 한다 - 클라이언트가 가격을 보내게 하면 조작할 여지가 생긴다
+// (docs/ECONOMY-SERVER-API.md §2-3). 2026-09-26 전에는 그래서 이 파일에 같은 표를 손으로 따로 적었고
+// "갈라지면 조용히 갈라진다" 가 유일한 경고였다. 이제 게임과 같은 JSON 을 번들에 넣어 읽는다 -
+// 장식이 업데이트로 늘어도 서버는 그 JSON 을 고친 뒤 다시 배포만 하면 된다.
+
+import manifest from "../../game/shop/items.json";
 
 export interface ShopItem {
   id: string;
-  tier: 0 | 1 | 2 | 3 | 4 | 5;
+  category: "monkey" | "banana" | "deco";
+  tier: number;
   /**
    * 스팀 인벤토리 서비스의 아이템 정의 번호. 스팀은 문자열 id 를 모르고
-   * 정수(SteamItemDef_t)만 안다 - 이 번호가 우리가 정한 값이고, 파트너
-   * 사이트에 이 번호로 아이템 정의를 등록해야 grantInventoryItem 이 맞는
-   * 아이템을 지급한다. **platform/SteamInventoryService.cs 의 같은 표와
-   * 정확히 같아야 한다** (그쪽은 클라이언트가 스팀에서 돌려받은 정수를
-   * 다시 문자열 id 로 되돌리는 반대 방향 매핑이다).
+   * 정수(SteamItemDef_t)만 안다 - 이 번호로 파트너 사이트에 아이템 정의를 등록해야
+   * grantInventoryItem 이 맞는 아이템을 지급한다. 클라이언트(SteamInventoryService)도
+   * 같은 JSON 에서 반대 방향 표를 만든다.
    *
    * tier 0(기본 지급품)은 스팀 인벤토리에 없으므로 번호가 없다.
    */
@@ -27,27 +23,15 @@ export interface ShopItem {
 }
 
 /** §2-2 의 5티어 가격. 인덱스는 tier - 1. */
-export const TIER_PRICES = [10, 40, 150, 500, 1500];
+export const TIER_PRICES: number[] = manifest.tierPrices;
 
-/** tier 0 = 기본 지급품. 살 수 없다 (ShopCatalog.cs 의 IsStarter). */
-export const CATALOG: ShopItem[] = [
-  { id: "monkey_01", tier: 0 },
-  { id: "monkey_02", tier: 1, steamItemDefId: 1 },
-  { id: "monkey_03", tier: 2, steamItemDefId: 2 },
-  { id: "monkey_04", tier: 3, steamItemDefId: 3 },
-  { id: "monkey_05", tier: 4, steamItemDefId: 4 },
-  { id: "monkey_06", tier: 5, steamItemDefId: 5 },
-  { id: "leaf_01", tier: 1, steamItemDefId: 6 },
-  { id: "chunk_01", tier: 2, steamItemDefId: 7 },
-  { id: "leaf_02", tier: 3, steamItemDefId: 8 },
-  { id: "chunk_02", tier: 4, steamItemDefId: 9 },
-  { id: "spark_01", tier: 3, steamItemDefId: 10 },
-  { id: "spark_02", tier: 5, steamItemDefId: 11 },
-  { id: "halo_01", tier: 1, steamItemDefId: 12 },
-  { id: "ring_01", tier: 2, steamItemDefId: 13 },
-  { id: "halo_02", tier: 4, steamItemDefId: 14 },
-  { id: "ring_02", tier: 5, steamItemDefId: 15 },
-];
+/** tier 0 = 기본 지급품. 살 수 없다 (ShopCatalog 의 IsStarter). */
+export const CATALOG: ShopItem[] = manifest.items.map((item) => ({
+  id: item.id,
+  category: item.category as ShopItem["category"],
+  tier: item.tier,
+  steamItemDefId: "steamItemDefId" in item ? (item as { steamItemDefId: number }).steamItemDefId : undefined,
+}));
 
 const byId = new Map(CATALOG.map((item) => [item.id, item]));
 

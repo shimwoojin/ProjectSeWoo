@@ -48,10 +48,11 @@ public sealed class MockNetSession : INetSession
     /// </summary>
     private static readonly string[][] FakeLooks =
     {
-        new[] { "monkey_02", "leaf_01", null },
-        new[] { "monkey_04", null, "halo_01" },
-        new[] { "monkey_06", "spark_02", "ring_01" },
-        new[] { null, "chunk_01", "ring_02" },
+        // 원숭이 / 바나나 / 장식 (B17). 원숭이·바나나는 비지 않는다.
+        new[] { "monkey_02", "banana_01", "leaf_01" },
+        new[] { "monkey_04", "banana_03", null },
+        new[] { "monkey_06", "banana_06", "halo_01" },
+        new[] { "monkey_01", "banana_02", "spark_02" },
     };
 
     private const double StateWindowSec = 0.2;
@@ -371,9 +372,9 @@ public sealed class MockNetSession : INetSession
                 KeystrokesInWindow = (ushort)typed,
                 HarvestsInWindow = (byte)harvested,
                 TotalKeystrokes = seat.Total,
-                EquippedHang = look[0],
-                EquippedTrail = look[1],
-                EquippedBase = look[2],
+                EquippedMonkey = look[0],
+                EquippedBanana = look[1],
+                EquippedDeco = look[2],
                 CollectionPercent = (byte)(seat.Id.Value * 13 % 101),
             };
 

@@ -283,7 +283,13 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
                 ? "[net] PlayerState 전송 형식 self-test PASS"
                 : $"[net] PlayerState 전송 형식 self-test FAIL: {codecFail}");
 
-            GetTree().Quit(SaveSchema.SelfTest() == null && codecFail == null ? 0 : 1);
+            // 아이템 목록(items.json, B17)도 계약이다 - 게임·서버·스팀이 같은 파일을 읽는다.
+            string itemsFail = ItemManifest.LoadError ?? ItemManifest.Validate();
+            GD.Print(itemsFail == null
+                ? $"[items] 아이템 목록 self-test PASS ({ItemManifest.Items.Count}개)"
+                : $"[items] 아이템 목록 self-test FAIL: {itemsFail}");
+
+            GetTree().Quit(SaveSchema.SelfTest() == null && codecFail == null && itemsFail == null ? 0 : 1);
             return;
         }
 

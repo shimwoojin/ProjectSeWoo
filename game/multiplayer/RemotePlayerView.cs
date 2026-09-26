@@ -66,9 +66,11 @@ public partial class RemotePlayerView : Node2D
     /// <summary>이름표 띠의 위쪽. 여기부터 칸 아래 끝까지 이름·레벨·도감 세 줄.</summary>
     private const float LabelsTop = 144f;
     private static readonly Vector2 CursorAt = new(CellWidth - 22f, 116f);
-    private static readonly Vector2[] SlotOffset = { new(0, -24), new(12, 16), new(0, 4) };
-    private static readonly float[] SlotScale = { 0.42f, 0.30f, 0.34f };
-    private static readonly float[] SlotAlpha = { 1.0f, 0.6f, 1.0f };
+    // 순서는 CursorSlot (원숭이, 바나나, 장식). 바나나는 커서 끝 아래, 원숭이는 그 바나나에 매달린다 -
+    // B17 3단계에서 리그가 들어오면 CursorLayer 와 같은 리그를 작게 재사용한다 (docs/B17-CURSOR-REWORK.md §7).
+    private static readonly Vector2[] SlotOffset = { new(10, 34), new(10, 14), new(0, 4) };
+    private static readonly float[] SlotScale = { 0.42f, 0.26f, 0.34f };
+    private static readonly float[] SlotAlpha = { 1.0f, 1.0f, 1.0f };
 
     private Tree _tree;
     private Monkey _monkey;
@@ -171,9 +173,9 @@ public partial class RemotePlayerView : Node2D
             return;
         }
 
-        ShowDecoration(CursorSlot.Hang, state.EquippedHang);
-        ShowDecoration(CursorSlot.Trail, state.EquippedTrail);
-        ShowDecoration(CursorSlot.Base, state.EquippedBase);
+        ShowDecoration(CursorSlot.Monkey, state.EquippedMonkey);
+        ShowDecoration(CursorSlot.Banana, state.EquippedBanana);
+        ShowDecoration(CursorSlot.Deco, state.EquippedDeco);
 
         _totalKeystrokes = state.TotalKeystrokes;
         _collectionPercent = state.CollectionPercent;
@@ -327,9 +329,7 @@ public partial class RemotePlayerView : Node2D
         Sprite2D sprite = _slots[index];
 
         ShopCatalog.Item item = id == null ? null : ShopCatalog.Find(id);
-        string path = item != null && item.Slot == slot
-            ? $"res://assets/cursor/{slot.ToString().ToLowerInvariant()}/{item.Id}.png"
-            : null;
+        string path = item != null && item.Slot == slot ? item.IconPath : null;
 
         sprite.Texture = path != null && ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
     }
@@ -338,14 +338,11 @@ public partial class RemotePlayerView : Node2D
     {
         var cursor = new Node2D { Position = CursorAt, Scale = Vector2.One * CursorScale };
 
-        // 그리는 순서: Trail(맨 아래, 잔상) → Base → 화살표 → Hang(맨 위). CursorLayer 와 같다.
-        foreach (CursorSlot slot in new[] { CursorSlot.Trail, CursorSlot.Base })
-        {
-            cursor.AddChild(MakeSlotSprite(slot));
-        }
-
+        // 그리는 순서: 장식(맨 아래) → 화살표 → 바나나 → 원숭이(맨 위). CursorLayer 와 같다.
+        cursor.AddChild(MakeSlotSprite(CursorSlot.Deco));
         cursor.AddChild(MakeArrow());
-        cursor.AddChild(MakeSlotSprite(CursorSlot.Hang));
+        cursor.AddChild(MakeSlotSprite(CursorSlot.Banana));
+        cursor.AddChild(MakeSlotSprite(CursorSlot.Monkey));
         return cursor;
     }
 

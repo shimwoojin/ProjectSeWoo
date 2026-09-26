@@ -44,11 +44,11 @@ public partial class OnboardingWindow : CanvasLayer
         }, () => GD.Load<Texture2D>("res://assets/entities/tree_full.png")),
         new("꾸미고, 같이 치기", new[]
         {
-            "[상점] 바나나로 커서 장식을 삽니다. 매달림 · 잔상 · 바닥 세 칸에 골라 끼웁니다. 나무를 키우는 강화도 여기 있습니다.",
+            "[상점] 바나나로 커서 장식을 삽니다. 원숭이 · 바나나 · 장식 세 칸에 골라 끼웁니다. 나무를 키우는 강화도 여기 있습니다.",
             "[멀티] 스팀 친구와 로비에 모이면 친구의 원숭이와 나무가 바탕화면에 작은 창으로 뜹니다.",
             "[옵션] 크기 · 투명도 · 숨기기 · Windows 시작 시 실행. 트레이 아이콘에서도 열립니다.",
             "원숭이와 나무를 끌면 창이 옮겨집니다. 이 안내는 [?] 로 다시 볼 수 있습니다.",
-        }, () => GD.Load<Texture2D>("res://assets/cursor/hang/monkey_05.png")),
+        }, () => GD.Load<Texture2D>("res://assets/cursor/monkey/monkey_05/icon.png")),
     };
 
     /// <summary>docs/C2-PRIVACY.md §1 한국어 - 글자 하나 바꾸지 않는다.</summary>

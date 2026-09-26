@@ -9,6 +9,8 @@ _raw/ 에 남겨 두므로 이 스크립트만 몇 번이고 다시 돌릴 수 �
 단계:
   1. 알파 임계 — 반투명 가장자리를 자른다
   2. 부스러기 제거 — 본체에서 떨어져 나온 작은 조각을 지운다 (아래 §부스러기)
+  2b. (매니페스트 "fill_holes": true 일 때만) 작은 구멍 메우기 — 배경 제거가 흰자위에 낸 구멍을
+      배경 제거 전 원본(_raw/<id>_rgb.png) 색으로 메운다 (아래 fill_holes)
   3. 알파 bbox 크롭
   4. LANCZOS 다운스케일 (카툰용. 픽셀아트면 BOX + 팔레트 고정이 따로 필요하다)
   5. 정사각 캔버스에 피벗대로 배치
@@ -74,13 +76,50 @@ def drop_specks(alpha):
     return np.where(mask > 0, alpha, 0).astype(np.uint8), dropped
 
 
-def process(src, dst, px, pivot):
+HOLE_RATIO = 0.03        # 본체 넓이의 3% 미만인 막힌 구멍만 메운다 - 고리·화환 가운데는 이보다 크다
+
+
+def fill_holes(rgb, alpha, src):
+    """배경 제거가 본체 **안쪽**에 낸 작은 구멍을 메운다 (2026-09-26, B17 §6-1).
+
+    INSPYRENET 은 흰자위처럼 배경(흰색)과 비슷한 안쪽 영역을 배경으로 보고 알파와 색을 같이 지운다 - 원숭이
+    4종의 눈이 그렇게 뚫렸다. 색까지 지워서 알파만 되살리면 회색 얼룩이 된다. 그래서 gen.py 가 남긴 배경 제거
+    전 원본(_raw/<id>_rgb.png)의 색을 가져온다.
+
+    **opt-in 이다** (매니페스트 "fill_holes": true). 팔과 몸 사이처럼 원래 뚫린 틈도 막힌 구멍이라, 켜면 그
+    틈이 원본의 흰 배경으로 메워진다 - 켠 아이템은 눈으로 확인한다. 고리·화환 가운데는 HOLE_RATIO 보다 커서
+    안 건드린다.
+    """
+    from scipy import ndimage
+
+    rgb_src = src.with_name(src.stem + "_rgb.png")
+    if not rgb_src.exists():
+        raise ValueError(f"fill_holes 인데 {rgb_src.name} 가 없다 - gen.py 로 다시 뽑아야 한다")
+    original = np.array(Image.open(rgb_src).convert("RGB"))
+
+    body = alpha > 0
+    holes = ndimage.binary_fill_holes(body) & ~body
+    labels, n = ndimage.label(holes)
+    area = body.sum()
+    filled = 0
+    for i in range(1, n + 1):
+        region = labels == i
+        if region.sum() < area * HOLE_RATIO:
+            rgb[region] = original[region]
+            alpha[region] = 255
+            filled += 1
+    return rgb, alpha, filled
+
+
+def process(src, dst, px, pivot, holes=False):
     im = Image.open(src).convert("RGBA")
-    rgb = np.array(im)[:, :, :3]
+    rgb = np.array(im)[:, :, :3].copy()
     alpha = np.array(im.getchannel("A"))
 
     alpha = np.where(alpha >= ALPHA_CUT, alpha, 0).astype(np.uint8)
     alpha, dropped = drop_specks(alpha)
+    if holes:
+        rgb, alpha, _ = fill_holes(rgb, alpha, src)
 
     im = Image.fromarray(np.dstack([rgb, alpha]), "RGBA")
     bbox = im.getchannel("A").getbbox()
@@ -120,7 +159,7 @@ def main():
             continue
         dst = ROOT / e["out"]
         try:
-            size, dropped, nbytes = process(src, dst, e["px"], e["pivot"])
+            size, dropped, nbytes = process(src, dst, e["px"], e["pivot"], e.get("fill_holes", False))
         except ValueError as ex:
             print(f"  {e['id']:14s} 실패: {ex}", file=sys.stderr)
             missing.append(e["id"])

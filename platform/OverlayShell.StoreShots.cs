@@ -30,10 +30,11 @@ public partial class OverlayShell
     /// </summary>
     private const float StoreShotScale = 1.5f;
 
-    /// <summary>찍을 때 보유한 것으로 둘 장식 (지금 16종 중 11종 - 도감이 "거의 다" 로 보이게).</summary>
+    /// <summary>찍을 때 보유한 것으로 둘 장식 (도감이 "절반 넘게" 로 보이게).</summary>
     private static readonly string[] StoreShotOwned =
     {
         "monkey_01", "monkey_02", "monkey_03", "monkey_04", "monkey_05",
+        "banana_01", "banana_02", "banana_03",
         "leaf_01", "chunk_01", "spark_01", "leaf_02",
         "halo_01", "ring_01",
     };
@@ -87,9 +88,9 @@ public partial class OverlayShell
         SaveData data = _save.Data;
         data.TotalKeystrokes = 48_213;
         data.OnboardingSeen = int.MaxValue;   // 처음 안내(B15)가 장면을 덮지 않게 - 안내는 따로 찍는다
-        data.Inventory.Equipped.Hang = "monkey_05";
-        data.Inventory.Equipped.Trail = "spark_01";
-        data.Inventory.Equipped.Base = "halo_01";
+        data.Inventory.Equipped.Monkey = "monkey_05";
+        data.Inventory.Equipped.Banana = "banana_03";
+        data.Inventory.Equipped.Deco = "spark_01";
 
         GD.Print($"[store-shot] 상태 준비 - 잔액 {economy.Balance}, 슬롯 {economy.Slots.Count}개, 보유 {StoreShotOwned.Length}종");
     }

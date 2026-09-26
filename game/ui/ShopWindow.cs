@@ -159,10 +159,12 @@ public partial class ShopWindow : CanvasLayer
 
             if (equipped)
             {
+                // 비울 수 없는 칸(원숭이·바나나)은 해제가 없다 - 다른 것을 끼우면 바뀐다.
+                bool canEmpty = ShopCatalog.CanBeEmpty(item.Slot);
                 row.State.Text = "장착 중";
                 row.State.AddThemeColorOverride("font_color", Accent);
-                row.Action.Text = "해제";
-                row.Action.Disabled = false;
+                row.Action.Text = canEmpty ? "해제" : "사용 중";
+                row.Action.Disabled = !canEmpty;
             }
             else if (owned)
             {
@@ -347,9 +349,9 @@ public partial class ShopWindow : CanvasLayer
         };
         rows.AddChild(tabs);
 
-        AddSlotTab(tabs, CursorSlot.Hang);
-        AddSlotTab(tabs, CursorSlot.Trail);
-        AddSlotTab(tabs, CursorSlot.Base);
+        AddSlotTab(tabs, CursorSlot.Monkey);
+        AddSlotTab(tabs, CursorSlot.Banana);
+        AddSlotTab(tabs, CursorSlot.Deco);
         AddUpgradeTab(tabs);
         AddCollectionTab(tabs);
     }
@@ -397,10 +399,14 @@ public partial class ShopWindow : CanvasLayer
         list.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(list);
 
-        // 슬롯을 비우는 줄. 상품이 아니라 조작이라 표(ShopCatalog)에 넣지 않는다.
-        var clear = new Button { Text = "이 슬롯 비우기" };
-        clear.Pressed += () => EquipRequested?.Invoke(slot, null);
-        list.AddChild(clear);
+        // 칸을 비우는 줄. 상품이 아니라 조작이라 표(ShopCatalog)에 넣지 않는다.
+        // 원숭이·바나나 칸은 비울 수 없다 (B17 - 바나나가 원숭이의 손잡이다).
+        if (ShopCatalog.CanBeEmpty(slot))
+        {
+            var clear = new Button { Text = "장식 빼기" };
+            clear.Pressed += () => EquipRequested?.Invoke(slot, null);
+            list.AddChild(clear);
+        }
 
         foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
         {
@@ -565,7 +571,7 @@ public partial class ShopWindow : CanvasLayer
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
         };
 
-        string path = $"res://assets/cursor/{item.Slot.ToString().ToLowerInvariant()}/{item.Id}.png";
+        string path = item.IconPath;
         if (ResourceLoader.Exists(path))
         {
             thumb.Texture = GD.Load<Texture2D>(path);

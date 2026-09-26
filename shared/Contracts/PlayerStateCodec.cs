@@ -12,12 +12,12 @@ namespace ProjectSeWoo.Shared;
 ///
 /// 형식 (리틀 엔디언, 총 20~120 바이트):
 /// <code>
-/// [0]     버전 (지금 1)
+/// [0]     버전 (지금 2 - 2026-09-26 B17: 장식 세 칸의 뜻이 원숭이/바나나/장식으로 바뀌었다. 1 과는 서로 버린다)
 /// [1..2]  KeystrokesInWindow (ushort)
 /// [3]     HarvestsInWindow (byte)
 /// [4..11] TotalKeystrokes (long)
 /// [12]    CollectionPercent (byte)
-/// [13..]  EquippedHang / Trail / Base - 각각 길이 1바이트 + ASCII. 길이 0xFF 는 null(빈 슬롯)
+/// [13..]  EquippedMonkey / Banana / Deco - 각각 길이 1바이트 + ASCII. 길이 0xFF 는 null(빈 슬롯)
 /// </code>
 ///
 /// <b>받은 것은 믿지 않는다.</b> 상대는 우리 게임이 아닐 수도 있다 - 로비 코드만 알면
@@ -25,7 +25,7 @@ namespace ProjectSeWoo.Shared;
 /// <list type="bullet">
 ///   <item>길이가 모자라거나 남으면 버린다.</item>
 ///   <item>장식 ID 는 <c>[a-z0-9_]</c> 1~<see cref="MaxIdLength"/> 글자만 받는다. 이 값이
-///   그대로 에셋 경로(<c>res://assets/cursor/{slot}/{id}.png</c>)에 들어가므로, <c>../</c>
+///   그대로 에셋 경로(<c>res://assets/cursor/{분류}/{id}/</c>, <see cref="ItemManifest.AssetDir"/>)에 들어가므로, <c>../</c>
 ///   같은 경로 조작을 여기서 끊는다. 카탈로그에 있는 ID 인지는 그리는 쪽이 한 번 더 본다.</item>
 ///   <item>수치 범위(한 창의 타건 수 등)는 연출하는 쪽이 자른다 - 형식은 값을 해석하지 않는다.</item>
 /// </list>
@@ -34,7 +34,7 @@ namespace ProjectSeWoo.Shared;
 /// </summary>
 public static class PlayerStateCodec
 {
-    public const byte Version = 1;
+    public const byte Version = 2;
 
     /// <summary>장식 ID 최대 길이. 지금 카탈로그에서 가장 긴 것이 12글자쯤이다.</summary>
     public const int MaxIdLength = 32;
@@ -54,9 +54,9 @@ public static class PlayerStateCodec
         buffer[12] = s.CollectionPercent;
 
         int at = 13;
-        at = WriteId(buffer, at, s.EquippedHang);
-        at = WriteId(buffer, at, s.EquippedTrail);
-        at = WriteId(buffer, at, s.EquippedBase);
+        at = WriteId(buffer, at, s.EquippedMonkey);
+        at = WriteId(buffer, at, s.EquippedBanana);
+        at = WriteId(buffer, at, s.EquippedDeco);
 
         return buffer.AsSpan(0, at).ToArray();
     }
@@ -71,9 +71,9 @@ public static class PlayerStateCodec
         }
 
         int at = 13;
-        if (!TryReadId(data, ref at, out string hang)
-            || !TryReadId(data, ref at, out string trail)
-            || !TryReadId(data, ref at, out string @base)
+        if (!TryReadId(data, ref at, out string monkey)
+            || !TryReadId(data, ref at, out string banana)
+            || !TryReadId(data, ref at, out string deco)
             || at != data.Length)
         {
             return false;
@@ -85,9 +85,9 @@ public static class PlayerStateCodec
             HarvestsInWindow = data[3],
             TotalKeystrokes = Math.Max(0, BinaryPrimitives.ReadInt64LittleEndian(data.Slice(4))),
             CollectionPercent = Math.Min(data[12], (byte)100),
-            EquippedHang = hang,
-            EquippedTrail = trail,
-            EquippedBase = @base,
+            EquippedMonkey = monkey,
+            EquippedBanana = banana,
+            EquippedDeco = deco,
         };
         return true;
     }
@@ -123,9 +123,9 @@ public static class PlayerStateCodec
             HarvestsInWindow = 1,
             TotalKeystrokes = 1_234_567_890_123,
             CollectionPercent = 56,
-            EquippedHang = "monkey_01",
-            EquippedTrail = null,
-            EquippedBase = "leaf_03",
+            EquippedMonkey = "monkey_01",
+            EquippedBanana = "banana_01",
+            EquippedDeco = null,
         };
 
         byte[] bytes = Encode(sample);
@@ -135,8 +135,8 @@ public static class PlayerStateCodec
         }
 
         // 받을 수 없는 ID 는 보낼 때 빈 슬롯이 된다.
-        byte[] traversal = Encode(sample with { EquippedHang = "../../evil" });
-        if (!TryDecode(traversal, out PlayerState cleaned) || cleaned.EquippedHang != null)
+        byte[] traversal = Encode(sample with { EquippedMonkey = "../../evil" });
+        if (!TryDecode(traversal, out PlayerState cleaned) || cleaned.EquippedMonkey != null)
         {
             return "경로 조작 ID 가 인코드에서 안 걸렀다";
         }

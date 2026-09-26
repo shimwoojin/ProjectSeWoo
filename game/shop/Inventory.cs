@@ -20,7 +20,7 @@ namespace ProjectSeWoo.Game;
 /// 이 클래스에 남은 로컬 상태는 **장착**(<see cref="SaveData.EquippedState"/>)
 /// 하나뿐이다 - 스팀은 "장착"을 모르는 개념이라 여기 남는다.
 ///
-/// <b>기본 지급품(<see cref="ShopCatalog.StarterId"/>)은 스팀 인벤토리에 없다.</b>
+/// <b>기본 지급품(tier 0 — 원숭이 하나, 바나나 하나)은 스팀 인벤토리에 없다.</b>
 /// 값이 0바나나라 마켓 거래 대상이 될 이유가 없고, 그래서 굳이 스팀에 그랜트를
 /// 걸지 않는다 - "가지고 있다"의 진실을 물을 필요 없이 <see cref="Owns"/> 가
 /// 항상 참으로 답한다.
@@ -96,9 +96,9 @@ public sealed class Inventory
 
     public string EquippedIn(CursorSlot slot) => slot switch
     {
-        CursorSlot.Hang => _equipped.Hang,
-        CursorSlot.Trail => _equipped.Trail,
-        CursorSlot.Base => _equipped.Base,
+        CursorSlot.Monkey => _equipped.Monkey,
+        CursorSlot.Banana => _equipped.Banana,
+        CursorSlot.Deco => _equipped.Deco,
         _ => null,
     };
 
@@ -131,7 +131,8 @@ public sealed class Inventory
     }
 
     /// <summary>
-    /// 슬롯에 끼운다. <paramref name="id"/> 가 null 이면 비운다. 로컬
+    /// 칸에 끼운다. <paramref name="id"/> 가 null 이면 비운다 - <b>원숭이·바나나 칸은 비울 수 없어서</b>
+    /// (<see cref="ShopCatalog.CanBeEmpty"/>) null 이면 그 칸의 기본 지급품으로 돌아간다. 로컬
     /// (<see cref="SaveData.EquippedState"/>)에 적고 커서 레이어에 민다 -
     /// 스팀에는 아무것도 쓰지 않는다(위 클래스 주석).
     ///
@@ -140,6 +141,7 @@ public sealed class Inventory
     /// </summary>
     public bool Equip(CursorSlot slot, string id)
     {
+        id ??= ShopCatalog.CanBeEmpty(slot) ? null : ShopCatalog.StarterFor(slot);
         if (id != null)
         {
             ShopCatalog.Item item = ShopCatalog.Find(id);
@@ -151,9 +153,9 @@ public sealed class Inventory
 
         switch (slot)
         {
-            case CursorSlot.Hang: _equipped.Hang = id; break;
-            case CursorSlot.Trail: _equipped.Trail = id; break;
-            case CursorSlot.Base: _equipped.Base = id; break;
+            case CursorSlot.Monkey: _equipped.Monkey = id; break;
+            case CursorSlot.Banana: _equipped.Banana = id; break;
+            case CursorSlot.Deco: _equipped.Deco = id; break;
             default: return false;
         }
 
@@ -175,7 +177,8 @@ public sealed class Inventory
             string id = EquippedIn(slot);
             if (id == null)
             {
-                _cursor?.Equip(slot, null);
+                // 원숭이·바나나가 빈 세이브(손으로 고친 것)는 기본 지급품을 끼운다 - Equip 이 null 을 그렇게 바꾼다.
+                Equip(slot, null);
                 continue;
             }
 
@@ -199,21 +202,27 @@ public sealed class Inventory
     }
 
     /// <summary>
-    /// 슬롯의 장착을 한 칸 돌린다 - "비움 → 가진 것들 → 다시 비움" 순서다.
+    /// 칸의 장착을 한 칸 돌린다 - "비움 → 가진 것들 → 다시 비움" 순서다. 비울 수 없는 칸(원숭이·바나나)은
+    /// "비움" 없이 가진 것들만 돈다.
     /// <b>가진 것만 돈다</b> - 안 가진 것을 끼울 길을 열면 상점을 건너뛰는 경로가 된다.
     /// </summary>
-    /// <returns>새로 장착된 id. 빈 슬롯이면 null.</returns>
+    /// <returns>새로 장착된 id. 빈 칸이면 null.</returns>
     public string CycleEquipped(CursorSlot slot)
     {
-        var options = new List<string> { null };
+        var options = new List<string>();
+        if (ShopCatalog.CanBeEmpty(slot))
+        {
+            options.Add(null);
+        }
+
         options.AddRange(ShopCatalog.ForSlot(slot).Where(i => Owns(i.Id)).Select(i => i.Id));
 
         // 지금 낀 것이 목록에 없으면(손으로 고친 세이브) IndexOf 가 -1 이라
-        // 다음이 0번(비움)이 된다 - 그게 안전한 쪽이다.
+        // 다음이 0번(비움 또는 기본 지급품)이 된다 - 그게 안전한 쪽이다.
         int next = (options.IndexOf(EquippedIn(slot)) + 1) % options.Count;
 
         Equip(slot, options[next]);
-        return options[next];
+        return EquippedIn(slot);
     }
 
     /// <summary>
