@@ -41,7 +41,7 @@
 | **실제 구매 한 건 - 끝까지 검증** | `--test-purchase=<id>` (GameRoot) | ☑ **2026-09-23** — §10. 구매→서버 차감→스팀 지급→인벤토리 재조회까지 전부 확인됨 |
 | Cloudflare 계정 셋업 + 실제 배포 | `punchmonkey-economy.shimwoojin627.workers.dev` | ☑ 배포됨. D1·시크릿·라우팅·스팀 직접 호출까지 전부 정상 확인 — §9 |
 | ~~스팀 Web API 호출이 워커에서 막힘~~ | `server/src/steam.ts` | ✅ **오판이었다 (§9).** 진짜 원인은 `wrangler secret put`의 대화형 입력이 빈 값을 저장한 것 - IP 차단은 없었다. AWS Lambda 릴레이(`server/aws-relay/`)는 만들어서 검증까지 했지만 필요 없어서 다시 뺐다(코드는 참고용으로 남겨둠) |
-| 스팀 인벤토리 서비스 아이템 정의 등록 | `server/steam-inventory/itemdefs.json` (2026-09-26 부터 `tools/make-itemdefs.py` 가 `game/shop/items.json` 에서 생성) | ◐ **B17: 20종(1~20)으로 늘어남 — 새로 올려 게시해야 한다** (docs/B17-CURSOR-REWORK.md §9-5). 이전: 15종(itemdefid 1~15) 등록·게시 완료. 아이콘은 GitHub raw URL(공개 저장소) 사용 — 더 안정적인 호스팅으로 나중에 옮기는 걸 고려할 것. 처음엔 `marketable: false`로 등록했다가 **2026-09-23 `marketable: true`로 재게시**(`09cb850`) — 마켓 신청 준비. 실제 거래 활성화는 밸브 승인이 따로 필요하다(§4) |
+| 스팀 인벤토리 서비스 아이템 정의 등록 | `server/steam-inventory/itemdefs.json` (2026-09-26 부터 `tools/make-itemdefs.py` 가 `game/shop/items.json` 에서 생성) | ☑ **B17: 20종(1~20) 2026-09-26 게시**, 풋바나나 구매·지급 확인 (docs/B17-CURSOR-REWORK.md §9-5). 이전: 15종(itemdefid 1~15) 등록·게시 완료. 아이콘은 GitHub raw URL(공개 저장소) 사용 — 더 안정적인 호스팅으로 나중에 옮기는 걸 고려할 것. 처음엔 `marketable: false`로 등록했다가 **2026-09-23 `marketable: true`로 재게시**(`09cb850`) — 마켓 신청 준비. 실제 거래 활성화는 밸브 승인이 따로 필요하다(§4) |
 | 스팀 커뮤니티 마켓 신청 | 파트너 사이트 / 밸브 지원 요청 | ⬜ 미착수 — 아이템 정의 쪽 준비(`marketable: true`)는 끝났다. 셀프서비스가 아니라 지원 요청(HelpWithPublishing)으로 보인다. **가장 먼저 넣어야 하는 항목 (§4)** |
 | `game/shop/Inventory.cs` · `GameRoot.cs` · `Tree.cs` 리와이어 | `game/` | ☑ 커밋 (2026-09-23) — §6. 세이브 스키마 v4(§6-1), 목으로 헤드리스 리포트 스모크 테스트 통과 |
 
