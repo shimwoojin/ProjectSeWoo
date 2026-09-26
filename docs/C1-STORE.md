@@ -167,8 +167,8 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 송이는 열 번 맞으면 떨어집니다. 자리를 비워도 나무는 자랍니다 — 돌아와서 수확하세요.
 
 **커서를 꾸미세요**
-바나나로 커서 장식을 삽니다. 커서에 매달리는 원숭이, 따라오는 잔상, 커서 밑의 바닥 장식 — 세 칸에
-16종. 커서 자체는 윈도우 기본 커서 그대로이고, 장식이 곁에 붙어 다닙니다. 모은 장식은 스팀 인벤토리에
+바나나로 커서 장식을 삽니다. 커서에 매달리는 원숭이, 따라오는 잔상, 커서 밑의 바닥 장식 — 세 칸을
+골라 끼우고, 장식은 업데이트로 계속 늘어납니다. 커서 자체는 윈도우 기본 커서 그대로이고, 장식이 곁에 붙어 다닙니다. 모은 장식은 스팀 인벤토리에
 들어갑니다.
 
 **나무를 키우세요**
@@ -205,7 +205,7 @@ bunch drops after ten hits. The tree keeps growing while you're away — come ba
 
 **Decorate your cursor**
 Spend bananas on cursor decorations: a monkey hanging from your cursor, a sparkling trail, a glow underneath —
-16 decorations across three slots. Your actual cursor stays the standard Windows cursor; the decorations
+mix and match across three slots, with more decorations arriving in updates. Your actual cursor stays the standard Windows cursor; the decorations
 tag along. Decorations you collect go into your Steam inventory.
 
 **Grow your tree**
@@ -243,7 +243,7 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 | 문장 | 근거 / 확인 |
 |---|---|
 | 열 번 맞으면 떨어진다 | `17ed534` 10타 수확 |
-| 16종, 세 칸 | B9 — 매달림 6 · 잔상 6 · 바닥 4 |
+| 세 칸, 업데이트로 늘어난다 | 지금 매달림 6 · 잔상 6 · 바닥 4 (B9). **개수를 문구에 박지 않는다** — 장식은 계속 늘어난다. 칸 이름은 커서 장식 재구성(원숭이 · 바나나 · 장식) 때 다시 고친다 |
 | 스팀 인벤토리에 들어간다 | ECONOMY-SERVER — 장식은 스팀 인벤토리 아이템 |
 | 황금 ×5, 세 축 이름 | B13-UPGRADES — **B14 밸런스에서 이름·배율이 바뀌면 같이 고친다** |
 | 친구 창 끌어서 두기, 로비 랭킹 | B10 · B12. **2계정 전체 시나리오 확인 전** — 공개 전에 한 번은 돌려 볼 것 |

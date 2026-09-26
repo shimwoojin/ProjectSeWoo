@@ -29,7 +29,7 @@
 | `ACH_SLOT_HANG` | Hanging Around / Collect every hanging decoration. | 매달림 수집가 / 매달림 장식을 모두 모은다. | 매달림 6종 (기본 지급품 포함) |
 | `ACH_SLOT_TRAIL` | Trailblazer / Collect every trail decoration. | 잔상 수집가 / 잔상 장식을 모두 모은다. | 잔상 6종 |
 | `ACH_SLOT_BASE` | Solid Ground / Collect every base decoration. | 바닥 수집가 / 바닥 장식을 모두 모은다. | 바닥 4종 |
-| `ACH_COLLECTION_100` | Complete Collection / Collect all 16 cursor decorations. | 도감 완성 / 커서 장식 16종을 모두 모은다. | 도감 16/16 (§3-3) |
+| `ACH_COLLECTION_100` | Complete Collection / Collect every cursor decoration. | 도감 완성 / 커서 장식을 모두 모은다. | 도감 100% (§3-3) — 장식이 늘면 조건도 같이 는다. 이미 딴 사람은 그대로(스팀은 해금을 되돌리지 않는다) |
 | `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
 
 - 누적 타수의 "Lv." 은 `KeystrokeLevel` 곡선 기준이다. 체감 기간(첫날 / 하루 이틀 / 1~2주 /
@@ -192,7 +192,7 @@ Stat)를 연결해야 나온다.
 | 누적 타수 4개 | 펀치하는 원숭이 + 숫자 배지 | 테두리가 단계를 가른다 — 1K 동 · 10K 은 · 100K 금 · 1M 다이아 |
 | 첫 구매 | 노랑 원숭이(첫 티어 장식) + 바나나 | 초록 |
 | 매달림 / 잔상 / 바닥 수집가 | 각 슬롯의 최고 티어 장식 | 보라 / 청록 / 갈색 |
-| 도감 완성 | 바나나가 가득한 나무 + `16/16` | 금, 굵은 테두리 |
+| 도감 완성 | 바나나가 가득한 나무 + `100%` (2026-09-26 전엔 `16/16` — 장식이 늘어나므로 개수를 안 쓴다) | 금, 굵은 테두리 |
 | 같이 치자 | 원숭이 둘 | 파랑 |
 
 미달성은 흑백 + 밝기 55% + 대비 80% — 모양은 남겨서 무엇을 해야 하는지 짐작하게 한다.

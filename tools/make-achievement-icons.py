@@ -145,7 +145,7 @@ def collection():
     c = gradient((206, 160, 40), (92, 58, 8))
     paste_with_shadow(c, fit(asset("entities", "tree_full.png"), 196), (SIZE / 2, SIZE / 2 + 6))
     frame(c, GOLD, width=12)
-    badge(c, "16/16", (200, 140, 20, 235))
+    badge(c, "100%", (200, 140, 20, 235))   # 개수(16/16)를 쓰지 않는다 - 장식은 업데이트로 늘어난다
     return c
 
 

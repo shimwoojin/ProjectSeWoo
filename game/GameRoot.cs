@@ -875,7 +875,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     /// <summary>
     /// [디버그, Shift+B] 전 상품 지급 + 바나나. C1 스크린샷처럼 장식 조합을
-    /// 이것저것 갈아끼워 봐야 할 때 쓴다. 정상 플레이로 16종을 다 모으려면
+    /// 이것저것 갈아끼워 봐야 할 때 쓴다. 정상 플레이로 지금의 16종을 다 모으려면
     /// 6,600 바나나(기본 획득량 기준 약 300시간)가 든다.
     ///
     /// <b>릴리스 빌드에는 이 경로가 없다</b> (<see cref="OS.IsDebugBuild"/>).
@@ -1060,7 +1060,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <see cref="CheckMilestones"/> 와 같은 경계다. 스팀이 안 붙어 있으면 호출이
     /// 조용히 버려지므로 분기하지 않는다.
     ///
-    /// 진행도는 구매마다 한 번씩만 움직인다(16종이라 한 칸이 6.25%다). 그래서
+    /// 진행도는 구매마다 한 번씩만 움직인다(지금 16종이라 한 칸이 6.25%다). 그래서
     /// 마일스톤처럼 구간을 따로 끊지 않고 그대로 올린다.
     /// </summary>
     private void CheckCollection()

@@ -30,7 +30,7 @@ public partial class OverlayShell
     /// </summary>
     private const float StoreShotScale = 1.5f;
 
-    /// <summary>찍을 때 보유한 것으로 둘 장식 (16종 중 11종 - 도감이 "거의 다" 로 보이게).</summary>
+    /// <summary>찍을 때 보유한 것으로 둘 장식 (지금 16종 중 11종 - 도감이 "거의 다" 로 보이게).</summary>
     private static readonly string[] StoreShotOwned =
     {
         "monkey_01", "monkey_02", "monkey_03", "monkey_04", "monkey_05",

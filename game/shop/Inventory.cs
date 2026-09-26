@@ -91,7 +91,7 @@ public sealed class Inventory
     /// <summary>도감이 슬롯별 진행도를 그릴 때 쓴다 (B7).</summary>
     public int OwnedInSlot(CursorSlot slot) => ShopCatalog.ForSlot(slot).Count(i => Owns(i.Id));
 
-    /// <summary>16종을 전부 모았는가 (§3-3, <see cref="AchievementIds.Collection100"/>).</summary>
+    /// <summary>카탈로그의 장식을 전부 모았는가 - 장식이 늘면 조건도 같이 는다 (§3-3, <see cref="AchievementIds.Collection100"/>).</summary>
     public bool IsComplete => ShopCatalog.All.All(i => Owns(i.Id));
 
     public string EquippedIn(CursorSlot slot) => slot switch
