@@ -44,8 +44,12 @@ public partial class MonkeyRig : Node2D
 
     // --- 조정 표 (체감으로 맞춘다 - B17 §5) ---------------------------------------------------
 
-    /// <summary>가만히 숨만 쉴 때의 갱신 빈도. 움직이는 동안은 매 프레임이다.</summary>
-    public const float IdleHz = 20f;
+    /// <summary>
+    /// 가만히 숨만 쉴 때의 갱신 빈도. 움직이는 동안은 매 프레임이다. 20 에서 10 으로 내렸다 (2026-09-27) - 숨쉬기 진폭이
+    /// 0.5px 라 초당 20번 다시 그려도 눈에 차이가 없고, 유휴 부하의 대부분이 이것이었다. 장식(<see cref="DecoView"/>)도 이 값을
+    /// 쓴다 - 후광 회전·떠 있는 장식은 한 번에 1px 안쪽으로 움직여 10Hz 에서도 끊겨 보이지 않는다.
+    /// </summary>
+    public const float IdleHz = 10f;
 
 
     /// <summary>커서 속도(px/s)가 이보다 크면 흔들림, 그 위는 버둥.</summary>
@@ -54,8 +58,12 @@ public partial class MonkeyRig : Node2D
     /// <summary>커서 가속도(px/s², 살짝 거른 값)가 이보다 크면 손을 놓친다.</summary>
     private const float DropAccel = 26000f;
 
-    /// <summary>입력·이동이 이만큼(초) 없으면 존다. 졸기 들어가고 이만큼 뒤 멈춘다.</summary>
-    private const float SleepAfter = 180f, FreezeAfter = 4f;
+    /// <summary>
+    /// 입력·이동이 이만큼(초) 없으면 존다. 졸기 들어가고 이만큼 뒤 멈춘다(<see cref="IsFrozen"/> - 다시 그리지 않는다).
+    /// 180 에서 60 으로 줄였다 (2026-09-27) - 타이핑·마우스가 1분 없으면 자리를 비운 것이고, 멈추기 전까지는 숨쉬기와
+    /// 대기 동작으로 계속 그린다. 커서를 움직이거나 치면 바로 깬다.
+    /// </summary>
+    private const float SleepAfter = 60f, FreezeAfter = 4f;
 
     // 진자. 예전 값(중력 1400, 감쇠 3.8, 가속 상한 12000, 가속도를 안 거름)은 흔들림이 급작스러웠다 (2026-09-26 갑) -
     // 주기를 늘리고(중력↓), 커서 가속도를 부드럽게 거른 뒤(AccelSmoothing), 상한을 낮췄다.
