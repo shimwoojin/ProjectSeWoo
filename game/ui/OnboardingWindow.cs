@@ -17,8 +17,11 @@ namespace ProjectSeWoo.Game;
 /// </summary>
 public partial class OnboardingWindow : CanvasLayer
 {
-    /// <summary>안내의 판(版). 세이브의 <c>onboardingSeen</c> 이 이보다 작으면 켤 때 연다.</summary>
-    public const int Version = 1;
+    /// <summary>
+    /// 안내의 판(版). 세이브의 <c>onboardingSeen</c> 이 이보다 작으면 켤 때 연다.
+    /// 2 (2026-09-27): 화면 버튼 넷이 [메뉴] 하나가 되면서 셋째 장이 바뀌었다 - 이미 본 사람도 한 번 더 본다.
+    /// </summary>
+    public const int Version = 2;
 
     /// <summary>상점(105)·로비(106) 위, 옵션(110) 아래 - 처음 켠 사람이 옵션부터 열어도 옵션이 보여야 한다.</summary>
     private const int LayerIndex = 107;

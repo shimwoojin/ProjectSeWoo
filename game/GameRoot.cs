@@ -164,6 +164,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _onboarding = GetNode<OnboardingWindow>("OnboardingWindow");
         _menu = GetNode<MenuHub>("MenuHub");
         _menuButton = GetNode<Button>("MenuButton");
+        MenuHub.StyleOpenButton(_menuButton);
 
         _slotTip = new SlotTooltip { Name = "SlotTooltip" };
         AddChild(_slotTip);

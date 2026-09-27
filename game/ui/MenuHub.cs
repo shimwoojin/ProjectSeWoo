@@ -212,6 +212,40 @@ public partial class MenuHub : CanvasLayer
 
     // ------------------------------------------------------------------ UI 구성
 
+    /// <summary>
+    /// 나무 아래 [메뉴] 버튼의 모양. 기본 테마의 회색 사각형은 바탕화면 위 만화풍 나무·원숭이 옆에서 혼자
+    /// 윈도우 대화상자처럼 보였다 - 그림처럼 굵은 어두운 외곽선에 줄기 색 알약으로 맞춘다.
+    /// </summary>
+    public static void StyleOpenButton(Button button)
+    {
+        button.AddThemeStyleboxOverride("normal", Pill(new Color(0.56f, 0.37f, 0.20f)));
+        button.AddThemeStyleboxOverride("hover", Pill(new Color(0.66f, 0.45f, 0.25f)));
+        button.AddThemeStyleboxOverride("pressed", Pill(new Color(0.45f, 0.29f, 0.15f)));
+        button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
+
+        var cream = new Color(1.00f, 0.95f, 0.82f);
+        button.AddThemeColorOverride("font_color", cream);
+        button.AddThemeColorOverride("font_hover_color", Colors.White);
+        button.AddThemeColorOverride("font_pressed_color", cream);
+        button.AddThemeColorOverride("font_outline_color", new Color(0.12f, 0.07f, 0.03f, 0.9f));
+        button.AddThemeConstantOverride("outline_size", 3);
+        button.AddThemeFontSizeOverride("font_size", 14);
+        button.FocusMode = Control.FocusModeEnum.None;
+    }
+
+    private static StyleBoxFlat Pill(Color fill)
+    {
+        var box = new StyleBoxFlat
+        {
+            BgColor = fill,
+            BorderColor = new Color(0.14f, 0.09f, 0.05f),
+        };
+        box.SetBorderWidthAll(2);
+        box.SetCornerRadiusAll(13);
+        box.SetContentMarginAll(2);
+        return box;
+    }
+
     private void BuildUi()
     {
         var margin = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Ignore };

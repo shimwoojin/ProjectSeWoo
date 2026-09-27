@@ -25,6 +25,8 @@ public partial class OptionsWindow : CanvasLayer
     private CheckBox _autostart;
     private PanelContainer _panel;
     private MarginContainer _margin;
+    private Button _closeButton;
+    private HSeparator _closeRule;
 
     /// <summary>기본 위쪽 여백. <see cref="SetTopInset"/> 이 이보다 작게는 안 줄인다.</summary>
     private const int MarginTop = 12;
@@ -65,9 +67,23 @@ public partial class OptionsWindow : CanvasLayer
     /// <summary>
     /// 패널이 시작할 높이. 게임 메뉴(MenuHub)에서 열면 그 탭 줄이 창 위를 덮고 있어서 줄 아래로 내린다 -
     /// 트레이에서 열면 0 이라 기본 여백(<see cref="MarginTop"/>)을 쓴다 (IShell.OpenOptions).
+    ///
+    /// <b>메뉴 안에서는 상점·강화·로비 창과 같은 모양이 된다</b> (2026-09-27): 창 아래까지 채우고, 옆·아래 여백을
+    /// 그 창들과 같은 10 으로, 자기 [닫기] 는 숨긴다 - 탭 줄에 [닫기] 가 있다. 전에는 탭을 옮길 때 설정만 짧은
+    /// 패널로 떠서 아래로 게임 화면이 비쳤다. 트레이에서 열면 예전 모양 그대로다.
     /// </summary>
-    public void SetTopInset(float inset) =>
+    public void SetTopInset(float inset)
+    {
+        bool inMenu = inset > 0f;
+        int side = inMenu ? 10 : MarginTop;
         _margin.AddThemeConstantOverride("margin_top", Math.Max(MarginTop, Mathf.RoundToInt(inset)));
+        _margin.AddThemeConstantOverride("margin_left", side);
+        _margin.AddThemeConstantOverride("margin_right", side);
+        _margin.AddThemeConstantOverride("margin_bottom", side);
+        _panel.SizeFlagsVertical = inMenu ? Control.SizeFlags.ExpandFill : Control.SizeFlags.Fill;
+        _closeButton.Visible = !inMenu;
+        _closeRule.Visible = !inMenu;
+    }
 
     public void Close()
     {
@@ -154,11 +170,12 @@ public partial class OptionsWindow : CanvasLayer
         rows.AddChild(MakeCheckRow("Windows 시작 시 자동 실행", out _autostart));
         _autostart.Toggled += on => Relay(() => AutostartChanged?.Invoke(on));
 
-        rows.AddChild(new HSeparator());
+        _closeRule = new HSeparator();
+        rows.AddChild(_closeRule);
 
-        var closeBtn = new Button { Text = "닫기" };
-        closeBtn.Pressed += Close;
-        rows.AddChild(closeBtn);
+        _closeButton = new Button { Text = "닫기" };
+        _closeButton.Pressed += Close;
+        rows.AddChild(_closeButton);
     }
 
     /// <summary><see cref="_initializing"/> 중에는 이벤트를 막는다.</summary>
@@ -206,8 +223,69 @@ public partial class OptionsWindow : CanvasLayer
         var row = new HBoxContainer();
         box = new CheckBox { Text = label };
         box.AddThemeFontSizeOverride("font_size", 12);
+        box.AddThemeIconOverride("unchecked", CheckIcons.Unchecked);
+        box.AddThemeIconOverride("checked", CheckIcons.Checked);
+        box.AddThemeIconOverride("unchecked_disabled", CheckIcons.UncheckedDisabled);
+        box.AddThemeIconOverride("checked_disabled", CheckIcons.CheckedDisabled);
         row.AddChild(box);
         return row;
+    }
+
+    /// <summary>
+    /// 체크박스 아이콘. <b>기본 테마의 빈 칸은 어두운 칸에 어두운 테두리라 이 창 배경 위에서 거의 안 보였다</b>
+    /// (2026-09-27) - "위치 잠금" 처럼 꺼진 옵션은 체크박스가 있다는 것조차 안 읽혔다. 밝은 테두리의 빈 칸과
+    /// 창 테두리 색으로 채운 체크 칸을 코드로 그린다(그림 파일을 따로 두지 않는다 - 16px 두 장이다).
+    /// </summary>
+    private static class CheckIcons
+    {
+        private const int Size = 16;
+        private static readonly Color Border = new(0.70f, 0.76f, 0.84f);
+        private static readonly Color Empty = new(0.10f, 0.13f, 0.18f);
+        private static readonly Color Fill = new(0.30f, 0.55f, 0.75f);
+
+        public static readonly Texture2D Unchecked = Draw(check: false, alpha: 1f);
+        public static readonly Texture2D Checked = Draw(check: true, alpha: 1f);
+        public static readonly Texture2D UncheckedDisabled = Draw(check: false, alpha: 0.4f);
+        public static readonly Texture2D CheckedDisabled = Draw(check: true, alpha: 0.4f);
+
+        private static Texture2D Draw(bool check, float alpha)
+        {
+            Image image = Image.CreateEmpty(Size, Size, false, Image.Format.Rgba8);
+            for (int y = 1; y < Size - 1; y++)
+            {
+                for (int x = 1; x < Size - 1; x++)
+                {
+                    bool edge = x <= 2 || y <= 2 || x >= Size - 3 || y >= Size - 3;
+                    Color c = edge ? (check ? Fill.Lightened(0.25f) : Border) : (check ? Fill : Empty);
+                    image.SetPixel(x, y, c with { A = alpha });
+                }
+            }
+
+            if (check)
+            {
+                // 흰 체크 표시: (4,8) → (7,11) → (12,5), 두께 2px
+                Line(image, new Vector2(4, 8), new Vector2(7, 11), alpha);
+                Line(image, new Vector2(7, 11), new Vector2(12, 5), alpha);
+            }
+
+            return ImageTexture.CreateFromImage(image);
+        }
+
+        private static void Line(Image image, Vector2 from, Vector2 to, float alpha)
+        {
+            int steps = Mathf.CeilToInt(from.DistanceTo(to) * 3f);
+            for (int i = 0; i <= steps; i++)
+            {
+                Vector2 p = from.Lerp(to, i / (float)steps);
+                for (int dy = 0; dy <= 1; dy++)
+                {
+                    for (int dx = 0; dx <= 1; dx++)
+                    {
+                        image.SetPixel(Mathf.RoundToInt(p.X) + dx - 1, Mathf.RoundToInt(p.Y) + dy - 1, Colors.White with { A = alpha });
+                    }
+                }
+            }
+        }
     }
 
     private static StyleBoxFlat MakeBackground()
