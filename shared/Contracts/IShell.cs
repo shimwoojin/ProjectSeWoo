@@ -31,14 +31,28 @@ public interface IShell
     Rect2I GetSafeArea();
 
     /// <summary>
-    /// 옵션 창을 연다(이미 열려 있으면 닫는다). 게임 화면의 [옵션] 버튼이 부른다 (2026-09-24).
+    /// 옵션 창을 연다. 게임 화면의 메뉴(<c>MenuHub</c>) "설정" 탭이 부른다 (2026-09-27).
     ///
     /// 옵션 창은 셸 소유다 — 설정 저장·자동 시작·클릭 통과를 셸이 적용한다. 버튼을 셸이 직접
-    /// 그리지 않고 게임 레이어가 상점·멀티 옆에 두는 이유는 클릭 통과 영역이 사각형 하나라서다
+    /// 그리지 않고 게임 레이어가 메뉴 안에 두는 이유는 클릭 통과 영역이 사각형 하나라서다
     /// (<c>WindowSetMousePassthrough</c> 는 다각형 하나만 받는다). 버튼이 다른 구석에 있으면 그
-    /// 사이 빈 공간까지 클릭을 먹는다. 전에는 디버그 키 O 로만 열려서 유저가 열 길이 트레이뿐이었다.
+    /// 사이 빈 공간까지 클릭을 먹는다.
+    ///
+    /// <paramref name="topInset"/> 은 패널이 시작할 높이(창 px)다 - 그 위를 메뉴의 탭 줄이 덮는다.
+    /// 트레이에서 열 때는 0 이다(기본 여백).
     /// </summary>
-    void ToggleOptions();
+    void OpenOptions(float topInset);
+
+    /// <summary>옵션 창을 닫는다. 이미 닫혀 있으면 아무 일도 없다.</summary>
+    void CloseOptions();
+
+    bool IsOptionsOpen { get; }
+
+    /// <summary>
+    /// 옵션 창이 닫혔다 - 누가 닫았든(창의 [닫기], Esc, <see cref="CloseOptions"/>). 메뉴가 탭 줄을
+    /// 같이 걷을지 판단하는 데 쓴다.
+    /// </summary>
+    event System.Action OptionsClosed;
 
     /// <summary>
     /// 작은 창을 하나 띄운다 (B10 친구 칸, <see cref="ISatelliteWindow"/>).

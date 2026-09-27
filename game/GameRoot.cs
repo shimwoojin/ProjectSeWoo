@@ -40,16 +40,31 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private Monkey _monkey;
     private StatusHud _hud;
     private ShopWindow _shop;
-    private Button _shopButton;
+    private UpgradeWindow _upgrade;
     private RoomWindow _roomWindow;
-    private Button _roomButton;
 
-    /// <summary>옵션 창을 여는 버튼. 창은 셸 소유라 <see cref="IShell.ToggleOptions"/> 로 연다.</summary>
-    private Button _optionsButton;
+    /// <summary>
+    /// 상점 · 강화 · 멀티 · 설정을 오가는 탭 줄. 화면에는 [메뉴] 버튼 하나만 둔다 (2026-09-27) - 예전엔
+    /// 버튼 넷이 나무 아래에 나란히 있었다.
+    /// </summary>
+    private MenuHub _menu;
+    private Button _menuButton;
 
-    /// <summary>처음 안내 (B15). 처음 켤 때 저절로 열리고, [?] 로 다시 연다.</summary>
+    /// <summary>처음 안내 (B15). 처음 켤 때 저절로 열리고, 메뉴의 [안내] 로 다시 연다.</summary>
     private OnboardingWindow _onboarding;
-    private Button _helpButton;
+
+    /// <summary>송이에 마우스를 올리면 뜨는 "언제 열리나" 말풍선.</summary>
+    private SlotTooltip _slotTip;
+
+    /// <summary>말풍선이 가리키는 슬롯. -1 이면 안 떠 있다.</summary>
+    private int _hoverSlot = -1;
+
+    /// <summary>
+    /// 말풍선 카운트다운을 다시 쓰는 주기(초). 글자가 초 단위라 매 프레임 볼 이유가 없다 (§7-3).
+    /// </summary>
+    private const double SlotTipRefreshSec = 0.25;
+
+    private double _sinceSlotTip;
 
     /// <summary>
     /// 룸 창과 멀티 세션 사이 배선 (B12). <see cref="AttachPlatform"/> 전까지는 널이다 -
@@ -126,9 +141,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private bool _cheated;
 
-    /// <summary>직전 프레임의 레벨. 레벨업 순간을 잡는 데만 쓴다.</summary>
-    private int _level = 1;
-
     /// <summary>
     /// 세이브 객체의 소유자. <b>셸과 같은 인스턴스를 본다</b>
     /// (shared/Contracts/ISaveStore.cs) - 여기를 고치고 <c>MarkDirty()</c> 를
@@ -147,19 +159,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _monkey = GetNode<Monkey>("Monkey");
         _hud = GetNode<StatusHud>("StatusHud");
         _shop = GetNode<ShopWindow>("ShopWindow");
-        _shopButton = GetNode<Button>("ShopButton");
+        _upgrade = GetNode<UpgradeWindow>("UpgradeWindow");
         _roomWindow = GetNode<RoomWindow>("RoomWindow");
-        _roomButton = GetNode<Button>("RoomButton");
-        _optionsButton = GetNode<Button>("OptionsButton");
         _onboarding = GetNode<OnboardingWindow>("OnboardingWindow");
-        _helpButton = GetNode<Button>("HelpButton");
+        _menu = GetNode<MenuHub>("MenuHub");
+        _menuButton = GetNode<Button>("MenuButton");
 
-        _shopButton.Pressed += ToggleShop;
-        _roomButton.Pressed += ToggleRoom;
-        _optionsButton.Pressed += () => _platform?.Shell.ToggleOptions();
-        _helpButton.Pressed += OpenOnboarding;
+        _slotTip = new SlotTooltip { Name = "SlotTooltip" };
+        AddChild(_slotTip);
+
+        _menu.Bind(_shop, _upgrade, _roomWindow);
+        _menu.HelpRequested += OpenOnboarding;
+        _menuButton.Pressed += ToggleMenu;
         _onboarding.Finished += OnOnboardingFinished;
-        _shop.UpgradeRequested += OnUpgradeRequested;
+        _upgrade.UpgradeRequested += OnUpgradeRequested;
+        _upgrade.Opened += OnShopOpened;
         _shop.BuyRequested += OnBuyRequested;
         _shop.Opened += OnShopOpened;
         _shop.EquipRequested += OnEquipRequested;
@@ -189,6 +203,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _store = platform.Save;
         _platform.Input.OnKeystrokes += OnKeystrokes;
         _platform.Economy.OnStateChanged += OnEconomyStateChanged;
+        _menu.BindShell(_platform.Shell);
 
         // 목 경제는 가격표를 받아야 판다. 실물은 서버가 자기 사본(server/src/catalog.ts)으로
         // 판정하지만 목에는 표가 없어서, 9/23 리와이어 뒤로 **디버그 상점 구매가 전부
@@ -272,7 +287,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _inventory.ApplyEquippedToCursor();
         _collectionDone = _inventory.IsComplete;
         _achievementsSynced = false;
-        RefreshCollectionHud();
         PersistNow();
         GD.Print($"[game] 보유 목록 늦게 도착 - 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
     }
@@ -295,7 +309,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
     }
 
-    /// <summary>상점을 열 때 서버에 안 붙어 있으면 바로 한 번 붙어 본다 - 세션 토큰이
+    /// <summary>상점·강화 창을 열 때 서버에 안 붙어 있으면 바로 한 번 붙어 본다 - 세션 토큰이
     /// 막 만료된 것뿐인데 다음 재동기화까지 "오프라인" 으로 보이면 안 된다.</summary>
     private void OnShopOpened()
     {
@@ -371,14 +385,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             if (arrived.Count > 0)
             {
                 GD.Print($"[game] 스팀 인벤토리 도착 - {string.Join(", ", arrived)}");
-                RefreshCollectionHud();
                 CheckCollection();
             }
 
-            if (_shop.IsOpen)
-            {
-                _shop.Refresh();
-            }
+            RefreshOpenWindows();
         }
         catch (Exception e)
         {
@@ -412,10 +422,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
                 }
             }
 
-            if (_shop.IsOpen)
-            {
-                _shop.Refresh();
-            }
+            RefreshOpenWindows();
         }
         catch (Exception e)
         {
@@ -480,11 +487,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _inventory = new Inventory(Save.Inventory.Equipped, _platform.Economy, _platform.Inventory, _platform.Cursor);
         _inventory.ApplyEquippedToCursor();
         _shop.Bind(_inventory);
+        _upgrade.Bind(_inventory);
 
         // 이미 넘어선 마일스톤은 세션 시작 시점에 지나간 것으로 잡는다. 안 그러면
         // 켤 때마다 예전에 딴 도전과제를 다시 Unlock 한다 - 스팀이 무시하긴 하지만
         // 부를 이유가 없고, 진행도 토스트가 엉뚱한 구간에서 뜬다.
-        _level = KeystrokeLevel.LevelFor(Save.TotalKeystrokes);
         while (_nextMilestone < AchievementIds.KeystrokeMilestones.Length
             && Save.TotalKeystrokes >= AchievementIds.KeystrokeMilestones[_nextMilestone].Threshold)
         {
@@ -493,13 +500,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         _hud.SetBananas(_platform.Economy.Balance);
         _hud.SetKeystrokes(Save.TotalKeystrokes);
-        RefreshCollectionHud();
+        _hud.SetPlayerName(_platform.Net.SelfName);
 
         // 이미 다 모은 세이브면 해금은 건너뛰고 상태만 맞춘다 (위 주석 참고).
         _collectionDone = _inventory.IsComplete;
 
         GD.Print($"[game] 세이브 로드 - 바나나 {_platform.Economy.Balance}, 누적 {Save.TotalKeystrokes}타"
-            + $" (Lv.{_level}), 슬롯 {_platform.Economy.Slots.Count}개"
+            + $", 슬롯 {_platform.Economy.Slots.Count}개"
             + $", 보유 장식 {_inventory.OwnedCount}/{ShopCatalog.All.Length}");
 
         // 처음 켰으면(또는 안내가 새 판이면) 안내부터 (B15). 첫 장이 개인정보 문구다 (§7-6).
@@ -554,6 +561,119 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             UpdateOfflineNotice();
             _room.Tick(delta);
             _stateSender.Tick(delta);
+            TickSlotTip(delta);
+        }
+    }
+
+    /// <summary>
+    /// 마우스가 움직일 때만 어느 송이 위인지 다시 본다. <b>우리 창 안의 이벤트만 쓴다</b> - 전역 커서
+    /// 좌표를 따로 읽지 않는다. 나무는 클릭 영역(<see cref="GetClickableBounds"/>) 안이라 이벤트가 온다.
+    /// </summary>
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventMouseMotion motion)
+        {
+            // 이벤트 좌표(뷰포트)를 캔버스 전역으로. GetGlobalMousePosition 은 OS 커서를 다시 읽는다 - 이벤트가 준 값을 쓴다.
+            UpdateSlotHover(GetViewport().GetCanvasTransform().AffineInverse() * motion.Position);
+        }
+    }
+
+    public override void _Notification(int what)
+    {
+        // 창 밖(또는 클릭 통과 영역)으로 나가면 더는 움직임 이벤트가 안 온다 - 여기서 걷지 않으면 말풍선이 남는다.
+        if (what == NotificationWMMouseExit)
+        {
+            HideSlotTip();
+        }
+    }
+
+    private void UpdateSlotHover(Vector2 global)
+    {
+        if (_platform == null || _menu.IsOpen || _onboarding.IsOpen)
+        {
+            HideSlotTip();
+            return;
+        }
+
+        int index = _tree.SlotAt(global);
+        if (index == _hoverSlot)
+        {
+            return;
+        }
+
+        _hoverSlot = index;
+        if (index < 0)
+        {
+            HideSlotTip();
+            return;
+        }
+
+        RefreshSlotTip();
+    }
+
+    /// <summary>떠 있는 동안 카운트다운·남은 타격을 고친다. 메뉴가 열리거나 슬롯이 줄면 걷는다.</summary>
+    private void TickSlotTip(double delta)
+    {
+        if (_hoverSlot < 0)
+        {
+            return;
+        }
+
+        if (_menu.IsOpen || _onboarding.IsOpen)
+        {
+            HideSlotTip();
+            return;
+        }
+
+        _sinceSlotTip += delta;
+        if (_sinceSlotTip >= SlotTipRefreshSec)
+        {
+            RefreshSlotTip();
+        }
+    }
+
+    private void RefreshSlotTip()
+    {
+        _sinceSlotTip = 0;
+        IReadOnlyList<SlotState> slots = _platform.Economy.Slots;
+        if (_hoverSlot >= slots.Count)
+        {
+            HideSlotTip();
+            return;
+        }
+
+        _slotTip.ShowSlot(slots[_hoverSlot], _tree.HitsOf(_hoverSlot));
+
+        // 송이 바로 위, 가운데 맞춤. 크기는 글자에 따라 바뀌므로 최소 크기로 잰다 - 레이아웃 전이면 Size 가 0 이다.
+        Vector2 size = _slotTip.GetCombinedMinimumSize();
+        _slotTip.Size = size;
+        Vector2 fruit = _tree.PositionOf(_hoverSlot);
+        Rect2 view = ViewportIn(this);
+        float x = Mathf.Clamp(fruit.X - size.X / 2f, view.Position.X + 4f, view.End.X - size.X - 4f);
+        float y = Mathf.Max(view.Position.Y + 4f, fruit.Y - 34f - size.Y);
+        _slotTip.Position = new Vector2(x, y);
+    }
+
+    private void HideSlotTip()
+    {
+        _hoverSlot = -1;
+        _slotTip.Visible = false;
+    }
+
+    /// <summary>
+    /// 메뉴가 열려 있으면 Esc 는 메뉴를 닫는다(로비는 팝업부터).
+    ///
+    /// <b>여기서 받아야 한다.</b> 셸도 Esc 를 <c>_UnhandledKeyInput</c> 에서 잡는데(OverlayShell.DebugKeys),
+    /// 옵션 창이 닫혀 있으면 <b>게임을 끈다</b>. <c>_UnhandledKeyInput</c> 은 <c>_UnhandledInput</c> 보다 먼저
+    /// 돌아서, 예전에 <c>_UnhandledInput</c> 에 있던 "Esc 로 상점 닫기" 는 한 번도 닿지 않고 상점에서 Esc 를
+    /// 누르면 게임이 꺼졌다. 같은 콜백 안에서는 자식이 부모보다 먼저 받으므로 여기서 처리하고 막는다.
+    /// </summary>
+    public override void _UnhandledKeyInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } && _menu.IsOpen)
+        {
+            _menu.Back();
+            GetViewport().SetInputAsHandled();
         }
     }
 
@@ -595,7 +715,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             }
             else
             {
-                ToggleShop();
+                ToggleMenu(MenuHub.Tab.Shop);
             }
 
             return;
@@ -615,7 +735,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             }
             else
             {
-                ToggleRoom();
+                ToggleMenu(MenuHub.Tab.Room);
             }
 
             return;
@@ -644,18 +764,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             return;
         }
 
-        if (key.Keycode == Key.Escape && _roomWindow.IsOpen)
-        {
-            _roomWindow.Back();
-            return;
-        }
-
-        if (key.Keycode == Key.Escape && _shop is { IsOpen: true })
-        {
-            _shop.Close();
-            return;
-        }
-
         // 목은 수동으로 먹여야 타건이 생긴다. **실물일 때는 부르지 않는다** -
         // A4 는 포커스 없이 전역으로 이미 세고 있어서, 여기서 또 먹이면 창에
         // 포커스가 있는 동안만 두 배로 수확된다.
@@ -671,8 +779,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         GetTree().CreateTimer(contact).Timeout += SpawnPunchEffect;
 
         // 누적 타수는 재화가 아니라 기록이다 (§6). 수확 여부와 무관하게 센다 -
-        // 빈 나무를 쳐도 타수는 늘어야 "논 시간" 이 레벨에 반영된다. 레벨 환산과
-        // 마일스톤 도전과제(AchievementIds)는 B3 가 이 값 위에 올린다.
+        // 빈 나무를 쳐도 타수는 늘어야 "논 시간" 이 기록에 반영된다. 마일스톤
+        // 도전과제(AchievementIds)가 이 값 위에 올라간다.
         Save.TotalKeystrokes += count;
         PushKeystrokeStat();
 
@@ -740,7 +848,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         _hud.SetKeystrokes(Save.TotalKeystrokes);
-        CheckLevelUp();
         CheckMilestones();
 
         // 수확이 없어도 누적 타수가 늘었으므로 저장 대상이다.
@@ -758,21 +865,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         return -1;
-    }
-
-    /// <summary>
-    /// 레벨이 올랐으면 알린다. 지금은 로그 한 줄이고, 연출은 B2 가 붙인다 (§2-3).
-    /// </summary>
-    private void CheckLevelUp()
-    {
-        int now = KeystrokeLevel.LevelFor(Save.TotalKeystrokes);
-        if (now == _level)
-        {
-            return;
-        }
-
-        _level = now;
-        GD.Print($"[game] Lv.{now} ({Save.TotalKeystrokes:N0}타)");
     }
 
     /// <summary>
@@ -904,7 +996,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             TryUnlock(AchievementIds.FirstPurchase, "첫 구매");
         }
 
-        RefreshCollectionHud();
         _shop.Refresh();
         CheckCollection();
         PersistNow();
@@ -928,12 +1019,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             };
 
             GD.Print($"[game] 강화 실패 {axis} - {outcome}");
-            _shop.ShowPurchaseMessage(message);
+            _upgrade.ShowMessage(message);
             return;
         }
 
-        GD.Print($"[game] 강화 {axis} → Lv.{_inventory.UpgradeLevel(axis)} 잔액 {_platform.Economy.Balance}");
-        _shop.Refresh();
+        GD.Print($"[game] 강화 {axis} → {_inventory.UpgradeLevel(axis)}단계 잔액 {_platform.Economy.Balance}");
+        RefreshOpenWindows();
     }
 
     /// <summary>슬롯 하나의 장착을 가진 것들 사이에서 한 칸 돌린다 (2/3/4 키).</summary>
@@ -981,7 +1072,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             GD.PushWarning("[game][디버그] 실물 경제 서버에는 바나나 직접 지급이 없다 - 목일 때만 동작한다");
         }
 
-        RefreshCollectionHud();
         _shop.Refresh();
         PersistNow();
 
@@ -1000,7 +1090,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 100% 가 안 뜬다.
         _collectionDone = false;
 
-        RefreshCollectionHud();
         _shop.Refresh();
         PersistNow();
 
@@ -1009,8 +1098,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             + (_cheated ? " (이 세션은 여전히 도전과제를 해금하지 않는다)" : string.Empty));
     }
 
-    private void RefreshCollectionHud() =>
-        _hud.SetCollection(_inventory.OwnedCount, ShopCatalog.All.Length);
+    /// <summary>
+    /// 잔액·소유가 바뀐 뒤 열려 있는 메뉴 창을 다시 그린다. 닫힌 창은 열 때 스스로 다시 그린다.
+    /// </summary>
+    private void RefreshOpenWindows()
+    {
+        if (_shop.IsOpen)
+        {
+            _shop.Refresh();
+        }
+
+        if (_upgrade.IsOpen)
+        {
+            _upgrade.Refresh();
+        }
+    }
 
     /// <summary>
     /// 재화·소유에서 나온 도전과제(구매·슬롯 완성·도감)를 진짜로 해금해도 되는가 (A15).
@@ -1211,21 +1313,21 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>
     /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>).
     ///
-    /// <b>상점이 열린 동안은 창 전체를 신고한다.</b> 셸은 옵션 창을 열 때
+    /// <b>메뉴가 열린 동안은 창 전체를 신고한다.</b> 셸은 옵션 창을 열 때
     /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임
     /// 레이어는 이 계약으로만 말할 수 있다 - 그래서 "창 전체" 를 이 좌표계로
     /// 옮겨서 돌려준다. 플랫폼 코드는 한 줄도 안 바뀐다.
     /// </summary>
     public Rect2 GetClickableBounds()
     {
-        if (_shop is { IsOpen: true } || _roomWindow is { IsOpen: true } || _onboarding is { IsOpen: true })
+        if (_menu is { IsOpen: true } || _onboarding is { IsOpen: true })
         {
             return ViewportInParentSpace();
         }
 
         Rect2 bounds = _tree.GetBounds().Merge(_monkey.GetBounds());
 
-        // 상점·멀티 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 나란히 둔 이유가
+        // [메뉴] 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 둔 이유가
         // 이것이다 - Rect2.Merge 는 외접 사각형이라, 버튼이 화면 반대편에 있으면
         // 그 사이의 빈 공간까지 전부 클릭을 먹는다.
         //
@@ -1233,8 +1335,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        bounds = bounds.Merge(ButtonRect(_shopButton)).Merge(ButtonRect(_roomButton)).Merge(ButtonRect(_optionsButton))
-            .Merge(ButtonRect(_helpButton));
+        bounds = bounds.Merge(ButtonRect(_menuButton));
 
         return Transform * bounds;
     }
@@ -1243,21 +1344,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         new(button.Position, button.Size.Max(button.GetCombinedMinimumSize()));
 
     /// <summary>
-    /// 처음 안내를 연다 (B15). 상점·로비가 열려 있으면 닫는다 - 셋 다 창 전체를 덮는 CanvasLayer 라 겹치면 아래
-    /// 것이 가려진 채로 남는다 (<see cref="ToggleShop"/> 와 같은 규칙).
+    /// 처음 안내를 연다 (B15). 메뉴가 열려 있으면 닫는다 - 둘 다 창 전체를 덮는 CanvasLayer 라 겹치면 아래
+    /// 것이 가려진 채로 남는다.
     /// </summary>
     private void OpenOnboarding()
     {
-        if (_shop.IsOpen)
-        {
-            _shop.Close();
-        }
-
-        if (_roomWindow.IsOpen)
-        {
-            _roomWindow.Close();
-        }
-
+        _menu.Close();
         _onboarding.Open();
     }
 
@@ -1274,30 +1366,25 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         GD.Print($"[game] 처음 안내 봄 (판 {OnboardingWindow.Version})");
     }
 
-    /// <summary>
-    /// 상점과 룸 창은 한 번에 하나만 연다 - 둘 다 창 전체를 덮는 CanvasLayer 라
-    /// 겹쳐 열면 아래 것이 가려진 채로 클릭을 기다린다.
-    /// </summary>
-    private void ToggleShop()
+    /// <summary>[메뉴] 버튼. 마지막으로 본 탭으로 연다 - 처음엔 상점.</summary>
+    private void ToggleMenu()
     {
         _onboarding.Close();
-        if (_roomWindow.IsOpen)
+        if (_menu.IsOpen)
         {
-            _roomWindow.Close();
+            _menu.Close();
         }
-
-        _shop.Toggle();
+        else
+        {
+            _menu.Open(_menu.LastTab);
+        }
     }
 
-    private void ToggleRoom()
+    /// <summary>B(상점) / M(멀티) 단축키. 그 탭이 이미 열려 있으면 메뉴를 닫는다.</summary>
+    private void ToggleMenu(MenuHub.Tab tab)
     {
         _onboarding.Close();
-        if (_shop.IsOpen)
-        {
-            _shop.Close();
-        }
-
-        _roomWindow.Toggle();
+        _menu.Toggle(tab);
     }
 
     /// <summary>
@@ -1308,16 +1395,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 한 바퀴 돌아 제자리에 온다. 네 모서리를 각각 옮겨 감싸는 것은 회전이
     /// 걸렸을 때도 축에 정렬된 사각형을 얻기 위해서다.
     /// </summary>
-    private Rect2 ViewportInParentSpace()
+    private Rect2 ViewportInParentSpace() =>
+        GetParent() is Node2D parent ? ViewportIn(parent) : GetViewportRect();
+
+    /// <summary>창 전체를 <paramref name="space"/> 의 로컬 좌표로. 네 모서리를 옮겨 감싼다.</summary>
+    private Rect2 ViewportIn(Node2D space)
     {
         Rect2 viewport = GetViewportRect();
-
-        if (GetParent() is not Node2D parent)
-        {
-            return viewport;
-        }
-
-        Transform2D toLocal = parent.GlobalTransform.AffineInverse();
+        Transform2D toLocal = space.GlobalTransform.AffineInverse();
 
         var rect = new Rect2(toLocal * viewport.Position, Vector2.Zero);
         rect = rect.Expand(toLocal * new Vector2(viewport.End.X, viewport.Position.Y));

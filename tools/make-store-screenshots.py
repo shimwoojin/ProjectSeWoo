@@ -330,8 +330,8 @@ def shot_cursor(raw):
 def shot_collection(raw):
     bg = wallpaper(1)
     document(bg, (60, 30, 1250, H - TASKBAR - 30))
-    game_at(bg, raw, "shop_tab4")
-    cursor(bg, raw, "shop_tab4", (1500, 330))
+    game_at(bg, raw, "shop_tab3")
+    cursor(bg, raw, "shop_tab3", (1500, 330))
     taskbar(bg)
     return bg
 
@@ -360,8 +360,8 @@ def shot_friends(raw):
 def shot_upgrade(raw):
     bg = wallpaper(0)
     code_editor(bg, (40, 30, 1270, H - TASKBAR - 30))
-    game_at(bg, raw, "shop_tab3")
-    cursor(bg, raw, "shop_tab3", (1560, 300))
+    game_at(bg, raw, "upgrade")
+    cursor(bg, raw, "upgrade", (1560, 300))
     taskbar(bg)
     return bg
 

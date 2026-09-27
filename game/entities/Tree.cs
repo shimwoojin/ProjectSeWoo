@@ -233,6 +233,29 @@ public partial class Tree : Node2D
     public Rect2 GetBounds() => _restBounds;
 
     /// <summary>
+    /// 마우스(<paramref name="global"/>, 캔버스 전역 좌표)가 올라간 송이. 송이들이 서로 겹쳐 있어서 반지름 안에
+    /// 든 것 중 가운데가 가장 가까운 것을 고른다. 없으면 -1.
+    /// </summary>
+    public int SlotAt(Vector2 global)
+    {
+        int best = -1;
+        float bestDistance = float.MaxValue;
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            if (_slots[i].HoverDistance(global) is float d && d < bestDistance)
+            {
+                best = i;
+                bestDistance = d;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>익은 슬롯 <paramref name="index"/> 가 지금까지 맞은 횟수 (<see cref="HitsToDrop"/> 중). 범위 밖이면 0.</summary>
+    public int HitsOf(int index) => index >= 0 && index < _hits.Length ? _hits[index] : 0;
+
+    /// <summary>
     /// 익은 슬롯 <paramref name="index"/> 를 한 대 친다. <see cref="HitsToDrop"/> 번째
     /// 타격이면 카운트를 비우고 true - 호출부가 수확을 요청하고 떨어뜨린다.
     /// 연출은 여기서 걸지 않는다(<see cref="FlashHit"/>) - 펀치가 닿는 시점에

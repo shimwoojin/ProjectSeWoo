@@ -33,6 +33,11 @@ public interface INetSession
     /// </summary>
     bool IsAvailable { get; }
 
+    /// <summary>
+    /// 내 스팀 닉네임. HUD 맨 위 줄에 쓴다 (2026-09-27). 스팀이 없으면 빈 문자열 - 그때 HUD 는 줄을 숨긴다.
+    /// </summary>
+    string SelfName { get; }
+
     /// <summary>지금 들어가 있는 룸. 룸 밖이면 null.</summary>
     RoomHandle? Current { get; }
 

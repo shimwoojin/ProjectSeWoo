@@ -151,7 +151,7 @@ public partial class OverlayShell
             _userWantsVisible = !_userWantsVisible;
             ApplyVisibility();
         };
-        _tray.OnOpenSettings += OpenOptionsWindow;
+        _tray.OnOpenSettings += () => OpenOptionsWindow();
         _tray.OnQuit += () => GetTree().Quit();
 
         var icon = GD.Load<Texture2D>("res://icon.svg");
@@ -211,8 +211,10 @@ public partial class OverlayShell
         _options.Closed += () => ApplyPassthrough(force: true);
     }
 
-    private void OpenOptionsWindow()
+    /// <param name="topInset">위쪽에 비워 둘 높이 - 게임 메뉴의 탭 줄 자리 (<see cref="IShell.OpenOptions"/>). 트레이·O 키는 0.</param>
+    private void OpenOptionsWindow(float topInset = 0f)
     {
+        _options.SetTopInset(topInset);
         _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
         _options.Open();
         DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());

@@ -130,7 +130,7 @@ platform/Shell.tscn + OverlayShell.cs   (scenes/ 에서 이동 완료)
 | `Tree.tscn` | 을 | `game/entities/` | 나무 하나. 슬롯 N개(강화로 증가) |
 | `TreeSlot.tscn` | 을 | `game/entities/` | 슬롯 재사용 단위 - `Tree`가 N번 instance |
 | `Monkey.tscn` | 을 | `game/entities/` | 펀치 애니메이션(AnimationPlayer), 키 입력 반응 - B2 마이크로 피드백이 여기로 옮겨온다 |
-| `StatusHud.tscn` ☑ B3 | 을 | `game/ui/` | 레벨 · 누적 타수 · 바나나 표시 (§6, §2-3). **문자열은 ASCII** — 기본 테마 폰트에 한글 글리프가 없다 |
+| `StatusHud.tscn` ☑ B3 | 을 | `game/ui/` | 닉네임 · 누적 타수 · 바나나 표시 (§2-3). 2026-09-27 에 레벨·도감 % 를 뺐다 |
 | `PunchImpact.tscn`, `LeafParticle.tscn` | 을 | `game/effects/` | 파티클/이펙트 |
 | `Shop.tscn`, `Inventory.tscn`, `Collection.tscn`, `Onboarding.tscn` | 을 | `game/ui/` | 상점/장착/도감/온보딩 |
 | `RoomWindow` ☑ B12 · `RemotePlayerView.tscn` (B10) | 을 | `game/multiplayer/` | 룸 화면은 씬 대신 **코드로 만드는 CanvasLayer** 가 됐다(`ShopWindow` 와 같은 패턴 - 줄 수가 룸마다 달라서). 원격 플레이어는 1명당 1 instance |

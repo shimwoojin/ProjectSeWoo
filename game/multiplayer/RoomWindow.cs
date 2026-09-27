@@ -34,7 +34,7 @@ public partial class RoomWindow : CanvasLayer
     private static readonly Color Online = new(0.55f, 0.75f, 0.95f);
     private static readonly Color Error = new(0.95f, 0.50f, 0.45f);
 
-    /// <summary>닫기 버튼. 호출부가 클릭 통과를 되돌린다.</summary>
+    /// <summary>닫혔다(Esc 포함). 메뉴(<see cref="MenuHub"/>)가 듣고 탭 줄을 같이 걷는다.</summary>
     public event Action Closed;
 
     public event Action CreateRequested;
@@ -352,7 +352,7 @@ public partial class RoomWindow : CanvasLayer
         var margin = new MarginContainer();
         margin.AddThemeConstantOverride("margin_left", 10);
         margin.AddThemeConstantOverride("margin_right", 10);
-        margin.AddThemeConstantOverride("margin_top", 10);
+        margin.AddThemeConstantOverride("margin_top", MenuHub.ContentTop);
         margin.AddThemeConstantOverride("margin_bottom", 10);
         AddChild(margin);
         margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
@@ -449,10 +449,6 @@ public partial class RoomWindow : CanvasLayer
         _status.AddThemeColorOverride("font_color", ShopWindow.Accent);
         _status.AddThemeFontSizeOverride("font_size", 11);
         header.AddChild(_status);
-
-        var close = new Button { Text = "닫기" };
-        close.Pressed += Close;
-        header.AddChild(close);
 
         return header;
     }

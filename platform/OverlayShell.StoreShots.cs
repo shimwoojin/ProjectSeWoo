@@ -335,7 +335,12 @@ public partial class OverlayShell
             await Capture(dir, manifest, $"shop_tab{t}");
         }
 
-        PressKey(Key.B);   // 닫기 - Esc 는 셸 디버그 키에서 종료다
+        // 강화 - 2026-09-27 부터 상점 탭이 아니라 메뉴의 탭이다. 탭 줄 버튼을 누른 것처럼 한다.
+        PressGameButton("강화");
+        await Seconds(0.3);
+        await Capture(dir, manifest, "upgrade");
+
+        PressGameButton("닫기");   // 메뉴의 [닫기]
         await Seconds(0.3);
 
         // 4) 로비 - 가짜 친구 3명이 계속 치고 딴다. 로비 타수는 랭킹이 보이게 벌려 둔다.
@@ -444,6 +449,29 @@ public partial class OverlayShell
     {
         Input.ParseInputEvent(new InputEventKey { Keycode = key, Pressed = true });
         Input.ParseInputEvent(new InputEventKey { Keycode = key, Pressed = false });
+    }
+
+    /// <summary>게임 화면에서 글자가 <paramref name="text"/> 인 첫 버튼을 누른 것처럼 한다. 게임 타입을 모르므로 글자로 찾는다.</summary>
+    private void PressGameButton(string text)
+    {
+        Button button = null;
+        Node root = GetTree().GetFirstNodeInGroup(SceneGroups.GameRoot);
+        foreach (Node node in root?.FindChildren("*", "Button", true, false) ?? new Godot.Collections.Array<Node>())
+        {
+            if (node is Button { Visible: true } b && b.Text == text && b.IsVisibleInTree())
+            {
+                button = b;
+                break;
+            }
+        }
+
+        if (button == null)
+        {
+            GD.PushWarning($"[store-shot] 버튼 [{text}] 을 못 찾았다");
+            return;
+        }
+
+        button.EmitSignal(BaseButton.SignalName.Pressed);
     }
 
     /// <summary>게임 씬 안에서 타입으로 첫 노드를 찾는다 - 게임 타입을 모르는 채로 상점 탭을 넘기려고.</summary>

@@ -189,6 +189,9 @@ public sealed class SteamNetSession : INetSession, IDisposable
     /// </summary>
     public bool IsAvailable => _steam.IsInitialized && _registered && SteamUser.BLoggedOn();
 
+    /// <summary>스팀 초기화 때 받아 둔 값(<see cref="SteamService.PersonaName"/>). 초기화 전이면 빈 문자열.</summary>
+    public string SelfName => _steam.PersonaName ?? string.Empty;
+
     private bool InLobby => _lobby.IsValid() && _lobby != CSteamID.Nil;
 
     public RoomHandle? Current

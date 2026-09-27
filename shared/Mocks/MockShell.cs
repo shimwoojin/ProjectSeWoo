@@ -10,13 +10,25 @@ namespace ProjectSeWoo.Shared.Mocks;
 /// </summary>
 public sealed class MockShell : IShell
 {
-    /// <summary>시험용 - <see cref="ToggleOptions"/> 를 몇 번 불렀나.</summary>
-    public int OptionsToggleCount { get; private set; }
+    public bool IsOptionsOpen { get; private set; }
 
-    public void ToggleOptions()
+    public event System.Action OptionsClosed;
+
+    public void OpenOptions(float topInset)
     {
-        OptionsToggleCount++;
-        GD.Print("[mock-shell] 옵션 창 토글 (목이라 창은 없다)");
+        IsOptionsOpen = true;
+        GD.Print("[mock-shell] 옵션 창 열기 (목이라 창은 없다)");
+    }
+
+    public void CloseOptions()
+    {
+        if (!IsOptionsOpen)
+        {
+            return;
+        }
+
+        IsOptionsOpen = false;
+        OptionsClosed?.Invoke();
     }
 
     public float Scale { get; private set; } = 1.0f;

@@ -32,16 +32,13 @@ public partial class ShopWindow : CanvasLayer
 
     private const int ThumbSize = 44;
 
-    /// <summary>닫기 버튼. 호출부가 클릭 통과를 되돌린다.</summary>
+    /// <summary>닫혔다. 메뉴(<see cref="MenuHub"/>)가 듣고 탭 줄을 같이 걷는다.</summary>
     public event Action Closed;
 
     public event Action<ShopCatalog.Item> BuyRequested;
 
     /// <summary>창이 열렸다. 게임 레이어가 서버 연결을 한 번 더 확인하는 계기로 쓴다.</summary>
     public event Action Opened;
-
-    /// <summary>강화 탭의 [강화] 버튼 (B13).</summary>
-    public event Action<UpgradeAxis> UpgradeRequested;
 
     /// <summary>id 가 null 이면 그 슬롯을 비워 달라는 뜻이다.</summary>
     public event Action<CursorSlot, string> EquipRequested;
@@ -71,11 +68,6 @@ public partial class ShopWindow : CanvasLayer
     private readonly Dictionary<string, Row> _rows = new(StringComparer.Ordinal);
 
     private sealed record Row(Label State, Button Action);
-
-    /// <summary>강화 탭의 한 줄 (B13): 이름+단계 / 지금 → 다음 효과 / 가격 / 버튼.</summary>
-    private sealed record UpgradeRow(Label Title, Label Effect, Label Price, Button Action);
-
-    private readonly Dictionary<UpgradeAxis, UpgradeRow> _upgradeRows = new();
 
     public bool IsOpen => Visible;
 
@@ -142,7 +134,7 @@ public partial class ShopWindow : CanvasLayer
         bool online = _inventory.Online;
         _notice.Text = !online ? OfflineNotice : _purchaseMessage ?? string.Empty;
         _notice.Visible = _notice.Text.Length > 0;
-        // 퍼센트는 **내림**이다. HUD(StatusHud.SetCollection)와 같은 식이어야
+        // 퍼센트는 **내림**이다. 도감 탭(RefreshCollection)과 같은 식이어야
         // 한 화면에 15/16 이 93% 와 94% 로 동시에 보이는 일이 없다.
         _collection.Text = $"수집 {_inventory.OwnedCount}/{ShopCatalog.All.Length}"
             + $" ({_inventory.OwnedCount * 100 / ShopCatalog.All.Length}%)";
@@ -196,126 +188,15 @@ public partial class ShopWindow : CanvasLayer
         }
 
         RefreshCollection();
-        RefreshUpgrades(online);
-    }
-
-    // ------------------------------------------------------------------ 강화 (B13)
-
-    /// <summary>탭에 놓는 순서. 싼 것부터 - 첫 강화는 "빨리 익기" 40 바나나.</summary>
-    private static readonly UpgradeAxis[] UpgradeOrder = { UpgradeAxis.Cycle, UpgradeAxis.Golden, UpgradeAxis.Slots };
-
-    private static string UpgradeName(UpgradeAxis axis) => axis switch
-    {
-        UpgradeAxis.Slots => "가지 늘리기",
-        UpgradeAxis.Cycle => "빨리 익기",
-        UpgradeAxis.Golden => "황금 바나나",
-        _ => axis.ToString(),
-    };
-
-    /// <summary>단계 <paramref name="level"/> 의 효과를 한 마디로.</summary>
-    private static string UpgradeEffect(UpgradeAxis axis, int level) => axis switch
-    {
-        UpgradeAxis.Slots => $"송이 {UpgradeTable.SlotsAt(level)}개",
-        UpgradeAxis.Cycle => $"{UpgradeTable.GrowthMsAt(level) / 60_000}분마다 익음",
-        UpgradeAxis.Golden => $"황금 확률 {UpgradeTable.GoldenChanceAt(level)}%",
-        _ => string.Empty,
-    };
-
-    private void RefreshUpgrades(bool online)
-    {
-        foreach ((UpgradeAxis axis, UpgradeRow row) in _upgradeRows)
-        {
-            int level = _inventory.UpgradeLevel(axis);
-            int max = UpgradeTable.MaxLevel(axis);
-            long? price = UpgradeTable.NextPrice(axis, level);
-
-            row.Title.Text = $"{UpgradeName(axis)}  Lv.{Math.Min(level, max)}/{max}";
-
-            if (price == null)
-            {
-                row.Effect.Text = $"{UpgradeEffect(axis, level)} (최대)";
-                row.Price.Text = string.Empty;
-                row.Action.Text = "최대";
-                row.Action.Disabled = true;
-                continue;
-            }
-
-            bool affordable = _inventory.Bananas >= price.Value;
-            row.Effect.Text = $"{UpgradeEffect(axis, level)} → {UpgradeEffect(axis, level + 1)}";
-            row.Price.Text = $"{price.Value:N0}";
-            row.Price.AddThemeColorOverride("font_color", affordable ? Gold : Dim);
-            row.Action.Text = "강화";
-            row.Action.Disabled = !affordable || !online;
-        }
-    }
-
-    private void AddUpgradeTab(TabContainer tabs)
-    {
-        var scroll = new ScrollContainer
-        {
-            Name = "강화",
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-        };
-        tabs.AddChild(scroll);
-
-        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        list.AddThemeConstantOverride("separation", 10);
-        scroll.AddChild(list);
-
-        var hint = new Label
-        {
-            Text = $"장식과 같은 바나나를 쓴다. 황금 바나나는 따면 {UpgradeTable.GoldenMultiplier}개.",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        };
-        hint.AddThemeFontSizeOverride("font_size", 11);
-        hint.AddThemeColorOverride("font_color", Dim);
-        list.AddChild(hint);
-
-        foreach (UpgradeAxis axis in UpgradeOrder)
-        {
-            list.AddChild(MakeUpgradeRow(axis));
-        }
-    }
-
-    private Control MakeUpgradeRow(UpgradeAxis axis)
-    {
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 8);
-
-        var text = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        text.AddThemeConstantOverride("separation", 0);
-
-        var title = new Label();
-        title.AddThemeFontSizeOverride("font_size", 13);
-        text.AddChild(title);
-
-        var effect = new Label();
-        effect.AddThemeFontSizeOverride("font_size", 11);
-        effect.AddThemeColorOverride("font_color", Accent);
-        text.AddChild(effect);
-
-        row.AddChild(text);
-
-        var price = new Label { VerticalAlignment = VerticalAlignment.Center };
-        price.AddThemeFontSizeOverride("font_size", 12);
-        row.AddChild(price);
-
-        var action = new Button { CustomMinimumSize = new Vector2(56, 0) };
-        action.Pressed += () => UpgradeRequested?.Invoke(axis);
-        row.AddChild(action);
-
-        _upgradeRows[axis] = new UpgradeRow(title, effect, price, action);
-        return row;
     }
 
     // ------------------------------------------------------------------ UI 구성
 
-    // 색과 배경은 룸 창(game/multiplayer/RoomWindow)도 쓴다 - 창 두 개가 같은
-    // 게임의 것으로 보여야 한다.
+    // 색과 배경은 룸·강화·메뉴 창도 쓴다 - 창 여러 개가 같은 게임의 것으로 보여야 한다.
     internal static readonly Color Accent = new(0.55f, 0.85f, 0.55f);
     internal static readonly Color Gold = new(0.98f, 0.82f, 0.30f);
     internal static readonly Color Dim = new(0.62f, 0.66f, 0.72f);
-    private static readonly Color Warn = new(1.00f, 0.62f, 0.45f);
+    internal static readonly Color Warn = new(1.00f, 0.62f, 0.45f);
 
     /// <summary>아직 안 가진 도감 칸. 알파는 그대로 두고 색만 죽인다.</summary>
     private static readonly Color Silhouette = new(0.10f, 0.12f, 0.16f, 0.85f);
@@ -325,7 +206,7 @@ public partial class ShopWindow : CanvasLayer
         var margin = new MarginContainer();
         margin.AddThemeConstantOverride("margin_left", 10);
         margin.AddThemeConstantOverride("margin_right", 10);
-        margin.AddThemeConstantOverride("margin_top", 10);
+        margin.AddThemeConstantOverride("margin_top", MenuHub.ContentTop);
         margin.AddThemeConstantOverride("margin_bottom", 10);
         AddChild(margin);
 
@@ -360,7 +241,6 @@ public partial class ShopWindow : CanvasLayer
         AddSlotTab(tabs, CursorSlot.Monkey);
         AddSlotTab(tabs, CursorSlot.Banana);
         AddSlotTab(tabs, CursorSlot.Deco);
-        AddUpgradeTab(tabs);
         AddCollectionTab(tabs);
     }
 
@@ -383,10 +263,6 @@ public partial class ShopWindow : CanvasLayer
         _collection.AddThemeColorOverride("font_color", Dim);
         _collection.AddThemeFontSizeOverride("font_size", 11);
         header.AddChild(_collection);
-
-        var close = new Button { Text = "닫기" };
-        close.Pressed += Close;
-        header.AddChild(close);
 
         return header;
     }
