@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 9;
+    public const int CurrentVersion = 10;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -84,6 +84,11 @@ public static class SaveSchema
                 case 8:
                     MigrateV8ToV9(root);
                     version = 9;
+                    break;
+
+                case 9:
+                    MigrateV9ToV10(root);
+                    version = 10;
                     break;
 
                 default:
@@ -212,6 +217,16 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v9 -> v10 (2026-09-27): <c>settings.notifications</c> 를 걷어냈다. A6 이 옵션 "알림" 체크박스와 이 필드를
+    /// 만들었지만 띄울 알림이 끝내 없었다 - 켜든 끄든 아무 일도 없었다. v7 의 "타건 수 집계" 와 같은 경우다.
+    /// <see cref="MigrateV3ToV4"/> 와 같은 이유로 지우는 코드는 없다 - 모르는 필드는 읽을 때 버려진다.
+    /// </summary>
+    private static void MigrateV9ToV10(JsonNode root)
+    {
+        root["version"] = 10;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -238,7 +253,7 @@ public static class SaveSchema
             "version", "totalKeystrokes",
             "inventory", "equipped", "monkey", "banana", "deco",
             "settings", "scale", "opacity", "pos", "autostart",
-            "positionLocked", "notifications", "cursorEnabled", "hideOnFullscreen",
+            "positionLocked", "cursorEnabled", "hideOnFullscreen",
             "cursorIndependent",
             "multi", "friendPositions", "lastLobby",
             "onboardingSeen",

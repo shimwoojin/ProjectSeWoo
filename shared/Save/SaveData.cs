@@ -135,10 +135,6 @@ public sealed class SaveData
         [JsonPropertyName("positionLocked")]
         public bool PositionLocked { get; set; } = true;
 
-        /// <summary>알림 On/Off. 소비할 알림 기능은 아직 없다 - 옵션만 먼저 자리를 잡아둔다.</summary>
-        [JsonPropertyName("notifications")]
-        public bool Notifications { get; set; } = true;
-
         /// <summary>커서 장식(§3-1) On/Off. 끄면 재화 소비처를 다른 것으로 안내해야 한다 (§1.3).</summary>
         [JsonPropertyName("cursorEnabled")]
         public bool CursorEnabled { get; set; } = true;

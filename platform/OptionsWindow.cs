@@ -19,7 +19,6 @@ public partial class OptionsWindow : CanvasLayer
     private HSlider _scaleSlider;
     private HSlider _opacitySlider;
     private CheckBox _positionLocked;
-    private CheckBox _notifications;
     private CheckBox _cursorEnabled;
     private CheckBox _cursorIndependent;
     private CheckBox _hideOnFullscreen;
@@ -33,7 +32,7 @@ public partial class OptionsWindow : CanvasLayer
     /// <summary>
     /// <see cref="SetValues"/>가 컨트롤 값을 초기화하는 동안 켠다. Godot 컨트롤은
     /// 코드로 <c>.Value</c>/<c>.ButtonPressed</c>를 바꿔도 시그널이 그대로 뜬다 -
-    /// 이걸 안 막으면 옵션 창을 여는 순간 아홉 개 이벤트가 전부 다시 발사돼서
+    /// 이걸 안 막으면 옵션 창을 여는 순간 이벤트가 전부 다시 발사돼서
     /// 세이브를 쓸데없이 다시 쓴다.
     /// </summary>
     private bool _initializing;
@@ -41,7 +40,6 @@ public partial class OptionsWindow : CanvasLayer
     public event Action<float> ScaleChanged;
     public event Action<float> OpacityChanged;
     public event Action<bool> PositionLockedChanged;
-    public event Action<bool> NotificationsChanged;
     public event Action<bool> CursorEnabledChanged;
     public event Action<bool> CursorIndependentChanged;
     public event Action<bool> HideOnFullscreenChanged;
@@ -88,7 +86,6 @@ public partial class OptionsWindow : CanvasLayer
         _scaleSlider.Value = s.Scale;
         _opacitySlider.Value = s.Opacity;
         _positionLocked.ButtonPressed = s.PositionLocked;
-        _notifications.ButtonPressed = s.Notifications;
         _cursorEnabled.ButtonPressed = s.CursorEnabled;
         _cursorIndependent.ButtonPressed = s.CursorIndependent;
         _cursorIndependent.Disabled = !s.CursorEnabled;
@@ -137,9 +134,6 @@ public partial class OptionsWindow : CanvasLayer
 
         rows.AddChild(MakeCheckRow("위치 잠금", out _positionLocked));
         _positionLocked.Toggled += on => Relay(() => PositionLockedChanged?.Invoke(on));
-
-        rows.AddChild(MakeCheckRow("알림", out _notifications));
-        _notifications.Toggled += on => Relay(() => NotificationsChanged?.Invoke(on));
 
         rows.AddChild(MakeCheckRow("커서 장식", out _cursorEnabled));
         _cursorEnabled.Toggled += on =>
