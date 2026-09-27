@@ -64,7 +64,7 @@ public partial class RemotePlayerView : Node2D
     // 흔들리지 않고 매달림 · 반응(친구가 친 횟수) · 졸기만 한다.
     private const float CursorScale = 0.55f;
 
-    /// <summary>이름표 띠의 위쪽. 여기부터 칸 아래 끝까지 이름·레벨·도감 세 줄.</summary>
+    /// <summary>이름표 띠의 위쪽. 여기부터 칸 아래 끝까지 이름·로비 타수·도감 세 줄.</summary>
     private const float LabelsTop = 144f;
     private static readonly Vector2 CursorAt = new(CellWidth - 30f, 34f);
     private Tree _tree;
@@ -73,8 +73,6 @@ public partial class RemotePlayerView : Node2D
     private Label _stats;
     private Label _collection;
     private CursorOrnament _ornament;
-
-    private long _totalKeystrokes = -1;
 
     /// <summary>마지막 상태·타건을 받은 시각(ms, <see cref="Time.GetTicksMsec"/>). 0 = 아직 없음.</summary>
     private ulong _lastStateMs;
@@ -174,7 +172,6 @@ public partial class RemotePlayerView : Node2D
         ShowDecoration(CursorSlot.Deco, state.EquippedDeco);
         _ornament.Keystrokes(state.KeystrokesInWindow);
 
-        _totalKeystrokes = state.TotalKeystrokes;
         _collectionPercent = state.CollectionPercent;
 
         ulong now = Time.GetTicksMsec();
@@ -229,8 +226,7 @@ public partial class RemotePlayerView : Node2D
 
     private void RefreshStats()
     {
-        string level = _totalKeystrokes >= 0 ? $"Lv.{KeystrokeLevel.LevelFor(_totalKeystrokes)} · " : string.Empty;
-        string stats = $"{level}{_roomKeystrokes:N0}타";
+        string stats = $"{_roomKeystrokes:N0}타";
         if (_stats.Text != stats)
         {
             _stats.Text = stats;

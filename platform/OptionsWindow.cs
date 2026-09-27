@@ -25,6 +25,10 @@ public partial class OptionsWindow : CanvasLayer
     private CheckBox _hideOnFullscreen;
     private CheckBox _autostart;
     private PanelContainer _panel;
+    private MarginContainer _margin;
+
+    /// <summary>기본 위쪽 여백. <see cref="SetTopInset"/> 이 이보다 작게는 안 줄인다.</summary>
+    private const int MarginTop = 12;
 
     /// <summary>
     /// <see cref="SetValues"/>가 컨트롤 값을 초기화하는 동안 켠다. Godot 컨트롤은
@@ -60,6 +64,13 @@ public partial class OptionsWindow : CanvasLayer
 
     public void Open() => Visible = true;
 
+    /// <summary>
+    /// 패널이 시작할 높이. 게임 메뉴(MenuHub)에서 열면 그 탭 줄이 창 위를 덮고 있어서 줄 아래로 내린다 -
+    /// 트레이에서 열면 0 이라 기본 여백(<see cref="MarginTop"/>)을 쓴다 (IShell.OpenOptions).
+    /// </summary>
+    public void SetTopInset(float inset) =>
+        _margin.AddThemeConstantOverride("margin_top", Math.Max(MarginTop, Mathf.RoundToInt(inset)));
+
     public void Close()
     {
         Visible = false;
@@ -94,11 +105,11 @@ public partial class OptionsWindow : CanvasLayer
 
     private void BuildUi()
     {
-        var margin = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        var margin = _margin = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         margin.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         margin.AddThemeConstantOverride("margin_left", 12);
         margin.AddThemeConstantOverride("margin_right", 12);
-        margin.AddThemeConstantOverride("margin_top", 12);
+        margin.AddThemeConstantOverride("margin_top", MarginTop);
         margin.AddThemeConstantOverride("margin_bottom", 12);
         AddChild(margin);
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
@@ -9,6 +9,8 @@
 [ext_resource type="PackedScene" path="res://game/effects/PunchEffect.tscn" id="7_punch"]
 [ext_resource type="Script" path="res://game/multiplayer/RoomWindow.cs" id="8_room"]
 [ext_resource type="Script" path="res://game/ui/OnboardingWindow.cs" id="9_onboarding"]
+[ext_resource type="Script" path="res://game/ui/UpgradeWindow.cs" id="10_upgrade"]
+[ext_resource type="Script" path="res://game/ui/MenuHub.cs" id="11_menu"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
@@ -23,44 +25,26 @@ position = Vector2(140, 360)
 
 [node name="StatusHud" parent="." instance=ExtResource("5_statushud")]
 
-[node name="ShopButton" type="Button" parent="."]
-offset_left = 118.0
+[node name="MenuButton" type="Button" parent="."]
+offset_left = 170.0
 offset_top = 424.0
-offset_right = 196.0
+offset_right = 250.0
 offset_bottom = 450.0
-custom_minimum_size = Vector2(78, 26)
-text = "상점"
+custom_minimum_size = Vector2(80, 26)
+tooltip_text = "상점 · 강화 · 멀티 · 설정"
+text = "메뉴"
 
 [node name="ShopWindow" type="CanvasLayer" parent="."]
 script = ExtResource("6_shop")
 
-[node name="RoomButton" type="Button" parent="."]
-offset_left = 204.0
-offset_top = 424.0
-offset_right = 282.0
-offset_bottom = 450.0
-custom_minimum_size = Vector2(78, 26)
-text = "멀티"
-
-[node name="OptionsButton" type="Button" parent="."]
-offset_left = 290.0
-offset_top = 424.0
-offset_right = 348.0
-offset_bottom = 450.0
-custom_minimum_size = Vector2(58, 26)
-text = "옵션"
+[node name="UpgradeWindow" type="CanvasLayer" parent="."]
+script = ExtResource("10_upgrade")
 
 [node name="RoomWindow" type="CanvasLayer" parent="."]
 script = ExtResource("8_room")
 
-[node name="HelpButton" type="Button" parent="."]
-offset_left = 354.0
-offset_top = 424.0
-offset_right = 382.0
-offset_bottom = 450.0
-custom_minimum_size = Vector2(28, 26)
-tooltip_text = "처음 안내 다시 보기"
-text = "?"
-
 [node name="OnboardingWindow" type="CanvasLayer" parent="."]
 script = ExtResource("9_onboarding")
+
+[node name="MenuHub" type="CanvasLayer" parent="."]
+script = ExtResource("11_menu")

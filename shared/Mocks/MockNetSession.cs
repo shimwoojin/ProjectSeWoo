@@ -94,6 +94,9 @@ public sealed class MockNetSession : INetSession
     /// <summary>시험용. false 로 두면 "스팀이 없을 때" 화면을 볼 수 있다.</summary>
     public bool IsAvailable { get; set; } = true;
 
+    /// <summary>룸 안의 내 자리 이름과 같다(<c>SelfSeat</c>).</summary>
+    public string SelfName => "플레이어";
+
     /// <summary>
     /// 가짜 친구들이 200ms 마다 상태를 보내는가 (A10). 사람처럼 몰아서 치다 쉬고, 가끔 딴다.
     /// B10·B11(친구 화면·연출)을 2계정 없이 만들려고 둔다.

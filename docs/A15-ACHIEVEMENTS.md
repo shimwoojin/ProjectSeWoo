@@ -32,7 +32,7 @@
 | `ACH_COLLECTION_100` | Complete Collection / Collect every cursor decoration. | 도감 완성 / 커서 장식을 모두 모은다. | 도감 100% (§3-3) — 장식이 늘면 조건도 같이 는다. 이미 딴 사람은 그대로(스팀은 해금을 되돌리지 않는다) |
 | `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
 
-- 누적 타수의 "Lv." 은 `KeystrokeLevel` 곡선 기준이다. 체감 기간(첫날 / 하루 이틀 / 1~2주 /
+- 누적 타수의 "Lv." 은 `KeystrokeLevel` 곡선 기준이었다(2026-09-27 에 레벨 표시를 없애며 코드도 지웠다 - 도전과제는 타수 문턱을 직접 본다). 체감 기간(첫날 / 하루 이틀 / 1~2주 /
   수개월)은 하루 타건 수를 짐작한 것이라 실측이 아니다
 - `ACH_ROOM_FIRST_JOIN` — A9(실물 스팀 로비)가 9/24 에 들어와서 실제로 딸 수 있다. 목 룸으로는
   안 풀린다(§3-2). 멀티를 출시에서 빼게 되면 이 과제는 파트너 사이트에서 숨기거나 지운다 —

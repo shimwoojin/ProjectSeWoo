@@ -88,6 +88,19 @@ public partial class TreeSlot : Node2D
     /// <summary>다 자란 열매의 중심 (슬롯 로컬). 수확 때 떨어지는 바나나의 출발점.</summary>
     public Vector2 FruitCenter => _fruit.Position + _fruit.Offset * _baseScale;
 
+    /// <summary>
+    /// 마우스를 올렸다고 볼 반지름 (<see cref="Tree.SlotAt"/>). 다 익은 송이 크기(약 63×71)에 맞췄다 -
+    /// 덜 익은 송이는 작게 그려지지만 자리는 같으므로, 작은 그림에 맞추면 갓 열린 송이를 짚기 어렵다.
+    /// </summary>
+    private const float HoverRadius = 30f;
+
+    /// <summary><paramref name="global"/> 에서 송이 가운데까지의 거리. 반지름 밖이면 null.</summary>
+    public float? HoverDistance(Vector2 global)
+    {
+        float d = ToLocal(global).DistanceTo(FruitCenter);
+        return d <= HoverRadius ? d : null;
+    }
+
     /// <param name="t">0 = 갓 수확한 빈 슬롯, 1 = 바나나 열림.</param>
     /// <param name="golden">황금 송이인가. <b>익었을 때만</b> 금빛으로 그린다 - 자라는 동안은 보통
     /// 바나나와 같아서, 익는 순간 황금으로 드러난다.</param>

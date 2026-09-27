@@ -503,8 +503,24 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     // ------------------------------------------------------------------ IShell 실물
 
-    /// <summary>게임 화면의 [옵션] 버튼 (<see cref="IShell.ToggleOptions"/>). 트레이 "설정" 과 같은 창을 연다.</summary>
-    void IShell.ToggleOptions() => ToggleOptionsWindow();
+    /// <summary>게임 메뉴의 "설정" 탭 (<see cref="IShell.OpenOptions"/>). 트레이 "설정" 과 같은 창을 연다.</summary>
+    void IShell.OpenOptions(float topInset) => OpenOptionsWindow(topInset);
+
+    void IShell.CloseOptions()
+    {
+        if (_options.IsOpen)
+        {
+            _options.Close();
+        }
+    }
+
+    bool IShell.IsOptionsOpen => _options.IsOpen;
+
+    event Action IShell.OptionsClosed
+    {
+        add => _options.Closed += value;
+        remove => _options.Closed -= value;
+    }
 
     /// <summary>
     /// 창 배율. 옵션 창(A6) "크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
