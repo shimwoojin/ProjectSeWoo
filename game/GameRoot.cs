@@ -684,6 +684,15 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             return;
         }
 
+        // **출시본에는 단축키가 하나도 없다** (2026-09-27). 이 게임은 타자를 치는 게임이라, 원숭이를 한 번
+        // 클릭해 창에 포커스가 간 채로 평소처럼 타이핑하는 일이 흔하다 - 그때 B·M 이 상점·로비를 열고
+        // 2·3·4 가 장식을 갈아 끼웠다. 메뉴는 [메뉴] 버튼으로 연다. 메뉴가 열려 있을 때의 Esc 만
+        // _UnhandledKeyInput 에 남아 있다.
+        if (!OS.IsDebugBuild())
+        {
+            return;
+        }
+
         // 8분을 기다리지 않고 수확까지 확인하려고 둔 debug 키다. 셸이 쓰는 키
         // (F1~F12 / 1~4 / [ ] - = O H / Esc)와 겹치지 않는 자리를 골랐다.
         // 강화 UI(B7)가 생기면 그쪽이 이 자리를 대신한다.

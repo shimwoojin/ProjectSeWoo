@@ -4,7 +4,7 @@ using ProjectSeWoo.Shared;
 namespace ProjectSeWoo.Platform;
 
 /// <summary>
-/// <see cref="OverlayShell"/> 의 <b>디버그 키</b>. 전부 임시다.
+/// <see cref="OverlayShell"/> 의 <b>디버그 키</b>. 전부 임시고, <b>디버그 빌드에서만 돈다</b> (출시본은 옵션 창 Esc 닫기만).
 ///
 /// 두 종류가 섞여 있다:
 /// <list type="bullet">
@@ -37,6 +37,21 @@ public partial class OverlayShell
     {
         if (@event is not InputEventKey key || !key.Pressed || key.Echo)
         {
+            return;
+        }
+
+        // **출시본에서는 전부 끈다** (2026-09-27). 전에는 빌드를 가리지 않아서, 원숭이를 클릭해 창에 포커스가
+        // 간 채로 타이핑하면 Esc 가 게임을 끄고, H 가 창을 숨기고, [ ] - = 가 크기·투명도를, F4 가 항상 위를
+        // 바꿨다 - 타자를 치는 게임이라 흔히 밟는다. 남기는 것은 옵션 창이 열려 있을 때 Esc 로 닫기 하나다.
+        // 종료는 트레이의 "종료" 로 한다.
+        if (!OS.IsDebugBuild())
+        {
+            if (key.Keycode == Key.Escape && _options.IsOpen)
+            {
+                _options.Close();
+                GetViewport().SetInputAsHandled();
+            }
+
             return;
         }
 

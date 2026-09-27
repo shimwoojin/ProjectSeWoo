@@ -445,7 +445,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         };
         AddChild(_outline);
 
-        _hud = new DebugHud { Name = "Hud" };
+        // 계측 HUD 는 디버그 빌드에서만 켜 둔다. 출시본은 끄고, 켜는 키(F1)도 없다 - 빌드를 안 가려서 출시본에도
+        // 계측 패널이 켜진 채로 뜨던 자리다.
+        _hud = new DebugHud { Name = "Hud", Visible = OS.IsDebugBuild() };
         AddChild(_hud);
     }
 
