@@ -363,7 +363,7 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 
 ---
 
-## 10. 트레일러 30초 — 계획 (2026-09-28)
+## 10. 트레일러 30초 — 만들었다 (2026-09-28, `assets/_store/trailer/punchmonkey_trailer.mp4`)
 
 스토어 공개(검수 제출 9/28)에는 필요 없고, **게임 빌드 체크리스트("Trailer Uploaded")** 에 걸려 있다. 출시 전까지 올린다.
 스팀은 첫 몇 초로 넘길지 정해진다 — **로고보다 게임이 먼저** 나온다.
@@ -403,3 +403,18 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 | 업로드 (파트너 사이트 Trailers 탭) · 썸네일 | 30분 |
 
 **걸리는 것**: `ffmpeg` 설치(없으면 `C:\Tools\` 에), 음악 라이선스. 새 빌드의 UI(메뉴 옆 칸·보이는 모양 클릭 영역)로 찍는다.
+
+### 10-4. 실제로 만든 것 (2026-09-28)
+
+```
+Godot.exe --path . --fixed-fps 30 -- --trailer=<원판>      # platform/OverlayShell.Trailer.cs, 840 프레임 · 약 1분
+python tools/make-store-trailer.py <원판>                    # ComfyUI venv (PyAV = libx264 · AAC 내장, ffmpeg 설치 불필요)
+```
+
+- **`--fixed-fps 30`** 으로 게임 시간을 영상 시간에 묶고, 타건·버튼·커서를 프레임 번호로 넣는다(`TrailerAt`) - 매번 같은 영상. 커서는
+  `CursorLayer.Script` 로 대본 경로를 따라간다(실제 마우스를 안 읽는다)
+- 창은 **게임 화면 왼쪽 위 기준**으로 합성한다 - 메뉴 칸이 열려도 나무가 제자리, 커서가 버튼 위에
+- 커서 장면(13~19초)은 합성에서 카메라를 1.7배로 당긴다. 작업 표시줄은 창 위에 다시 그린다(메뉴 칸 높이가 작업 표시줄까지 내려온다)
+- 소리는 합성 - 타자 소리 · 바나나 "퐁" · 100BPM 오음계 선율. 라이선스 문제 없음
+- 끝장면: 로고 + "Wishlist now on Steam / 스팀에서 찜하기" (한 벌로 두 언어)
+- 결과: 1920x1080 · 30fps · 30초 · 약 8.7MB(2.3Mbps). 스팀 권장 5Mbps 보다 낮지만 화면이 단순해 CRF 18 로 충분했다. 파트너 사이트 업로드는 10MB 이하가 편하다

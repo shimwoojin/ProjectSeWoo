@@ -145,6 +145,15 @@ public sealed class CursorLayer : ICursorLayer
     public bool Simulate { get; set; }
 
     /// <summary>
+    /// 트레일러 녹화용 (C1 §10) - 커서가 따라갈 화면 좌표를 매 틱 대신 정한다. 실제 마우스를 읽지 않아서 녹화가
+    /// 매번 똑같이 나온다. <see cref="Simulate"/> 보다 먼저 본다. null 이면 끔.
+    /// </summary>
+    public Func<Vector2> Script { get; set; }
+
+    /// <summary>이번 틱에 커서 끝이 있으려던 화면 좌표 (트레일러 합성이 창 대신 이 점에 맞춘다).</summary>
+    public Vector2 LastTarget { get; private set; }
+
+    /// <summary>
     /// 진단용. 클릭 통과를 걸지 않는다. 그것이 창을 안 보이게 만드는 범인인지 가른다.
     /// A7의 부하 비교(클릭 통과 유/무)에도 쓸 수 있어 남겨둔다.
     /// </summary>
@@ -346,7 +355,8 @@ public sealed class CursorLayer : ICursorLayer
             return;
         }
 
-        Vector2 target = Simulate ? SimulatedTarget(delta) : DisplayServer.MouseGetPosition();
+        Vector2 target = Script != null ? Script() : Simulate ? SimulatedTarget(delta) : DisplayServer.MouseGetPosition();
+        LastTarget = target;
 
         // 모드별로 "어디에 있고 싶은가"를 정한다. 창을 옮기는 것은 그 다음이다.
         switch (Mode)

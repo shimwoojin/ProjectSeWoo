@@ -170,8 +170,10 @@ public partial class OverlayShell
         viewport.QueueFree();
     }
 
+    /// <summary>스크린샷 또는 트레일러 원판 무인 실행 - 둘 다 같은 목 상태(<see cref="PrepareStoreShot"/>)에서 찍는다.</summary>
     private static bool IsStoreShotRun() =>
-        OS.IsDebugBuild() && Array.Exists(OS.GetCmdlineUserArgs(), a => a.StartsWith(StoreShotPrefix, StringComparison.Ordinal));
+        OS.IsDebugBuild() && (Array.Exists(OS.GetCmdlineUserArgs(), a => a.StartsWith(StoreShotPrefix, StringComparison.Ordinal))
+            || IsTrailerRun());
 
     private static string StoreShotDir()
     {

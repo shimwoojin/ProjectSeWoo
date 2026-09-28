@@ -328,6 +328,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         ParseAutoReportArgs();
         StartMeasureFriends();
         StartStoreShot();
+        StartTrailer();
         StartMakeIcons();
 
         GD.Print($"[shell] ready. screens={DisplayServer.GetScreenCount()} cores={_perf.Cores}");
