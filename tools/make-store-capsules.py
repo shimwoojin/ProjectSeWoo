@@ -276,14 +276,16 @@ def place_logo(canvas, lg, cx, cy):
 
 # ---------- 규격별 ----------
 
-def wide(W, H, logo_w=0.46, keys=True, cursor=True):
+# 키캡("PUNCH" · "+1")은 기본으로 뺀다 (2026-09-28). 스팀 그래픽 자산 규칙이 캡슐에 "게임 로고 말고 다른 글자" 를
+# 금지한다 - 업로드 때 확인란으로 직접 확인시키고, 어기면 검수에서 떨어진다. 트레일러·설명란 그림에는 써도 된다.
+def wide(W, H, logo_w=0.46, keys=False, cursor=True):
     """가로형 (헤더·메인): 왼쪽 로고, 오른쪽 장면."""
     c = background(W, H, horizon=0.78)
     gy = H * 0.86
     mh = H * 0.46
     punch_scene(c, gy, mh, W * 0.52)
     if cursor:
-        decorated_cursor(c, W * 0.38, H * 0.50, H * 0.09, monkey_scale=0.42)   # 로고 아래, 키캡 오른쪽 위
+        decorated_cursor(c, W * 0.38, H * 0.50, H * 0.09, monkey_scale=0.42)   # 로고 아래
     if keys:
         keycaps(c, H * 0.85, H * 0.085, "PUNCH", x0=W * 0.03, pressed=2)
     lg = logo(round(W * logo_w), lines=2)
@@ -301,7 +303,7 @@ def small(W, H):
     return c
 
 
-def tall(W, H, keys=True):
+def tall(W, H, keys=False):
     """세로형 (세로 캡슐·라이브러리 캡슐): 위 로고, 아래 장면."""
     c = background(W, H, horizon=0.8, sun=(0.8, 0.1))
     gy = H * 0.88
@@ -373,6 +375,12 @@ def main():
             im.convert("RGB").save(os.path.join(OUT, f"{name}.png"))
             im.convert("RGB").save(os.path.join(OUT, f"{name}.jpg"), quality=92)
         print(f"{name:18s} {size[0]}x{size[1]}")
+
+    # 바로가기 아이콘 (Steamworks > 클라이언트 이미지 "Shortcut Icon") - ICO 에 256x256 이 꼭 있어야 한다.
+    community_icon(256).convert("RGB").save(
+        os.path.join(OUT, "shortcut_icon.ico"),
+        sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    print("shortcut_icon.ico  256x256 외")
 
 
 if __name__ == "__main__":

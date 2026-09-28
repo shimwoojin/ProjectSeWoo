@@ -343,3 +343,20 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 - 쓰는 모델의 상업 이용: SDXL base 1.0 (CreativeML OpenRAIL++-M) · StickersRedmond LoRA (CreativeML OpenRAIL-M) · 배경 제거
   INSPYRENET (MIT). RMBG-2.0(CC BY-NC)은 쓰지 않는다 (B8 §4)
 - 엔티티 시트를 받은 GPT 이미지 생성의 약관이 결과물 상업 이용을 허용하는지 **한 번 더 확인할 것** (B8 §4 는 "가능" 으로 적어 둠)
+
+---
+
+## 9. 파트너 사이트 입력 기록 (2026-09-28)
+
+스토어 존재(Store Presence) 체크리스트 **완료**. 스토어 페이지 검수 제출은 아직.
+
+| 칸 | 넣은 것 |
+|---|---|
+| 긴 설명 (영/한) | §4-2·§4-3 그대로, 섹션 그림 4장(`[img]{STEAM_APP_IMAGE}/extras/section_punch` 등 — 이름 붙은 이미지 그룹) |
+| 짧은 설명 | **스팀 최소 200자** 라 늘렸다. 영: 초안 + " Punch together with your Steam friends, too." (236자). 한: "바탕화면 한쪽에 원숭이와 바나나 나무를 띄워 두세요. 일하며 타자를 칠 때마다 원숭이가 나무를 펀치하고, 익은 바나나가 떨어집니다. 모은 바나나로 내 마우스 커서에 매달린 원숭이와 장식을 꾸미세요. 스팀 친구와 로비에 모이면 친구의 원숭이와 나무도 내 바탕화면에 작은 창으로 나타나고, 누가 제일 많이 쳤는지 겨룰 수 있습니다. 자리를 비운 동안에도 나무는 계속 자랍니다." (208자) |
+| 캡슐 · 라이브러리 · 스크린샷 5장 | `assets/_store/` 그대로. **캡슐에서 키캡("PUNCH" · "+1")을 뺐다** — 스팀 캡슐 규칙이 로고 외 글자를 금지하고, 업로드 때 확인란으로 직접 확인시킨다 |
+| 시스템 요구사항 | Windows 10 64-bit · 64-bit 듀얼코어(실측 아님, 보수적 문구) · 1 GB · DirectX 12 GPU · DX 12 · 300 MB · 광대역 인터넷 · "Internet connection required (bananas and decorations are saved on the game server)." |
+| 태그 (17개, 순서대로) | Idler · Collectathon · Incremental · Animals · 2D · Cute · Cozy · Funny · Relaxing · Casual · Simulation · Cartoony · Colorful · Family Friendly · Multiplayer · Singleplayer · Indie. 태그 마법사에 **Clicker 태그가 없었다**. 미리 들어 있던 Co-op · Online Co-Op 은 뺐다(§5) |
+| 앱 아이콘 / 바로가기 아이콘 | `community_icon.jpg` 184 / `shortcut_icon.ico` (256 포함). Steamworks 설정 쪽이라 **Steamworks "Publish" 탭에서 게시해야 반영된다** — 아직 안 함 |
+
+남은 것: 트레일러(게임 빌드 체크리스트), Steamworks 설정 게시, 스토어 페이지 검수 제출, 추천 항목(도전과제 지원 표시).
