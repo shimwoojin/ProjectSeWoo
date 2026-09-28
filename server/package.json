@@ -16,7 +16,7 @@
     "db:migrate:rl:local": "wrangler d1 execute punchmonkey-economy --local --file=./migrations/0003_rate_limits.sql",
     "db:migrate:rl:remote": "wrangler d1 execute punchmonkey-economy --remote --file=./migrations/0003_rate_limits.sql",
     "db:migrate:donate:local": "wrangler d1 execute punchmonkey-economy --local --file=./migrations/0004_donations.sql",
-    "db:migrate:donate:remote": "wrangler d1 execute punchmonkey-economy --remote --file=./migrations/0004_donations.sql",
+    "db:migrate:donate:remote": "wrangler d1 execute punchmonkey-economy --remote --command \"ALTER TABLE players ADD COLUMN donated_total INTEGER NOT NULL DEFAULT 0\"",
     "secret:steam-key": "wrangler secret put STEAM_PUBLISHER_WEB_API_KEY",
     "secret:session-secret": "wrangler secret put SESSION_SIGNING_SECRET",
     "test": "vitest run"

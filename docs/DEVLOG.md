@@ -3376,3 +3376,4 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 2. 파트너 사이트: 도전과제 4개(A15 §1 표 아래 넷) + 통계 `STAT_DONATED` 등록·Progress Stat 연결·게시
 3. 릴리스 빌드 → default
 4. 유료 바나나 할지 결정 (B20 §2)
+- 원격 마이그레이션 `--file` 이 OAuth 로그인에서 D1 import API "Authentication error [code: 10000]" - `--command` 로 바꿔 적용(`donated_total` 확인) → 서버 배포 `b3a44aab`
