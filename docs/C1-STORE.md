@@ -8,19 +8,21 @@
 
 ---
 
-## 0. 상태 (2026-09-26)
+## 0. 상태 (2026-09-28)
 
 | 항목 | 상태 |
 |---|---|
-| 캡슐 아트 10종 | ☑ **초안** — `tools/make-store-capsules.py` → `assets/_store/capsules/` (§2) |
-| 스크린샷 5장 | ☑ **초안 7장** — `--store-shot` 원판 + `tools/make-store-screenshots.py` → `assets/_store/screenshots/` (§3) |
-| 짧은 설명 · 긴 설명 (한/영) | ☑ 초안 (§4) |
+| 캡슐 아트 10종 | ☑ **초안** — `tools/make-store-capsules.py` → `assets/_store/capsules/` (§2). 게임 화면이 안 들어가서 9/27·9/28 UI 변경과 무관 |
+| 스크린샷 5장 | ☑ **다시 뽑음 (9/28)** — 메뉴가 게임 옆 칸에 뜨고 HUD 가 원숭이 아래로 간 화면. 7장 중 5장 고르기 남음 (§3) |
+| 설명란 그림 | ☑ 다시 뽑음 (9/28) — 자르는 자리를 새 화면에 맞춤 (§4-4) |
+| 짧은 설명 · 긴 설명 (한/영) | ☑ 초안 — 9/28 "누적 타수 = 레벨" 문장 뺌, "클릭 통과" 문장을 보이는 모양 기준으로 (§4) |
 | 태그 | ☑ 제안 (§5) |
 | 시스템 요구사항 | ☑ STEAM-CONFIG §2-4 그대로 |
+| AI 콘텐츠 공개 문구 | ☑ **초안 (§8)** — 스팀 콘텐츠 설문의 "AI 생성 콘텐츠" 칸 |
+| LoRA 라이선스 (B8 §4) | ☑ **StickersRedmond = CreativeML OpenRAIL-M** (Hugging Face 모델 카드, 9/28 확인) — 결과물 상업 이용 가능, 금지 용도 조항만 따른다. pixel-art-xl 은 안 쓴다 |
 | 가격 | ☐ **정해야 한다** (§6) |
-| 트레일러 30초 | ☐ 공개 뒤에 해도 된다 |
-| LoRA 라이선스 (B8 §6) | ☐ **공개 전에 닫아야 한다** — 캡슐에 커서 장식(생성 그림)이 들어간다 |
 | 문의 이메일 | ☐ C2 §4-2 와 같은 값 |
+| 트레일러 30초 | ☐ 공개 뒤에 해도 된다 |
 
 ---
 
@@ -90,7 +92,7 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 
 ### 3-1. 원판 — `--store-shot` (`platform/OverlayShell.StoreShots.cs`)
 
-목 상태를 매번 같게 세운다: 잔액 1,284 · 누적 48,213타(Lv.21) · 강화(황금 2 · 가지 2 · 빨리 익기 1) · 송이
+목 상태를 매번 같게 세운다: 잔액 1,284 · 누적 48,213타 · 강화(황금 2 · 가지 2 · 빨리 익기 1) · 송이
 5개(황금 익음 / 보통 익음 / 황금 익음 / 자라는 중 / 막 달림) · 장식 11/16 보유, 장착 빨간 모자 원숭이 + 노란
 반짝임 + 금빛 고리. 그리고 장면마다 **보이는 창 전부**(메인·커서 장식·친구 창)를 저장한다.
 
@@ -98,15 +100,21 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 |---|---|
 | `idle`, `punch_0~5` | 가만히 / 익은 송이를 치는 순간 연속 |
 | `harvest_0~5` | 10번째 타격 — 황금 송이가 떨어지는 연속 |
-| `shop_tab0~4` | 상점 탭 5개 (원숭이 · 바나나 · 장식 · 강화 · 도감) |
+| `shop_tab0~3` | 상점 탭 4개 (원숭이 · 바나나 · 장식 · 도감) |
+| `upgrade` | 메뉴의 강화 탭 (9/27 부터 상점과 따로) |
+| `settings` | 메뉴의 설정 탭 — 합성은 안 한다. 확인용 (9/28) |
 | `lobby_0~3`, `lobby_window` | 가짜 친구 3명(바나나킹 · 타자왕 · 고릴라)이 치고 따는 로비 / 로비 창 |
-| `onboarding_0~2` | 처음 안내(B15) 세 장 — 합성은 안 한다. 안내 화면 확인용 |
+| `onboarding_0` | 처음 안내(B15) 한 장 (9/28 부터) — 합성은 안 한다. 안내 화면 확인용 |
+
+**메뉴가 열린 원판은 창이 넓다** (2026-09-28). 메뉴가 게임 화면 왼쪽 옆 420px 칸에 뜨므로(IShell.SetSidePanel) 원판도
+그만큼 넓다. 메뉴 칸 글자는 배율을 안 받는다 — 게임 그대로다. 합성은 뒤의 편집기·문서 창을 그 앞에서 끝낸다(`work_right`).
 
 - **창 배율 1.5** 로 찍는다(옵션 "크기" 범위 안). 1.0 으로는 1920x1080 에서 원숭이가 썸네일의 점이 된다.
   바탕화면도 150% 배율 모니터처럼 그렸다(작업 표시줄 72px, 커서 46px)
 - 입력 헬퍼를 띄우지 않고 타건을 코드로 넣는다(`HelperInputSource.DebugInject`) — 찍는 동안 실제 키보드가 섞이지 않는다
 - 계측 HUD 를 끄고 저전력 모드를 끈다(바뀐 게 없으면 프레임이 안 와서 캡처가 멈춘다)
 - **Esc 를 누르면 안 된다** — 셸 디버그 키에서 종료다. 상점·로비는 같은 키(B·M)를 다시 눌러 닫는다
+- **찍는 동안 마우스를 게임 창 밖에 둔다** — 송이 위에 있으면 말풍선이 같이 찍힌다
 - 게임 레이어의 타입을 모르는 채로 돈다: 상점 탭은 `TabContainer` 를 찾아 넘기고, 상점·로비는 디버그 키를 흘린다
 
 ### 3-2. 합성 결과 (`assets/_store/screenshots/`) — 7장 중 5장을 고른다
@@ -115,8 +123,8 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 |---|---|---|
 | `01_work` | 코드 편집기 옆에서 원숭이가 익은 송이를 친다, 꾸민 커서 | **1번** — 일하면서 켜 두는 게임 |
 | `02_harvest` | 문서 작업 옆, 황금 송이가 떨어진다 | **2번** |
-| `03_cursor` | 상점(원숭이 탭) + 커서 원숭이 확대 원 | **3번** — 커서 꾸미기 |
-| `04_collection` | 도감 11/16 | 4번 후보 |
+| `03_cursor` | 상점(원숭이 탭, 게임 옆 칸) + 커서 원숭이 확대 원 | **3번** — 커서 꾸미기 |
+| `04_collection` | 도감 14/22 | 4번 후보 |
 | `05_lobby` | 로비 창(랭킹·친구 목록) + 친구 창 3개 | **5번** |
 | `06_friends` | 친구 창 3개를 화면 위쪽에 둔 모습 + 내 나무 | 4번 후보 |
 | `07_upgrade` | 강화 탭 | 여분 |
@@ -125,7 +133,7 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 
 - 화면 글자는 한국어다. 영어 스토어에는 같은 그림을 쓰거나, 스팀의 언어별 스크린샷으로 나중에 나눈다
 - `03_cursor` 의 확대 원만 실제 화면이 아니다(같은 화면을 3.4배로 키운 것). 1:1 로는 장식이 작아서다
-- 상점 창은 반투명이라 뒤의 나무가 비친다 — 게임 그대로다
+- 메뉴(상점·강화·로비)는 게임 화면 옆 칸에 뜬다 — 9/27 까지의 원판은 창 전체를 덮은 반투명 상점이었다
 - 편집기·문서 창은 특정 제품을 흉내 내지 않은 일반 창이다(로고 없음)
 - 촬영 상태를 바꾸려면 `PrepareStoreShot`, 장면을 바꾸려면 `RunStoreShot`, 배치는 합성 스크립트의 `shot_*`
 - **움짤(GIF)** — 타이핑 → 펀치 → 바나나 → 커서. 긴 설명에 넣을 수 있으면 넣는다. 트레일러와 같이 만든다
@@ -180,12 +188,12 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 데나 두세요. 누가 제일 많이 쳤는지 로비 랭킹으로 겨룹니다.
 
 **방해하지 않습니다**
-- 항상 위에 떠 있지만 클릭은 뒤로 통과합니다
+- 항상 위에 떠 있지만 원숭이·나무 말고 빈 곳 클릭은 뒤 창으로 그대로 갑니다
 - 전체화면 게임·영상 중에는 숨길 수 있습니다 (옵션)
 - 트레이로 숨기기, Windows 시작 시 실행, 크기·투명도 조절
 - 가볍게 돌도록 만들었습니다
 
-**누적 타수 = 레벨.** 첫 천 타부터 백만 펀치까지, 도전과제 10개.
+**첫 천 타부터 백만 펀치까지**, 도전과제 10개.
 
 ### 4-3. 긴 설명 — English
 
@@ -219,12 +227,12 @@ Gather in a lobby with Steam friends and their monkeys and trees appear on your 
 Drag them anywhere. See who punched the most on the lobby leaderboard.
 
 **Stays out of your way**
-- Always on top, but clicks pass right through
+- Always on top, but clicks anywhere except the monkey and tree go straight to the window behind
 - Can hide while fullscreen games or videos are running (option)
 - Hide to tray, launch with Windows, adjust size and opacity
 - Built to run light
 
-**Your total keystrokes are your level.** From your first thousand to a million punches — 10 achievements.
+**From your first thousand to a million punches** — 10 achievements.
 
 ### 4-4. 설명란 이미지 (`assets/_store/description/`)
 
@@ -237,7 +245,7 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 | (GIF 를 못 쓰면) | `section_harvest.png` | 수확 순간 한 장 |
 | 커서에 원숭이가 매달립니다 / A monkey hangs from your cursor | `section_cursor.png` | 커서 원숭이 확대 원 (GIF 로 바꾸면 더 좋다 - 흔들림) |
 | 나무를 키우세요 / Grow your tree | `section_upgrade.png` | 강화 탭 |
-| 친구와 같이 치세요 / Punch together | `section_friends.png` | 친구 창 3개 (이름 · 레벨 · 로비 타수 · 도감) |
+| 친구와 같이 치세요 / Punch together | `section_friends.png` | 친구 창 3개 (이름 · 로비 타수 · 도감 — 레벨은 9/27 에 없앴다) |
 
 개인정보 문구와 "방해하지 않습니다" 섹션에는 그림을 넣지 않는다 — 앞은 읽혀야 하는 글이고 뒤는 글머리표로 충분하다.
 
@@ -252,7 +260,8 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 | 황금 ×5, 세 축 이름 | B13-UPGRADES — **B14 밸런스에서 이름·배율이 바뀌면 같이 고친다** |
 | 친구 창 끌어서 두기, 로비 랭킹 | B10 · B12. **2계정 전체 시나리오 확인 전** — 공개 전에 한 번은 돌려 볼 것 |
 | 전체화면 숨김 "옵션" | `63a116b` 기본값 끔 — 그래서 "숨길 수 있습니다" |
-| 클릭이 뒤로 통과 | A2 · A3 |
+| 빈 곳 클릭이 뒤로 통과 | A2 · A3, 9/28 클릭 영역 = 보이는 모양 (`IInteractiveArea.GetClickableRects`). **바탕화면에서 손으로 한 번 확인할 것** |
+| 레벨 문장이 없는 이유 | 9/27 레벨을 없앴다 (`KeystrokeLevel.cs` 삭제) — 누적 타수와 도전과제만 남았다 |
 | 도전과제 10개 | A15 |
 | "가볍게" — 수치를 안 쓴 이유 | A7 실측 239MB 는 있지만 친구 창 3개는 추정치(DEVLOG 9/24 열셋째). 숫자는 확정 뒤에 |
 | "타건 카운트 끄기" 가 없는 이유 | 옵션을 없앴다 (2026-09-26, C2 상태표). 세기를 원하지 않으면 게임을 끈다 |
@@ -289,8 +298,43 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 
 1. ☐ 캡슐 초안 확인 → 고칠 것 반영 (§2)
 2. ☐ 가격 결정 (§6), 문의 이메일 결정 (C2 §4-2)
-3. ☐ LoRA 라이선스 확인 (B8 §6-1) — 캡슐·게임에 생성 그림이 들어간다
-4. ☑ 스크린샷 초안 (§3) — 7장 중 5장 고르기
-5. ☐ 파트너 사이트에 설명문·태그·시스템 요구사항·캡슐·스크린샷 입력, 개인정보 문구 링크
+3. ☑ LoRA 라이선스 확인 (9/28, §0) — AI 공개 문구 초안은 §8
+4. ☑ 스크린샷 다시 뽑음 (9/28, §3) — 7장 중 5장 고르기
+5. ☐ 파트너 사이트에 설명문·태그·시스템 요구사항·캡슐·스크린샷·설명란 그림 입력, 개인정보 문구 링크, 콘텐츠 설문(AI 공개 §8)
 6. ☐ W-8BEN · 은행 계좌 (기획서 §11) — 스토어 공개 심사와 별개지만 출시 전에 필요하다
 7. ☐ 스토어 페이지 검수 제출 → "출시 예정" 공개. **밸브 검수에 며칠 걸리므로 제출은 10/2 보다 앞서야 한다**
+
+---
+
+## 8. AI 생성 콘텐츠 공개 (스팀 콘텐츠 설문) — 초안 (2026-09-28)
+
+스팀은 파트너 사이트의 **콘텐츠 설문**에서 AI 사용을 묻고, 적은 설명을 스토어 페이지에 그대로 보여 준다. 두 갈래로 묻는다 —
+**미리 생성한 콘텐츠**(개발 중에 만든 그림·소리 등)와 **실시간 생성 콘텐츠**(게임이 돌면서 AI 로 만드는 것).
+우리는 앞의 것만 해당한다. 게임은 실행 중에 AI 를 부르지 않는다.
+
+근거 (B8 §2·§4, B17):
+
+| 무엇 | 어떻게 만들었나 |
+|---|---|
+| 원숭이·나무·바나나·잎 (`assets/_source/` 시트) | AI 이미지 생성(GPT)으로 받은 시트를 스크립트로 잘라 씀 |
+| 커서 장식 일부 | SDXL + StickersRedmond LoRA (ComfyUI), 배경 제거·후처리 스크립트 |
+| 커서 원숭이 스킨 · 바나나 변형 | 위 그림에서 스크립트로 색·부품을 바꿔 만듦 (`make-monkey-parts.py`, `make-banana-variants.py`) |
+| 캡슐 아트 · 스크린샷 · 도전과제 아이콘 | 위 게임 그림을 스크립트로 배치·합성. 배경·로고는 코드로 그림 |
+| 코드 · 글 · UI | 사람이 씀 (개발 도구로 AI 코딩 도우미를 썼다 — 스팀 설문은 게임에 들어가는 콘텐츠를 묻는다) |
+
+**미리 생성한 콘텐츠 — 한국어**
+
+> 캐릭터(원숭이), 바나나 나무, 바나나, 커서 장식의 그림은 AI 이미지 생성 도구로 만든 뒤 개발자가 고르고 잘라 다듬었습니다.
+> 스토어 이미지는 이 게임 그림을 배치해 만들었습니다. 게임은 실행 중에 AI 로 콘텐츠를 만들지 않습니다.
+
+**Pre-generated — English**
+
+> The artwork for the monkey, banana tree, bananas and cursor decorations was created with AI image generation tools,
+> then selected, cut out and edited by the developers. Store images are composed from this in-game artwork.
+> The game does not generate any content with AI while it runs.
+
+**실시간 생성 콘텐츠** — 해당 없음 (체크하지 않는다).
+
+- 쓰는 모델의 상업 이용: SDXL base 1.0 (CreativeML OpenRAIL++-M) · StickersRedmond LoRA (CreativeML OpenRAIL-M) · 배경 제거
+  INSPYRENET (MIT). RMBG-2.0(CC BY-NC)은 쓰지 않는다 (B8 §4)
+- 엔티티 시트를 받은 GPT 이미지 생성의 약관이 결과물 상업 이용을 허용하는지 **한 번 더 확인할 것** (B8 §4 는 "가능" 으로 적어 둠)

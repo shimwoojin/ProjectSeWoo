@@ -172,6 +172,9 @@ def code_editor(bg, box):
     d.rectangle((x0 + 250, y0, x0 + 450, y0 + 44), fill=(30, 31, 36, 255))
     d.text((x0 + 270, y0 + 22), "OrderQueue.cs", font=tf, fill=(230, 232, 240, 255), anchor="lm")
 
+    # 코드는 따로 그려 편집기 안쪽으로 잘라 붙인다 - 게임 화면(메뉴 칸)이 넓은 장면은 편집기가 좁아 줄이 창 밖으로 샌다
+    code = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(code)
     mf = font(MONO, 22)
     palette = {"k": (198, 120, 221), "t": (214, 218, 228), "f": (97, 175, 239), "c": (110, 150, 110)}
     line, x = 0, 0
@@ -194,14 +197,15 @@ def code_editor(bg, box):
     # 입력 커서
     d.rectangle((x0 + 340 + 402, top + cursor_line * lh - 2, x0 + 340 + 404, top + cursor_line * lh + 26),
                 fill=(230, 230, 240, 255))
+    clip = (x0 + 250, y0 + 44, x1 - 6, y1)
+    bg.alpha_composite(code.crop(clip), clip[:2])
 
 
 DOC = [
     ("h", "3분기 제품 회의록"),
     ("m", "2026년 10월 16일 · 참석 5명"),
     ("s", "1. 지난 분기 돌아보기"),
-    ("p", "신규 가입은 목표를 넘겼지만 첫 주 이탈이 예상보다 컸다. 온보딩 화면을 세 장으로 줄인 뒤"),
-    ("p", "이탈이 조금 줄었고, 다음 분기에도 같은 지표로 본다."),
+    ("p", "신규 가입은 목표를 넘겼지만 첫 주 이탈이 예상보다 컸다. 온보딩 화면을 세 장으로 줄인 뒤 이탈이 조금 줄었고, 다음 분기에도 같은 지표로 본다."),
     ("s", "2. 이번 분기 목표"),
     ("p", "· 첫 주 유지율 5%p 올리기"),
     ("p", "· 설정 화면 정리 — 자주 쓰는 항목을 위로"),
@@ -219,17 +223,38 @@ def document(bg, box):
     px0, px1 = x0 + 90, x1 - 90
     d.rectangle((px0, y0 + 30, px1, y1 - 12), fill=(255, 255, 255, 255))
     y = y0 + 90
+    # 글은 따로 그려 종이 안으로 잘라 붙인다 - 문서 창이 좁은 장면에서 줄이 종이 밖으로 샌다
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
     styles = {"h": (UI_BOLD, 38, (30, 32, 40), 64), "m": (UI, 20, (120, 124, 134), 56),
               "s": (UI_BOLD, 26, (40, 44, 56), 48), "p": (UI, 21, (60, 64, 74), 38)}
     for kind, text in DOC:
         path, size, color, step = styles[kind]
         if kind == "s":
             y += 14
-        d.text((px0 + 70, y), text, font=font(path, size), fill=color + (255,))
-        y += step
+        f = font(path, size)
+        for row in wrap(d, text, f, px1 - 70 - (px0 + 70)):
+            d.text((px0 + 70, y), row, font=f, fill=color + (255,))
+            y += step
         if y > y1 - 40:
             break
+    clip = (px0, y0 + 30, px1, y1 - 12)
+    bg.alpha_composite(layer.crop(clip), clip[:2])
     return (px0 + 70, y)
+
+
+def wrap(d, text, f, width):
+    """띄어쓰기 단위로 줄을 나눈다 - 문서 창이 좁은 장면(메뉴 칸이 옆에 뜬 장면)에서 종이 밖으로 새지 않게."""
+    rows, row = [], ""
+    for word in text.split(" "):
+        candidate = f"{row} {word}" if row else word
+        if row and d.textlength(candidate, font=f) > width:
+            rows.append(row)
+            row = word
+        else:
+            row = candidate
+    rows.append(row)
+    return rows
 
 
 # ---------- 커서 ----------
@@ -279,6 +304,19 @@ def place_magnifier(bg, src, mask, at, line_to, src_r=60):
 
 # ---------- 장면 ----------
 
+def game_left(raw, shot, right=40):
+    """메인 창에서 그려진 부분의 왼쪽 끝이 바탕화면 어디에 올지. 메뉴가 열린 장면은 메뉴 칸(창 왼쪽)까지 넓다
+    (2026-09-28) - 뒤에 놓는 편집기·문서 창이 그 앞에서 끝나게 이 값으로 폭을 정한다."""
+    im = raw.img(shot)
+    box = content_box(im)
+    return W - right - box[2] + box[0]
+
+
+def work_right(raw, shot, fallback=1270):
+    """뒤의 작업 창 오른쪽 끝 - 게임 화면과 30px 띄운다. 게임이 좁으면 원래 폭."""
+    return min(fallback, game_left(raw, shot) - 30)
+
+
 def game_at(bg, raw, shot, right=40, bottom_gap=10):
     """메인 창을 오른쪽 아래, 그려진 부분의 바닥이 작업 표시줄 바로 위에 오게 놓는다. 창 좌상단을 돌려준다."""
     im = raw.img(shot)
@@ -315,7 +353,7 @@ def shot_harvest(raw):
 
 def shot_cursor(raw):
     bg = wallpaper(0)
-    code_editor(bg, (40, 30, 1270, H - TASKBAR - 30))
+    code_editor(bg, (40, 30, work_right(raw, "shop_tab0"), H - TASKBAR - 30))
     game_at(bg, raw, "shop_tab0")
     tip = (820, 300)
     cursor(bg, raw, "shop_tab0", tip)
@@ -329,7 +367,7 @@ def shot_cursor(raw):
 
 def shot_collection(raw):
     bg = wallpaper(1)
-    document(bg, (60, 30, 1250, H - TASKBAR - 30))
+    document(bg, (60, 30, work_right(raw, "shop_tab3", 1250), H - TASKBAR - 30))
     game_at(bg, raw, "shop_tab3")
     cursor(bg, raw, "shop_tab3", (1500, 330))
     taskbar(bg)
@@ -338,11 +376,12 @@ def shot_collection(raw):
 
 def shot_lobby(raw):
     bg = wallpaper(0)
-    code_editor(bg, (40, 30, 1100, H - TASKBAR - 30))
+    # 친구 창은 끌어서 아무 데나 둔다 - 로비 창(메뉴 칸) 왼쪽에 세로로 세워 둔 모습
+    fx = game_left(raw, "lobby_window") - raw.img("lobby_window", "Friend0").width - 20
+    code_editor(bg, (40, 30, min(1100, fx - 30), H - TASKBAR - 30))
     gx, gy = game_at(bg, raw, "lobby_window")
-    # 친구 창은 끌어서 아무 데나 둔다 - 로비 창 왼쪽에 세로로 세워 둔 모습
-    friends(bg, raw, "lobby_window", [(1030, 50), (1030, 370), (1030, 690)])
-    cursor(bg, raw, "lobby_window", (1420, 560))
+    friends(bg, raw, "lobby_window", [(fx, 50), (fx, 370), (fx, 690)])
+    cursor(bg, raw, "lobby_window", (1250, 700))   # 로비 창 빈 곳 - [메뉴] 버튼 위에 얹지 않는다
     taskbar(bg)
     return bg
 
@@ -359,7 +398,7 @@ def shot_friends(raw):
 
 def shot_upgrade(raw):
     bg = wallpaper(0)
-    code_editor(bg, (40, 30, 1270, H - TASKBAR - 30))
+    code_editor(bg, (40, 30, work_right(raw, "upgrade"), H - TASKBAR - 30))
     game_at(bg, raw, "upgrade")
     cursor(bg, raw, "upgrade", (1560, 300))
     taskbar(bg)
@@ -384,17 +423,18 @@ DESC_W = 616   # 스팀 설명란 너비. 더 크게 올려도 이 너비로 줄
 
 # 스크린샷에서 잘라 쓸 영역 (x0, y0, x1, y1) - 섹션 제목 아래 한 장씩 (docs/C1-STORE.md §4-2)
 SECTIONS = [
-    ("section_cursor", "03_cursor", (190, 300, 1410, 870)),       # 커서를 꾸미세요 - 확대 원 + 커서
-    ("section_upgrade", "07_upgrade", (1250, 150, 1880, 470)),    # 나무를 키우세요 - 강화 탭
+    # 2026-09-28 메뉴가 게임 화면 옆 칸에 뜨고 HUD 가 원숭이 아래로 옮겨서 다시 잡았다
+    ("section_cursor", "03_cursor", (205, 250, 925, 860)),        # 커서를 꾸미세요 - 확대 원 + 커서
+    ("section_upgrade", "07_upgrade", (955, 172, 1610, 440)),     # 나무를 키우세요 - 강화 탭 + 커서 원숭이
     ("section_friends", "06_friends", (1262, 20, 1920, 330)),     # 친구와 같이 치세요 - 친구 창 3개
-    ("section_harvest", "02_harvest", (1260, 600, 1920, 955)),   # GIF 를 못 쓸 때 "치면 친다" 대신
+    ("section_harvest", "02_harvest", (1390, 430, 1900, 1000)),   # GIF 를 못 쓸 때 "치면 친다" 대신
 ]
 
 # 펀치 GIF: 원판 프레임 순서와 한 장당 시간(ms). 첫 타격 → (중간 8타 생략) → 10번째 타격에 황금 송이 낙하
 GIF_FRAMES = ([("idle", 500)] + [(f"punch_{k}", 70) for k in range(6)] + [("idle", 250)]
               + [(f"harvest_{k}", 80) for k in range(6)] + [("harvest_5", 900)])
-GIF_CROP = (40, 150, 530, 634)   # 원판(배율 1.5) 안에서 나무·원숭이만 - 버튼(635~)은 뺀다
-GIF_HUD = (0, 0, 150, 185)       # 나무 꼭대기 옆에 걸치는 HUD 마지막 줄(도감) - 지운다
+GIF_CROP = (40, 150, 530, 626)   # 원판(배율 1.5) 안에서 나무·원숭이만 - 원숭이 아래 HUD(630~)는 뺀다
+GIF_HUD = (0, 495, 142, 556)     # 원숭이 왼쪽 [메뉴] 버튼 - 지운다 (2026-09-28 부터 이 자리)
 
 
 def resize_w(im, width):

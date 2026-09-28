@@ -143,8 +143,8 @@ overhead, legs hanging loose downward, dangling in mid air" 처럼 몸이 어떤
 | SDXL base 1.0 | CreativeML OpenRAIL++-M | 가능 |
 | INSPYRENET (배경 제거) | MIT | 가능 |
 | **RMBG-2.0** | CC BY-NC | **불가 — 쓰지 않는다** |
-| StickersRedmond LoRA | 확인 필요 | ☐ |
-| pixel-art-xl LoRA (현재 미사용) | 확인 필요 | ☐ |
+| StickersRedmond LoRA | CreativeML OpenRAIL-M (Hugging Face `artificialguybr/StickersRedmond` 모델 카드, 2026-09-28 확인) | 가능 — 결과물 상업 이용 가능, 라이선스의 금지 용도 조항만 따른다 |
+| pixel-art-xl LoRA | 쓰지 않는다 (`gen.py` 에 설정만 남음) | 해당 없음 |
 | Pretendard (한글 폰트) | SIL OFL 1.1 | 가능 (`assets/fonts/Pretendard-OFL.txt`) |
 | 엔티티 시트 (`assets/_source/`) | 자체 생성물 (GPT) | 가능 |
 
@@ -181,7 +181,7 @@ overhead, legs hanging loose downward, dangling in mid air" 처럼 몸이 어떤
 
 ## 6. 남은 것
 
-1. **LoRA 라이선스 확인** (§4 의 ☐ 둘). 스토어 페이지 공개 전에 닫아야 한다.
+1. ~~LoRA 라이선스 확인~~ — 2026-09-28 닫음 (§4). 스팀 AI 공개 문구는 C1 §8.
 2. **엔티티 시트의 바닥 그림자.** 받은 `Monkey.png` 각 프레임 밑에 회색 타원이
    들어 있다. §3 이 말한 바로 그 문제인데 **생성이 아니라 받아온 것이라 프롬프트로
    못 막는다.** 지금은 그대로 두고 있다 — 지울지 말지는 눈으로 보고 정할 일이다.
