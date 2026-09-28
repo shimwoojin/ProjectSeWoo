@@ -1,4 +1,4 @@
-"""A15 — 스팀 도전과제 아이콘 20장(달성 10 + 미달성 10)을 게임 스프라이트로 만든다.
+"""A15 — 스팀 도전과제 아이콘 28장(달성 14 + 미달성 14)을 게임 스프라이트로 만든다. B20 기부 4개 추가 (2026-09-28).
 
     "C:\\Tools\\ComfyUI\\.venv\\Scripts\\python.exe" tools\\make-achievement-icons.py
 
@@ -159,6 +159,33 @@ def room():
     return c
 
 
+def heart():
+    """B20 기부 과제의 하트 - 원숭이 꼬리 끝 장식과 같은 그림(B19 생성 부위 원본)."""
+    return asset("_source", "parts", "tail", "heart.png")
+
+
+def donate_first():
+    """ACH_DONATE_FIRST - 첫 기부. 바나나 송이에 하트를 얹는다 (첫 구매처럼 숫자 배지 없음)."""
+    c = gradient((214, 110, 140), (86, 30, 52))
+    paste_with_shadow(c, fit(asset("cursor", "banana", "banana_01", "banana.png"), 150), (SIZE / 2 - 16, SIZE / 2 + 10))
+    paste_with_shadow(c, fit(heart(), 88), (SIZE / 2 + 52, SIZE / 2 - 46))
+    frame(c, (255, 170, 200, 255))
+    return c
+
+
+def donate(label, ring, top, bottom, sprite_fn, size, heart_size):
+    """누적 기부 1K/10K/100K - 칭호의 뜻대로 그림이 커진다: 바나나 → 꽃 핀 나무(정글 후원자) → 황금 나무(정글의 은인).
+    테두리·배지 색은 누적 타수 과제와 같은 동/은/금 단계."""
+    def draw():
+        c = gradient(top, bottom)
+        paste_with_shadow(c, fit(sprite_fn(), size), (SIZE / 2, SIZE / 2 - 16))
+        paste_with_shadow(c, fit(heart(), heart_size), (SIZE - 62, 64))
+        frame(c, ring)
+        badge(c, label, ring[:3] + (235,))
+        return c
+    return draw
+
+
 ICONS = {
     "ACH_KEYSTROKES_1K": keystrokes("1K", BRONZE, (190, 120, 60), (80, 40, 16)),
     "ACH_KEYSTROKES_10K": keystrokes("10K", SILVER, (120, 132, 150), (40, 46, 58)),
@@ -172,6 +199,14 @@ ICONS = {
     "ACH_SLOT_BASE": slot_base,
     "ACH_COLLECTION_100": collection,
     "ACH_ROOM_FIRST_JOIN": room,
+    # B20 기부 (2026-09-28)
+    "ACH_DONATE_FIRST": donate_first,
+    "ACH_DONATE_1K": donate("1K", BRONZE, (200, 120, 90), (84, 38, 26),
+                            lambda: asset("cursor", "banana", "banana_01", "banana.png"), 150, 64),
+    "ACH_DONATE_10K": donate("10K", SILVER, (90, 150, 110), (26, 58, 38),
+                             lambda: asset("entities", "tree_stage_2.png"), 178, 60),
+    "ACH_DONATE_100K": donate("100K", GOLD, (220, 170, 50), (96, 60, 8),
+                              lambda: asset("entities", "tree_stage_3.png"), 184, 60),
 }
 
 
@@ -198,7 +233,7 @@ def main():
 
     # 한눈에 보는 미리보기 (저장소에는 안 넣는다 - 필요할 때 다시 뽑는다)
     names = list(ICONS)
-    sheet = Image.new("RGB", (SIZE * 5 + 60, SIZE * 4 + 50), (30, 30, 34))
+    sheet = Image.new("RGB", (SIZE * 5 + 60, SIZE * 6 + 70), (30, 30, 34))
     for i, name in enumerate(names):
         col, row = i % 5, (i // 5) * 2
         sheet.paste(Image.open(os.path.join(OUT, f"{name}.png")), (10 + col * (SIZE + 10), 10 + row * (SIZE + 10)))
