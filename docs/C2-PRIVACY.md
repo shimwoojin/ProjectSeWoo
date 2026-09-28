@@ -10,7 +10,7 @@
 | 짧은 문구 (스토어 요약 · 게임 내 최초 실행) | ☑ 초안 — §1 |
 | 전체 문구 (개인정보 처리 안내) | ☑ 초안 — §2 |
 | 근거표 (문장마다 코드 위치) | ☑ — §3 |
-| **문의처 이메일** | ☐ `[문의 이메일]` 자리 — 사람이 정한다 |
+| **문의처 이메일** | ☑ 2026-09-28 `ggoggal@gmail.com` — 스팀 파트너 사이트 지원 이메일도 같게 |
 | **A10 (P2P) 전송 목록** | ☑ 2026-09-24 — 코드(`PlayerStateCodec`)와 대조해 §2-5 에 확정. 도감 수집률이 빠져 있던 것을 넣었다. P2P 는 스팀 릴레이만 쓰게 해서(직접 연결 끔) IP 비노출 문장을 넣었다 |
 | 게임 내 최초 실행에서 짧은 문구 노출 | ☐ **2026-09-28 뺐다** (갑 결정) — 처음 안내를 게임 설명 한 장으로 줄이면서 개인정보 문구도 걷었다. 9/26 B15 부터 첫 장에 §1 한국어가 있었다. 스토어 페이지에는 그대로 둔다. 다시 넣으려면 `game/ui/OnboardingWindow.cs` 에 넣고 `OnboardingWindow.Version` 을 올린다 |
 | ~~옵션 "타건 카운트" 끄기~~ | 2026-09-26 **옵션을 없앴다** (세이브 v7). 동작한 적이 없었고, 끄면 게임이 멈추는 구조라 필요 없다고 판단. 대신 "게임을 끄면 아무것도 세지 않는다" 를 §2-1 에 적었다 — 헬퍼가 게임과 같이 끝나는 것은 코드로 확인 |
@@ -105,11 +105,11 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 
 **7. 삭제**
 - 이 PC 의 데이터: 게임을 삭제한 뒤 `%APPDATA%\PunchMonkey\` 폴더를 지우면 됩니다.
-- 게임 서버의 데이터: `[문의 이메일]` 로 스팀 계정 ID 와 함께 요청하시면 삭제합니다. 삭제하면 바나나와
+- 게임 서버의 데이터: `ggoggal@gmail.com` 로 스팀 계정 ID 와 함께 요청하시면 삭제합니다. 삭제하면 바나나와
   진행 상태가 복구되지 않습니다. 이미 받은 커서 장식은 스팀 인벤토리에 남습니다.
 
 **8. 문의**
-`[문의 이메일]`
+`ggoggal@gmail.com`
 
 ### English
 
@@ -172,12 +172,12 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 
 **7. Deletion**
 - Data on your PC: uninstall the game and delete the `%APPDATA%\PunchMonkey\` folder.
-- Data on our game server: email `[contact email]` with your Steam account ID and we will delete it.
+- Data on our game server: email `ggoggal@gmail.com` with your Steam account ID and we will delete it.
   Deleted bananas and progress cannot be restored. Decorations you already received remain in your Steam
   Inventory.
 
 **8. Contact**
-`[contact email]`
+`ggoggal@gmail.com`
 
 ---
 
@@ -214,7 +214,7 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 
 1. ~~**옵션 "타건 카운트"**~~ — 2026-09-26 옵션을 없앴다(맨 위 상태표). 다시 넣는다면 **헬퍼가 RawInput 등록 자체를
    푸는 쪽**이어야 약속이 된다
-2. **문의 이메일** — §2-7, §2-8 의 `[문의 이메일]`. 스팀 파트너 사이트의 지원 이메일과 같게 한다
+2. ~~**문의 이메일**~~ — 2026-09-28 `ggoggal@gmail.com` 로 채웠다. 스팀 파트너 사이트의 지원 이메일과 같게 한다
 3. ~~**A10 전송 목록**~~ — 2026-09-24 확정(§2-5). §7-6 의 목록에는 **도감 수집률이 빠져 있었다** — 코드
    (`PlayerStateCodec`)가 보내는 것에 맞춰 문구와 §7-6 을 같이 고쳤다. 필드를 늘리면 여기부터 고친다
 4. **서버 데이터 삭제 절차** — 지금은 요청이 오면 D1 에서 손으로 지운다(`players` · `idempotency_keys` ·
