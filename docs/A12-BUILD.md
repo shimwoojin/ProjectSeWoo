@@ -20,7 +20,7 @@
 | SteamPipe VDF 생성 | ☑ `build/steampipe/` 에 자동 생성 |
 | steamcmd | ☑ `C:\Tools\steamcmd\` (2026-09-16 설치, 자체 업데이트까지 확인) |
 | 첫 업로드 | ☑ **2026-09-16 13:12, BuildID `25338283`** (커밋 `8ad616a`). 브랜치 미지정 = 비공개 |
-| 브랜치 지정 | ☑ default = **BuildID 25571397** (2026-09-28, 커밋 `458b80e`). 게임 빌드 검수 제출 |
+| 브랜치 지정 | ☑ default = **BuildID 25579499** (2026-09-28, 커밋 `6feb8fd` - B19 원숭이 20종·바나나 15종). 이전 25571397(`458b80e`)로 게임 빌드 검수 제출 |
 | A13 Defender / VirusTotal 재검증 | ◐ Defender ☑ (2026-09-24, 커밋 `df89559` 빌드) · VirusTotal ☐ · Vanguard ☑ · EAC ☐ — §8 |
 
 ---
