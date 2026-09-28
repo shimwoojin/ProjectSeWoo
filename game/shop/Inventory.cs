@@ -49,6 +49,28 @@ public sealed class Inventory
     /// <summary>강화 단계 (B13). 효과·가격은 <see cref="UpgradeTable"/>.</summary>
     public int UpgradeLevel(UpgradeAxis axis) => _economy.UpgradeLevel(axis);
 
+    /// <summary>누적 기부 (B20). 칭호는 <see cref="DonationTable.TitleFor"/>.</summary>
+    public long Donated => _economy.DonatedTotal;
+
+    /// <summary>
+    /// 기부 (B20). 서버가 잔액을 다시 판정한다 - 여기 검사는 요청을 아끼는 힌트다.
+    /// </summary>
+    public async Task<PurchaseOutcome> TryDonate(long amount)
+    {
+        if (amount <= 0 || amount > DonationTable.MaxPerRequest)
+        {
+            return PurchaseOutcome.Rejected;
+        }
+
+        if (_economy.Balance < amount)
+        {
+            return PurchaseOutcome.InsufficientBalance;
+        }
+
+        PurchaseResult result = await _economy.Donate(amount);
+        return result.Outcome;
+    }
+
     /// <summary>
     /// 강화 한 단계. 서버가 가격을 자기 표로 다시 판정한다 - 여기 검사는 요청을 아끼는 힌트다.
     /// </summary>

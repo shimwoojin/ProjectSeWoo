@@ -125,6 +125,11 @@ public sealed class EconomyClient : IEconomyService, IDisposable
 
     public int UpgradeLevel(UpgradeAxis axis) => _upgradeLevels.GetValueOrDefault(axis);
 
+    public long DonatedTotal => _donatedTotal;
+
+    /// <summary>서버가 마지막으로 알려 준 누적 기부 (B20). 기부는 낙관적 갱신을 안 한다 - 서버 응답으로만 바뀐다.</summary>
+    private long _donatedTotal;
+
     public void RequestHarvest(int slotIndex)
     {
         AdvanceLocal();
@@ -258,6 +263,36 @@ public sealed class EconomyClient : IEconomyService, IDisposable
         }
     }
 
+    public async Task<PurchaseResult> Donate(long amount)
+    {
+        if (!await EnsureSessionAsync())
+        {
+            return new PurchaseResult(PurchaseOutcome.ServerUnavailable, _balance);
+        }
+
+        try
+        {
+            DonateResponseWire response = await PostAsync<DonateResponseWire>(
+                "/v1/economy/donate",
+                new { amount, clientRequestId = Guid.NewGuid().ToString("N") });
+
+            if (response == null)
+            {
+                return new PurchaseResult(PurchaseOutcome.ServerUnavailable, _balance);
+            }
+
+            _balance = response.Balance;
+            _donatedTotal = response.DonatedTotal;
+            OnStateChanged?.Invoke();
+            return new PurchaseResult(ParseOutcome(response.Outcome), response.Balance);
+        }
+        catch (Exception e)
+        {
+            GD.PushWarning($"[economy] 기부 요청 실패 ({amount}) - {e.Message}");
+            return new PurchaseResult(PurchaseOutcome.ServerUnavailable, _balance);
+        }
+    }
+
     public async Task Sync()
     {
         if (!await EnsureSessionAsync())
@@ -274,6 +309,7 @@ public sealed class EconomyClient : IEconomyService, IDisposable
             }
 
             ApplyUpgrades(response.Upgrades);
+            _donatedTotal = response.DonatedTotal;
             ApplyState(response.Balance, response.Slots);
         }
         catch (Exception e)
@@ -491,6 +527,9 @@ public sealed class EconomyClient : IEconomyService, IDisposable
         [JsonPropertyName("slots")] public SlotStateWire[] Slots { get; set; }
         [JsonPropertyName("upgrades")] public UpgradesWire Upgrades { get; set; }
         [JsonPropertyName("lastSyncUtc")] public string LastSyncUtc { get; set; }
+
+        /// <summary>B20. 옛 서버는 안 보낸다 - 그러면 0.</summary>
+        [JsonPropertyName("donatedTotal")] public long DonatedTotal { get; set; }
     }
 
     private sealed class HarvestResponseWire
@@ -499,6 +538,13 @@ public sealed class EconomyClient : IEconomyService, IDisposable
         [JsonPropertyName("reason")] public string Reason { get; set; }
         [JsonPropertyName("balance")] public long Balance { get; set; }
         [JsonPropertyName("slots")] public SlotStateWire[] Slots { get; set; }
+    }
+
+    private sealed class DonateResponseWire
+    {
+        [JsonPropertyName("outcome")] public string Outcome { get; set; }
+        [JsonPropertyName("balance")] public long Balance { get; set; }
+        [JsonPropertyName("donatedTotal")] public long DonatedTotal { get; set; }
     }
 
     private sealed class PurchaseResponseWire

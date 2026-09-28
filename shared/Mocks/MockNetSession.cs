@@ -379,6 +379,8 @@ public sealed class MockNetSession : INetSession
                 EquippedBanana = look[1],
                 EquippedDeco = look[2],
                 CollectionPercent = (byte)(seat.Id.Value * 13 % 101),
+                // 기부 칭호가 친구 칸에 보이는지 확인용 (B20) - 친구마다 다른 등급.
+                DonatedTotal = (uint)(seat.Id.Value % 4 switch { 0 => 0, 1 => 150, 2 => 2_400, _ => 12_000 }),
             };
 
             if (PlayerStateCodec.TryDecode(PlayerStateCodec.Encode(state), out PlayerState wire))

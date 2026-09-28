@@ -145,6 +145,19 @@
   더한다 — b7696d3). 슬롯이 늘면 새 슬롯은 0 부터, 성장 시간이 짧아지면 이미 넘은 슬롯은 곧바로
   익는다
 
+### 2-5. `POST /v1/economy/donate` (B20, 2026-09-28)
+
+```jsonc
+// 요청
+{ "amount": 100, "clientRequestId": "…" }       // 정수 1 ~ 1,000,000,000. 아니면 400 bad_request (DB 에 안 간다)
+// 응답
+{ "outcome": "success", "balance": 400, "donatedTotal": 100 }   // insufficient_balance 면 잔액·누적 그대로
+```
+
+- 잔액에서 빼서 `players.donated_total` 에 더한다. 돌려주지 않는다. 스팀 호출 없음. 멱등(같은 `clientRequestId` 는 저장된 응답)
+- `GET /v1/economy/state` 에도 `donatedTotal` 이 붙는다
+- **배포 전에 `npm run db:migrate:donate:remote`** (칸 추가). 칸 없이 새 서버가 뜨면 `savePlayer` 가 실패한다
+
 ---
 
 ## 3. 에러·재시도

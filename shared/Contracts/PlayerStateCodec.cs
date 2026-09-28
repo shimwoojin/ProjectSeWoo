@@ -10,15 +10,16 @@ namespace ProjectSeWoo.Shared;
 /// <b>스팀을 모른다.</b> 바이트와 구조체 사이의 변환만 해서, 실물(<c>SteamNetSession</c>)과
 /// 목, <c>--selftest</c> 가 같은 코드를 탄다.
 ///
-/// 형식 (리틀 엔디언, 총 17~113 바이트):
+/// 형식 (리틀 엔디언, 총 21~117 바이트):
 /// <code>
-/// [0]     버전 (지금 3 - 2026-09-28 B18: 나무 단계 [13] 을 더했다. 2026-09-26 v2 는 B17 장식 세 칸의 뜻 변경. 다른 버전과는 서로 버린다)
+/// [0]     버전 (지금 4 - 2026-09-28 B20: 누적 기부 [14..17]. v3 은 B18 나무 단계 [13], v2 는 B17 장식 세 칸의 뜻 변경. 다른 버전과는 서로 버린다)
 /// [1..2]  KeystrokesInWindow (ushort)
 /// [3]     HarvestsInWindow (byte)
 /// [4..11] TotalKeystrokes (long)
 /// [12]    CollectionPercent (byte)
 /// [13]    TreeStage (byte, 0~3)
-/// [14..]  EquippedMonkey / Banana / Deco - 각각 길이 1바이트 + ASCII. 길이 0xFF 는 null(빈 슬롯)
+/// [14..17] DonatedTotal (uint)
+/// [18..]  EquippedMonkey / Banana / Deco - 각각 길이 1바이트 + ASCII. 길이 0xFF 는 null(빈 슬롯)
 /// </code>
 ///
 /// <b>받은 것은 믿지 않는다.</b> 상대는 우리 게임이 아닐 수도 있다 - 로비 코드만 알면
@@ -35,7 +36,7 @@ namespace ProjectSeWoo.Shared;
 /// </summary>
 public static class PlayerStateCodec
 {
-    public const byte Version = 3;
+    public const byte Version = 4;
 
     /// <summary>장식 ID 최대 길이. 지금 카탈로그에서 가장 긴 것이 12글자쯤이다.</summary>
     public const int MaxIdLength = 32;
@@ -44,7 +45,7 @@ public static class PlayerStateCodec
     public const int MaxSize = Header + 3 * (1 + MaxIdLength);
 
     /// <summary>장식 ID 앞의 고정 길이 부분.</summary>
-    private const int Header = 14;
+    private const int Header = 18;
 
     private const byte NullId = 0xFF;
 
@@ -57,6 +58,7 @@ public static class PlayerStateCodec
         BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(4), s.TotalKeystrokes);
         buffer[12] = s.CollectionPercent;
         buffer[13] = s.TreeStage;
+        BinaryPrimitives.WriteUInt32LittleEndian(buffer.AsSpan(14), s.DonatedTotal);
 
         int at = Header;
         at = WriteId(buffer, at, s.EquippedMonkey);
@@ -91,6 +93,7 @@ public static class PlayerStateCodec
             TotalKeystrokes = Math.Max(0, BinaryPrimitives.ReadInt64LittleEndian(data.Slice(4))),
             CollectionPercent = Math.Min(data[12], (byte)100),
             TreeStage = Math.Min(data[13], (byte)UpgradeTable.MaxTreeStage),
+            DonatedTotal = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(14)),
             EquippedMonkey = monkey,
             EquippedBanana = banana,
             EquippedDeco = deco,
@@ -130,6 +133,7 @@ public static class PlayerStateCodec
             TotalKeystrokes = 1_234_567_890_123,
             CollectionPercent = 56,
             TreeStage = 2,
+            DonatedTotal = 123_456,
             EquippedMonkey = "monkey_01",
             EquippedBanana = "banana_01",
             EquippedDeco = null,

@@ -30,7 +30,7 @@ const KO = `
 <p>바나나를 임의로 늘리거나 장식을 복제하지 못하게, 재화와 구매는 게임 서버가 확인합니다.</p>
 <ul>
   <li><strong>스팀 계정 ID</strong> — 누구의 진행인지 구분하는 데 씁니다. 로그인할 때 스팀이 발급한 일회성 인증 티켓을 Valve 에 보내 확인하며, 비밀번호는 다루지 않습니다.</li>
-  <li><strong>게임 진행 상태</strong> — 바나나 잔액, 강화 단계, 나무 슬롯의 성장 상태, 마지막 동기화 시각</li>
+  <li><strong>게임 진행 상태</strong> — 바나나 잔액, 강화 단계, 누적 기부량, 나무 슬롯의 성장 상태, 마지막 동기화 시각</li>
   <li><strong>구매 기록</strong> — 같은 구매가 두 번 처리되지 않게 하는 요청 기록, 서버가 지급한 장식 목록</li>
   <li>게임 서버는 Cloudflare 에서 운영합니다. 게임 서버는 IP 주소를 저장하지 않지만, Cloudflare 가 서비스 제공 과정에서 처리할 수 있습니다.</li>
 </ul>
@@ -50,7 +50,7 @@ const KO = `
   <li>로비에서 나간 뒤에도 그 로비가 남아 있는 동안에는, 다시 들어왔을 때 이어서 세기 위해 로비 타수가 스팀 계정 ID 와 함께 로비 정보에 남습니다. 로비 코드를 아는 사람은 로비 정보를 볼 수 있습니다. 마지막 사람이 나가 로비가 사라지면 함께 사라집니다.</li>
   <li>스팀 친구에게: 로비에 있는 동안 "게임 참가" 에 쓰이는 로비 정보</li>
   <li>친구 목록과 친구의 접속 상태(온라인·게임 중·참가 정보)는 로비 창에서 참가·초대를 보여 주는 데만 이 PC 에서 읽으며, 우리 서버로 보내지 않습니다.</li>
-  <li>같은 로비의 사람들에게, 로비에 있는 동안 0.2초마다: 그 사이 친 횟수, 딴 바나나 수, 누적 타수, 장착한 커서 장식, 도감 수집률, 나무 단계(강화 정도에 따라 바뀌는 나무 모습). 친구 화면에서 원숭이와 나무를 움직이는 데만 씁니다. 어떤 키를 눌렀는지는 들어 있지 않습니다. 스팀 중계 서버를 거쳐 전달되므로 서로의 IP 주소는 보이지 않습니다.</li>
+  <li>같은 로비의 사람들에게, 로비에 있는 동안 0.2초마다: 그 사이 친 횟수, 딴 바나나 수, 누적 타수, 장착한 커서 장식, 도감 수집률, 나무 단계(강화 정도에 따라 바뀌는 나무 모습), 누적 기부량(칭호로 보입니다). 친구 화면에서 원숭이와 나무를 움직이는 데만 씁니다. 어떤 키를 눌렀는지는 들어 있지 않습니다. 스팀 중계 서버를 거쳐 전달되므로 서로의 IP 주소는 보이지 않습니다.</li>
 </ul>
 
 <h2>6. 하지 않는 것</h2>
@@ -95,7 +95,7 @@ const EN = `
 <p>To prevent bananas from being inflated or decorations from being duplicated, our game server verifies your balance and purchases.</p>
 <ul>
   <li><strong>Steam account ID</strong> — used to identify whose progress it is. At sign-in, a one-time authentication ticket issued by Steam is verified with Valve. We never handle your password.</li>
-  <li><strong>Game progress</strong> — banana balance, upgrade levels, tree slot growth, last sync time</li>
+  <li><strong>Game progress</strong> — banana balance, upgrade levels, total bananas donated, tree slot growth, last sync time</li>
   <li><strong>Purchase records</strong> — request records that prevent the same purchase from being processed twice, and the list of decorations the server has granted</li>
   <li>The game server runs on Cloudflare. Our server does not store IP addresses, but Cloudflare may process them while providing its service.</li>
 </ul>
@@ -115,7 +115,7 @@ const EN = `
   <li>After you leave, while the lobby still exists, your lobby keystrokes are kept in the lobby information together with your Steam account ID so the count can continue if you rejoin. Anyone who knows the lobby code can view the lobby information. It disappears when the last person leaves and the lobby closes.</li>
   <li>To your Steam friends: lobby information used for "Join Game" while you are in a lobby</li>
   <li>Your friends list and your friends' status (online / in game / join information) are read on your PC only to show join and invite options in the lobby window, and are never sent to our server.</li>
-  <li>To people in the same lobby, every 0.2 seconds while you are in it: how many times you typed in that moment, bananas harvested, total keystrokes, equipped cursor decorations, collection progress, and your tree stage (how your tree looks, based on your upgrades). This is used only to animate your monkey and tree on their screens. It never contains which keys you pressed. It is delivered through Steam's relay servers, so your IP address is not visible to others.</li>
+  <li>To people in the same lobby, every 0.2 seconds while you are in it: how many times you typed in that moment, bananas harvested, total keystrokes, equipped cursor decorations, collection progress, your tree stage (how your tree looks, based on your upgrades), and your total bananas donated (shown as a title). This is used only to animate your monkey and tree on their screens. It never contains which keys you pressed. It is delivered through Steam's relay servers, so your IP address is not visible to others.</li>
 </ul>
 
 <h2>6. What we don't do</h2>

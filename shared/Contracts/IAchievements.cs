@@ -67,6 +67,12 @@ public static class StatIds
     /// INT · Increment Only · Min 0.
     /// </summary>
     public const string Keystrokes = "STAT_KEYSTROKES";
+
+    /// <summary>
+    /// 누적 기부 바나나 (B20). 서버 원장(<see cref="IEconomyService.DonatedTotal"/>)을 비춘다. 기부 도전과제 3개의
+    /// Progress Stat. INT · Increment Only · Min 0.
+    /// </summary>
+    public const string Donated = "STAT_DONATED";
 }
 
 /// <summary>
@@ -109,6 +115,27 @@ public static class AchievementIds
     /// <summary>멀티 룸에 처음 들어갔다 (만들거나 참가). 실물 스팀 로비(<c>SteamNetSession</c>, A9)에서만 풀린다 - 목 룸은 안 된다.</summary>
     public const string RoomFirstJoin = "ACH_ROOM_FIRST_JOIN";
 
+    /// <summary>처음 기부했다 (B20).</summary>
+    public const string DonateFirst = "ACH_DONATE_FIRST";
+
+    /// <summary>누적 기부 1천 바나나 - "바나나 후원자" 칭호 (B20).</summary>
+    public const string Donate1K = "ACH_DONATE_1K";
+
+    /// <summary>누적 기부 1만 바나나 - "정글 후원자" 칭호 (B20).</summary>
+    public const string Donate10K = "ACH_DONATE_10K";
+
+    /// <summary>누적 기부 10만 바나나 - "정글의 은인" 칭호 (B20).</summary>
+    public const string Donate100K = "ACH_DONATE_100K";
+
+    /// <summary>기부 도전과제를 작은 것부터. 첫 기부는 1 이다.</summary>
+    public static readonly (string Id, long Threshold)[] DonationMilestones =
+    {
+        (DonateFirst, 1),
+        (Donate1K, 1_000),
+        (Donate10K, 10_000),
+        (Donate100K, 100_000),
+    };
+
     /// <summary>
     /// 누적 타수 마일스톤을 작은 것부터. <see cref="IAchievements.IndicateProgress"/> 의
     /// 구간 계산과 해금 판정을 을이 표로 돌릴 수 있게 열어둔다.
@@ -126,5 +153,6 @@ public static class AchievementIds
     {
         Collection100, Keystrokes1K, Keystrokes10K, Keystrokes100K, Keystrokes1M,
         FirstPurchase, SlotCompleteHang, SlotCompleteTrail, SlotCompleteBase, RoomFirstJoin,
+        DonateFirst, Donate1K, Donate10K, Donate100K,
     };
 }

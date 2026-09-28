@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS players (
   -- migrations/0002_b13_upgrades.sql 을 한 번 돌린다. power_level 은 예전 "파워" 축이라 안 쓴다.
   golden_level    INTEGER NOT NULL DEFAULT 0,
   slot_golden     TEXT    NOT NULL DEFAULT '[]',
+  -- B20 기부 (2026-09-28). 누적 기부 바나나. 이미 있는 DB 는 migrations/0004_donations.sql.
+  donated_total   INTEGER NOT NULL DEFAULT 0,
   last_sync_utc   TEXT    NOT NULL DEFAULT (datetime('now')),
   created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))

@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://game/GameRoot.cs" id="1_gameroot"]
 [ext_resource type="PackedScene" path="res://game/entities/Tree.tscn" id="2_tree"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://game/ui/OnboardingWindow.cs" id="9_onboarding"]
 [ext_resource type="Script" path="res://game/ui/UpgradeWindow.cs" id="10_upgrade"]
 [ext_resource type="Script" path="res://game/ui/MenuHub.cs" id="11_menu"]
+[ext_resource type="Script" path="res://game/ui/DonateWindow.cs" id="12_donate"]
 
 [node name="GameRoot" type="Node2D"]
 script = ExtResource("1_gameroot")
@@ -35,7 +36,7 @@ offset_top = 340.0
 offset_right = 84.0
 offset_bottom = 366.0
 custom_minimum_size = Vector2(80, 26)
-tooltip_text = "상점 · 강화 · 멀티 · 설정"
+tooltip_text = "상점 · 강화 · 기부 · 멀티 · 설정"
 text = "메뉴"
 
 [node name="ShopWindow" type="CanvasLayer" parent="."]
@@ -43,6 +44,9 @@ script = ExtResource("6_shop")
 
 [node name="UpgradeWindow" type="CanvasLayer" parent="."]
 script = ExtResource("10_upgrade")
+
+[node name="DonateWindow" type="CanvasLayer" parent="."]
+script = ExtResource("12_donate")
 
 [node name="RoomWindow" type="CanvasLayer" parent="."]
 script = ExtResource("8_room")

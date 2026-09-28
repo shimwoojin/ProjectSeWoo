@@ -1,4 +1,4 @@
-import { getState, harvest, purchaseItem, purchaseUpgrade } from "./economy";
+import { donate, getState, harvest, isValidDonation, purchaseItem, purchaseUpgrade } from "./economy";
 import { PRIVACY_HTML } from "./privacy";
 import { authenticateUserTicket } from "./steam";
 import { bearerTokenFrom, issueSessionToken, verifySessionToken } from "./session";
@@ -119,6 +119,15 @@ export default {
         }
 
         return json(await purchaseUpgrade(env, steamId, body.axis, body.clientRequestId));
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/economy/donate") {
+        const body = await readJson<{ amount?: unknown; clientRequestId?: string }>(request);
+        if (!isValidDonation(body?.amount) || !body?.clientRequestId) {
+          return json({ error: "bad_request" }, 400);
+        }
+
+        return json(await donate(env, steamId, body.amount, body.clientRequestId));
       }
 
       return json({ error: "not_found" }, 404);

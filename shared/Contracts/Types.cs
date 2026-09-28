@@ -162,4 +162,7 @@ public readonly record struct PlayerState
 
     /// <summary>나무 겉모습 단계 0~3 (B18) - 강화 레벨 합에서 나온다. 레벨 자체는 보내지 않는다.</summary>
     public byte TreeStage { get; init; }
+
+    /// <summary>누적 기부 바나나 (B20). 친구 칸의 칭호(<see cref="DonationTable.TitleFor"/>)가 된다.</summary>
+    public uint DonatedTotal { get; init; }
 }

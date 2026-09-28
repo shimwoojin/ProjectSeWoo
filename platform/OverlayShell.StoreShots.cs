@@ -342,6 +342,14 @@ public partial class OverlayShell
         await Seconds(0.3);
         await Capture(dir, manifest, "upgrade");
 
+        // 기부 (B20) - 확인용. 1,000 을 한 번 넣어 칭호가 붙는 것까지 (HUD 이름 옆에도 붙는다).
+        PressGameButton("기부");
+        await Seconds(0.3);
+        await Capture(dir, manifest, "donate");
+        PressGameButton("1,000");
+        await Seconds(0.4);
+        await Capture(dir, manifest, "donate_after");
+
         // 설정 - 셸 창이지만 메뉴 칸에 뜬다 (2026-09-28). 스토어에 쓰지는 않고 확인용이다.
         PressGameButton("설정");
         await Seconds(0.3);

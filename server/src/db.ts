@@ -14,8 +14,8 @@ export async function getOrCreatePlayer(env: Env, steamId: string): Promise<Play
   const nowIso = new Date().toISOString();
   await env.DB
     .prepare(
-      `INSERT INTO players (steam_id, balance, power_level, golden_level, cycle_level, slots_level, slot_elapsed_ms, slot_golden, last_sync_utc)
-       VALUES (?, 0, 0, 0, 0, 0, '[0,0,0]', '[false,false,false]', ?)`,
+      `INSERT INTO players (steam_id, balance, power_level, golden_level, cycle_level, slots_level, slot_elapsed_ms, slot_golden, last_sync_utc, donated_total)
+       VALUES (?, 0, 0, 0, 0, 0, '[0,0,0]', '[false,false,false]', ?, 0)`,
     )
     .bind(steamId, nowIso)
     .run();
@@ -30,6 +30,7 @@ export async function getOrCreatePlayer(env: Env, steamId: string): Promise<Play
     slot_elapsed_ms: "[0,0,0]",
     slot_golden: "[false,false,false]",
     last_sync_utc: nowIso,
+    donated_total: 0,
   };
 }
 
@@ -38,7 +39,7 @@ export async function savePlayer(env: Env, player: PlayerRow): Promise<void> {
     .prepare(
       `UPDATE players
        SET balance = ?, golden_level = ?, cycle_level = ?, slots_level = ?,
-           slot_elapsed_ms = ?, slot_golden = ?, last_sync_utc = ?, updated_at = datetime('now')
+           slot_elapsed_ms = ?, slot_golden = ?, last_sync_utc = ?, donated_total = ?, updated_at = datetime('now')
        WHERE steam_id = ?`,
     )
     .bind(
@@ -49,6 +50,7 @@ export async function savePlayer(env: Env, player: PlayerRow): Promise<void> {
       player.slot_elapsed_ms,
       player.slot_golden,
       player.last_sync_utc,
+      player.donated_total ?? 0,
       player.steam_id,
     )
     .run();

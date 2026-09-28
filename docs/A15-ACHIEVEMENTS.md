@@ -31,6 +31,10 @@
 | `ACH_SLOT_BASE` | Banana Collector / Collect every banana. | 바나나 수집가 / 바나나를 모두 모은다. | 바나나 전부 (기본 지급품 포함). 2026-09-26 전엔 "바닥 수집가" — B17 §3-4 |
 | `ACH_COLLECTION_100` | Complete Collection / Collect every cursor decoration. | 도감 완성 / 커서 장식을 모두 모은다. | 도감 100% (§3-3) — 장식이 늘면 조건도 같이 는다. 이미 딴 사람은 그대로(스팀은 해금을 되돌리지 않는다) |
 | `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
+| `ACH_DONATE_FIRST` | Kind Heart / Donate bananas for the first time. | 따뜻한 마음 / 처음으로 바나나를 기부한다. | 누적 기부 1 이상 (B20, 2026-09-28 추가 - **파트너 사이트 등록 필요**) |
+| `ACH_DONATE_1K` | Banana Donor / Donate 1,000 bananas in total. | 바나나 후원자 / 바나나를 누적 1,000개 기부한다. | 누적 기부 1,000 - 칭호 "바나나 후원자" (B20) |
+| `ACH_DONATE_10K` | Jungle Donor / Donate 10,000 bananas in total. | 정글 후원자 / 바나나를 누적 10,000개 기부한다. | 누적 기부 10,000 - 칭호 "정글 후원자" (B20) |
+| `ACH_DONATE_100K` | Jungle Benefactor / Donate 100,000 bananas in total. | 정글의 은인 / 바나나를 누적 100,000개 기부한다. | 누적 기부 100,000 - 칭호 "정글의 은인" (B20) |
 
 - 누적 타수의 "Lv." 은 `KeystrokeLevel` 곡선 기준이었다(2026-09-27 에 레벨 표시를 없애며 코드도 지웠다 - 도전과제는 타수 문턱을 직접 본다). 체감 기간(첫날 / 하루 이틀 / 1~2주 /
   수개월)은 하루 타건 수를 짐작한 것이라 실측이 아니다

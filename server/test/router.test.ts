@@ -96,6 +96,19 @@ describe("라우터", () => {
     expect(limiter.keys).toEqual([`steam:${STEAM_ID}`]);
   });
 
+  it("기부 금액이 정수 1 이상이 아니면 DB 에 가기 전에 400 (B20)", async () => {
+    const { token } = await issueSessionToken(env(), STEAM_ID);
+    for (const amount of [0, -5, 1.5, "10", 1_000_000_001, null]) {
+      const req = new Request(`${base}/v1/economy/donate`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount, clientRequestId: "r1" }),
+      });
+      const res = await worker.fetch(req, env());
+      expect(res.status).toBe(400);
+    }
+  });
+
   it("인증 실패는 레이트리밋을 세지 않는다 (남의 토큰 없는 요청이 내 한도를 못 쓴다)", async () => {
     const limiter = new FakeLimiter(0);
     const res = await worker.fetch(new Request(`${base}/v1/economy/state`), env({ API_LIMITER: limiter }));

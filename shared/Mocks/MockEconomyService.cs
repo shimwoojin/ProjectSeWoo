@@ -70,6 +70,8 @@ public sealed class MockEconomyService : IEconomyService
 
     public int UpgradeLevel(UpgradeAxis axis) => _upgradeLevels[axis];
 
+    public long DonatedTotal { get; private set; }
+
     /// <summary>이 목을 <see cref="MockInventoryService"/> 와 묶는다. 구매 성공 시
     /// 그쪽에 지급을 흉내 낸다 - 두 서비스가 실제로는 한 트랜잭션인 것을 재현한다.</summary>
     public void LinkInventory(MockInventoryService inventory) => _inventory = inventory;
@@ -222,6 +224,30 @@ public sealed class MockEconomyService : IEconomyService
         ResizeSlots();
 
         GD.Print($"[mock-economy] 강화 {axis} → Lv.{_upgradeLevels[axis]} (-{price}) 잔액 {Balance}");
+        OnStateChanged?.Invoke();
+        return Task.FromResult(new PurchaseResult(PurchaseOutcome.Success, Balance));
+    }
+
+    public Task<PurchaseResult> Donate(long amount)
+    {
+        if (!IsAvailable)
+        {
+            return Task.FromResult(new PurchaseResult(PurchaseOutcome.ServerUnavailable, Balance));
+        }
+
+        if (amount <= 0 || amount > DonationTable.MaxPerRequest)
+        {
+            return Task.FromResult(new PurchaseResult(PurchaseOutcome.Rejected, Balance));
+        }
+
+        if (Balance < amount)
+        {
+            return Task.FromResult(new PurchaseResult(PurchaseOutcome.InsufficientBalance, Balance));
+        }
+
+        Balance -= amount;
+        DonatedTotal += amount;
+        GD.Print($"[mock-economy] 기부 {amount} - 누적 {DonatedTotal}, 잔액 {Balance}");
         OnStateChanged?.Invoke();
         return Task.FromResult(new PurchaseResult(PurchaseOutcome.Success, Balance));
     }

@@ -25,6 +25,8 @@ namespace ProjectSeWoo.Game;
 public partial class StatusHud : VBoxContainer
 {
     private Label _name;
+    private string _playerName;
+    private string _title;
     private Label _keystrokes;
     private Label _bananas;
     private Label _room;
@@ -45,9 +47,28 @@ public partial class StatusHud : VBoxContainer
     /// <summary>내 닉네임 (<see cref="Shared.INetSession.SelfName"/>). 비어 있으면 줄을 숨긴다.</summary>
     public void SetPlayerName(string name)
     {
-        bool show = !string.IsNullOrEmpty(name);
+        _playerName = name;
+        RefreshName();
+    }
+
+    /// <summary>기부 칭호 (B20, <see cref="Shared.DonationTable"/>). 이름 뒤에 붙는다. null 이면 이름만.</summary>
+    public void SetTitle(string title)
+    {
+        if (_title == title)
+        {
+            return;
+        }
+
+        _title = title;
+        RefreshName();
+    }
+
+    private void RefreshName()
+    {
+        string text = string.IsNullOrEmpty(_title) ? _playerName : $"{_playerName} · {_title}";
+        bool show = !string.IsNullOrEmpty(_playerName);
         _name.Visible = show;
-        _name.Text = name ?? string.Empty;
+        _name.Text = show ? text : string.Empty;
     }
 
     /// <summary>

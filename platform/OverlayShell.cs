@@ -321,7 +321,13 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
                 ? $"[items] 아이템 목록 self-test PASS ({ItemManifest.Items.Count}개)"
                 : $"[items] 아이템 목록 self-test FAIL: {itemsFail}");
 
-            GetTree().Quit(SaveSchema.SelfTest() == null && codecFail == null && itemsFail == null ? 0 : 1);
+            // 기부 칭호 표 (B20) - 문턱 순서가 틀리면 칭호가 거꾸로 붙는다.
+            string donationFail = DonationTable.SelfTest();
+            GD.Print(donationFail == null
+                ? "[donate] 기부 칭호 표 self-test PASS"
+                : $"[donate] 기부 칭호 표 self-test FAIL: {donationFail}");
+
+            GetTree().Quit(SaveSchema.SelfTest() == null && codecFail == null && itemsFail == null && donationFail == null ? 0 : 1);
             return;
         }
 

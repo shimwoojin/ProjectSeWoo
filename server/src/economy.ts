@@ -12,6 +12,7 @@ import {
 import { findIdempotentResponse, getOrCreatePlayer, isOwned, markOwned, savePlayer, storeIdempotentResponse } from "./db";
 import { grantInventoryItem } from "./steam";
 import type {
+  DonateResponseDto,
   Env,
   EconomyStateDto,
   HarvestResponseDto,
@@ -116,7 +117,46 @@ export async function getState(env: Env, steamId: string): Promise<EconomyStateD
     slots: toSlotDtos(slots, growthMsAt(player.cycle_level)),
     upgrades: upgradesOf(player),
     lastSyncUtc: player.last_sync_utc,
+    donatedTotal: player.donated_total ?? 0,
   };
+}
+
+/** 한 번에 기부할 수 있는 최대. shared/DonationTable.cs MaxPerRequest 와 같다. */
+export const MAX_DONATION = 1_000_000_000;
+
+/** 기부 금액이 받을 수 있는 값인가 - 정수, 1 ~ MAX_DONATION. 라우터가 DB 에 가기 전에 거른다. */
+export function isValidDonation(amount: unknown): amount is number {
+  return typeof amount === "number" && Number.isInteger(amount) && amount >= 1 && amount <= MAX_DONATION;
+}
+
+/**
+ * 기부 (B20, docs/B20-DONATION.md). 잔액에서 빼서 누적 기부에 더한다 - 돌려주지 않는다. 사라지는 쪽(싱크)이라
+ * 스팀 호출이 없고 한 번의 저장으로 끝난다. 같은 요청이 재시도로 오면 저장된 응답을 그대로 준다(멱등).
+ */
+export async function donate(
+  env: Env,
+  steamId: string,
+  amount: number,
+  clientRequestId: string,
+): Promise<DonateResponseDto> {
+  const cached = await findIdempotentResponse(env, clientRequestId);
+  if (cached) {
+    return JSON.parse(cached) as DonateResponseDto;
+  }
+
+  const player = await getOrCreatePlayer(env, steamId);
+  let response: DonateResponseDto;
+  if (player.balance < amount) {
+    response = { outcome: "insufficient_balance", balance: player.balance, donatedTotal: player.donated_total ?? 0 };
+  } else {
+    player.balance -= amount;
+    player.donated_total = (player.donated_total ?? 0) + amount;
+    await savePlayer(env, player);
+    response = { outcome: "success", balance: player.balance, donatedTotal: player.donated_total };
+  }
+
+  await storeIdempotentResponse(env, clientRequestId, steamId, JSON.stringify(response));
+  return response;
 }
 
 export async function harvest(

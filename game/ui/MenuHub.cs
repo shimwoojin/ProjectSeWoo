@@ -29,6 +29,7 @@ public partial class MenuHub : CanvasLayer
     {
         Shop,
         Upgrade,
+        Donate,
         Room,
         Options,
     }
@@ -66,6 +67,7 @@ public partial class MenuHub : CanvasLayer
 
     private ShopWindow _shop;
     private UpgradeWindow _upgrade;
+    private DonateWindow _donate;
     private RoomWindow _room;
     private IShell _shell;
 
@@ -88,14 +90,16 @@ public partial class MenuHub : CanvasLayer
     }
 
     /// <summary>게임 창 셋. <see cref="GameRoot._Ready"/> 에서 부른다.</summary>
-    public void Bind(ShopWindow shop, UpgradeWindow upgrade, RoomWindow room)
+    public void Bind(ShopWindow shop, UpgradeWindow upgrade, DonateWindow donate, RoomWindow room)
     {
         _shop = shop;
         _upgrade = upgrade;
+        _donate = donate;
         _room = room;
 
         _shop.Closed += () => OnWindowClosed(Tab.Shop);
         _upgrade.Closed += () => OnWindowClosed(Tab.Upgrade);
+        _donate.Closed += () => OnWindowClosed(Tab.Donate);
         _room.Closed += () => OnWindowClosed(Tab.Room);
     }
 
@@ -205,6 +209,9 @@ public partial class MenuHub : CanvasLayer
             case Tab.Upgrade:
                 _upgrade.Open();
                 break;
+            case Tab.Donate:
+                _donate.Open();
+                break;
             case Tab.Room:
                 _room.Open();
                 break;
@@ -223,6 +230,9 @@ public partial class MenuHub : CanvasLayer
                 break;
             case Tab.Upgrade:
                 _upgrade.Close();
+                break;
+            case Tab.Donate:
+                _donate.Close();
                 break;
             case Tab.Room:
                 _room.Close();
@@ -294,6 +304,7 @@ public partial class MenuHub : CanvasLayer
 
         AddTab(row, Tab.Shop, "상점");
         AddTab(row, Tab.Upgrade, "강화");
+        AddTab(row, Tab.Donate, "기부");
         AddTab(row, Tab.Room, "멀티");
         AddTab(row, Tab.Options, "설정");
 

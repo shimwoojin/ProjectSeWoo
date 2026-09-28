@@ -177,6 +177,7 @@ public partial class RemotePlayerView : Node2D
         _monkey.SetSkin(ShopCatalog.Find(state.EquippedMonkey)?.Id);
 
         _collectionPercent = state.CollectionPercent;
+        _donationTitle = DonationTable.TitleFor(state.DonatedTotal);
 
         ulong now = Time.GetTicksMsec();
         _lastStateMs = now;
@@ -228,9 +229,12 @@ public partial class RemotePlayerView : Node2D
         };
     }
 
+    /// <summary>친구의 기부 칭호 (B20). 로비 타수 줄 뒤에 붙는다.</summary>
+    private string _donationTitle;
+
     private void RefreshStats()
     {
-        string stats = $"{_roomKeystrokes:N0}타";
+        string stats = _donationTitle == null ? $"{_roomKeystrokes:N0}타" : $"{_roomKeystrokes:N0}타 · {_donationTitle}";
         if (_stats.Text != stats)
         {
             _stats.Text = stats;

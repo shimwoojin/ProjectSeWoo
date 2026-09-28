@@ -57,6 +57,11 @@ public interface IEconomyService
     int UpgradeLevel(UpgradeAxis axis);
 
     /// <summary>
+    /// 지금까지 기부한 바나나 누적 (B20, <see cref="DonationTable"/>). 서버 원장 값 - 칭호·도전과제가 이것을 믿는다.
+    /// </summary>
+    long DonatedTotal { get; }
+
+    /// <summary>
     /// 잔액, 슬롯, 강화 레벨 중 하나라도 바뀌면 불린다 — 로컬 예측이든 서버
     /// 정정이든 구분 없이 한 이벤트로 합친다. HUD 는 분기 없이 다시 그리면 된다.
     /// </summary>
@@ -79,6 +84,12 @@ public interface IEconomyService
 
     /// <summary>강화 레벨을 하나 올린다. 스팀 아이템이 아니라 서버 원장의 숫자다.</summary>
     Task<PurchaseResult> PurchaseUpgrade(UpgradeAxis axis);
+
+    /// <summary>
+    /// 바나나 <paramref name="amount"/> 개를 기부한다 (B20). 잔액에서 빠지고 <see cref="DonatedTotal"/> 에 더해진다 -
+    /// 돌려받을 수 없다. 1 ~ <see cref="DonationTable.MaxPerRequest"/> 이고 잔액 이하여야 한다. 온라인 전용.
+    /// </summary>
+    Task<PurchaseResult> Donate(long amount);
 
     /// <summary>
     /// 서버와 전체 상태를 맞춘다. 재접속 직후, 또는 오프라인 예측이 오래 쌓였을

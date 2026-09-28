@@ -50,6 +50,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private StatusHud _hud;
     private ShopWindow _shop;
     private UpgradeWindow _upgrade;
+    private DonateWindow _donate;
     private RoomWindow _roomWindow;
 
     /// <summary>
@@ -169,6 +170,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _hud = GetNode<StatusHud>("StatusHud");
         _shop = GetNode<ShopWindow>("ShopWindow");
         _upgrade = GetNode<UpgradeWindow>("UpgradeWindow");
+        _donate = GetNode<DonateWindow>("DonateWindow");
         _roomWindow = GetNode<RoomWindow>("RoomWindow");
         _onboarding = GetNode<OnboardingWindow>("OnboardingWindow");
         _menu = GetNode<MenuHub>("MenuHub");
@@ -178,12 +180,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _slotTip = new SlotTooltip { Name = "SlotTooltip" };
         AddChild(_slotTip);
 
-        _menu.Bind(_shop, _upgrade, _roomWindow);
+        _menu.Bind(_shop, _upgrade, _donate, _roomWindow);
         _menu.HelpRequested += OpenOnboarding;
         _menuButton.Pressed += ToggleMenu;
         _onboarding.Finished += OnOnboardingFinished;
         _upgrade.UpgradeRequested += OnUpgradeRequested;
         _upgrade.Opened += OnShopOpened;
+        _donate.DonateRequested += OnDonateRequested;
+        _donate.Opened += OnShopOpened;
         _shop.BuyRequested += OnBuyRequested;
         _shop.Opened += OnShopOpened;
         _shop.EquipRequested += OnEquipRequested;
@@ -504,6 +508,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _inventory.ApplyEquippedToCursor();
         _shop.Bind(_inventory);
         _upgrade.Bind(_inventory);
+        _donate.Bind(_inventory);
 
         // 이미 넘어선 마일스톤은 세션 시작 시점에 지나간 것으로 잡는다. 안 그러면
         // 켤 때마다 예전에 딴 도전과제를 다시 Unlock 한다 - 스팀이 무시하긴 하지만
@@ -517,6 +522,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _hud.SetBananas(_platform.Economy.Balance);
         _hud.SetKeystrokes(Save.TotalKeystrokes);
         _hud.SetPlayerName(_platform.Net.SelfName);
+        _hud.SetTitle(DonationTable.TitleFor(_platform.Economy.DonatedTotal));
 
         // 이미 다 모은 세이브면 해금은 건너뛰고 상태만 맞춘다 (위 주석 참고).
         _collectionDone = _inventory.IsComplete;
@@ -544,7 +550,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 낙관적 갱신이든 구분 없이 HUD 를 다시 그린다 - 계약이 그렇게 합쳐서
     /// 부르기로 돼 있다 (shared/Contracts/IEconomyService.cs).
     /// </summary>
-    private void OnEconomyStateChanged() => _hud.SetBananas(_platform.Economy.Balance);
+    private void OnEconomyStateChanged()
+    {
+        _hud.SetBananas(_platform.Economy.Balance);
+
+        // 누적 기부는 서버 동기화(Sync)로도 바뀐다 - 다른 PC 에서 기부했거나 켜자마자 서버 값이 온 경우. 칭호는 여기서 맞춘다.
+        _hud.SetTitle(DonationTable.TitleFor(_platform.Economy.DonatedTotal));
+    }
 
     /// <summary>강화 레벨 합으로 정하는 나무 겉모습 단계 (B18, <see cref="UpgradeTable.TreeStageAt"/>). 서버 레벨을 그대로 읽는다.</summary>
     private int TreeStage => _platform == null
@@ -1148,6 +1160,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             _upgrade.Refresh();
         }
+
+        if (_donate.IsOpen)
+        {
+            _donate.Refresh();
+        }
     }
 
     /// <summary>
@@ -1179,6 +1196,60 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         _platform.Achievements.Unlock(id);
         GD.Print($"[game] 도전과제 해금 {id} ({why})");
+    }
+
+    /// <summary>
+    /// 기부 (B20). 서버가 잔액에서 빼고 누적에 더한다. 성공하면 칭호·도전과제·스팀 통계를 맞춘다.
+    /// </summary>
+    private async void OnDonateRequested(long amount)
+    {
+        string before = DonationTable.TitleFor(_platform.Economy.DonatedTotal);
+        PurchaseOutcome outcome = await _inventory.TryDonate(amount);
+        if (outcome != PurchaseOutcome.Success)
+        {
+            string message = outcome switch
+            {
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
+                _ => "기부가 거절됐다. 바나나는 그대로다",
+            };
+
+            GD.Print($"[game] 기부 실패 {amount} - {outcome}");
+            _donate.ShowMessage(message);
+            return;
+        }
+
+        long total = _platform.Economy.DonatedTotal;
+        string after = DonationTable.TitleFor(total);
+        GD.Print($"[game] 기부 {amount} → 누적 {total} 잔액 {_platform.Economy.Balance}");
+        _donate.ShowMessage(after != null && after != before
+            ? $"고마워! 새 칭호 \"{after}\""
+            : $"고마워! 바나나 {amount:N0} 기부");
+        _hud.SetTitle(after);
+        CheckDonationAchievements();
+        RefreshOpenWindows();
+    }
+
+    /// <summary>
+    /// 기부 도전과제·통계 (B20). 누적 기부는 서버 원장 값이라 목 경제면 해금하지 않는다(<see cref="TrustEconomyForAchievements"/>).
+    /// 조건을 넘는 순간과 스팀이 늦게 붙었을 때(<see cref="SyncAchievements"/>) 둘 다 여기로 온다 - 이미 딴 것은 건너뛴다.
+    /// </summary>
+    private void CheckDonationAchievements()
+    {
+        if (!TrustEconomyForAchievements)
+        {
+            return;
+        }
+
+        long total = _platform.Economy.DonatedTotal;
+        _platform.Achievements.SetStat(StatIds.Donated, (int)Math.Min(int.MaxValue, total));
+        foreach ((string id, long threshold) in AchievementIds.DonationMilestones)
+        {
+            if (total >= threshold)
+            {
+                TryUnlock(id, $"누적 기부 {threshold:N0}");
+            }
+        }
     }
 
     /// <summary>슬롯 하나의 장식을 전부 가졌으면 그 슬롯의 도전과제를 해금한다.</summary>
@@ -1247,6 +1318,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         UnlockCompletedSlots();
+        CheckDonationAchievements();
 
         if (_inventory.IsComplete)
         {
@@ -1339,6 +1411,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     {
         TotalKeystrokes = Save.TotalKeystrokes,
         TreeStage = (byte)TreeStage,
+        DonatedTotal = (uint)Math.Clamp(_platform?.Economy.DonatedTotal ?? 0, 0, uint.MaxValue),
         EquippedMonkey = _inventory?.EquippedIn(CursorSlot.Monkey),
         EquippedBanana = _inventory?.EquippedIn(CursorSlot.Banana),
         EquippedDeco = _inventory?.EquippedIn(CursorSlot.Deco),

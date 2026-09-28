@@ -48,6 +48,8 @@ export interface EconomyStateDto {
   slots: SlotStateDto[];
   upgrades: { golden: number; cycle: number; slots: number };
   lastSyncUtc: string;
+  /** 누적 기부 바나나 (B20). */
+  donatedTotal: number;
 }
 
 export interface HarvestResponseDto {
@@ -68,6 +70,13 @@ export interface PurchaseResponseDto {
   slots?: SlotStateDto[];
 }
 
+/** POST /v1/economy/donate 응답 (B20). outcome 은 success · insufficient_balance · rejected. */
+export interface DonateResponseDto {
+  outcome: PurchaseOutcome;
+  balance: number;
+  donatedTotal: number;
+}
+
 /** players 테이블 한 행. DB 에 저장되는 원시 형태 - 밖으로는 안 나간다. */
 export interface PlayerRow {
   steam_id: string;
@@ -79,5 +88,7 @@ export interface PlayerRow {
   slots_level: number;
   slot_elapsed_ms: string; // JSON.stringify(number[])
   slot_golden: string; // JSON.stringify(boolean[])
+  /** 누적 기부 (B20, migrations/0004). */
+  donated_total: number;
   last_sync_utc: string; // ISO
 }
