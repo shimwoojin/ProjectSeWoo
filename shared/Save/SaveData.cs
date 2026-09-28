@@ -128,13 +128,6 @@ public sealed class SaveData
         [JsonPropertyName("autostart")]
         public bool Autostart { get; set; }
 
-        /// <summary>
-        /// 몸통 드래그로 창을 옮길 수 있는가를 반대로 뒤집은 값이다.
-        /// 켜져 있으면(기본값) 클릭 통과가 걸려 실수로 안 끌린다 (§7-1).
-        /// </summary>
-        [JsonPropertyName("positionLocked")]
-        public bool PositionLocked { get; set; } = true;
-
         /// <summary>커서 장식(§3-1) On/Off. 끄면 재화 소비처를 다른 것으로 안내해야 한다 (§1.3).</summary>
         [JsonPropertyName("cursorEnabled")]
         public bool CursorEnabled { get; set; } = true;

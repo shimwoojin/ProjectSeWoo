@@ -15,6 +15,15 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>수확한 바나나가 떨어져 착지하는 높이. 원숭이 발치다.</summary>
     private const float GroundY = 404f;
 
+    /// <summary>떨어지는 바나나 길의 반폭 - 바나나 그림(황금 1.15배, 착지 찌그러짐 1.25배 포함)보다 넉넉하게.</summary>
+    private const float BananaLaneHalfWidth = 34f;
+
+    /// <summary>지금 떨어지는 중인 바나나들의 길 (<see cref="GetClickableRects"/>).</summary>
+    private readonly List<Rect2> _bananaLanes = new();
+
+    /// <summary><see cref="GetClickableRects"/> 가 매 프레임 다시 채우는 목록. 새로 만들지 않는다.</summary>
+    private readonly List<Rect2> _clickRects = new();
+
     /// <summary>
     /// 플랫폼 실물 묶음. 셸이 <see cref="AttachPlatform"/> 으로 넘긴다.
     /// 지금 읽는 곳은 <c>Input</c>/<c>Save</c> 뿐이지만 나머지도 부를 자리가
@@ -574,7 +583,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     /// <summary>
     /// 마우스가 움직일 때만 어느 송이 위인지 다시 본다. <b>우리 창 안의 이벤트만 쓴다</b> - 전역 커서
-    /// 좌표를 따로 읽지 않는다. 나무는 클릭 영역(<see cref="GetClickableBounds"/>) 안이라 이벤트가 온다.
+    /// 좌표를 따로 읽지 않는다. 나무는 클릭 영역(<see cref="GetClickableRects"/>) 안이라 이벤트가 온다.
     /// </summary>
     public override void _Input(InputEvent @event)
     {
@@ -931,6 +940,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         AddChild(banana);
+
+        // 떨어지는 길을 클릭 영역에 넣는다 - 영역 밖은 안 그려져서 잎과 땅 사이 빈 공간에서 바나나가 사라진다.
+        // 길 하나를 통째로 넣고 사라질 때 뺀다 - 매 프레임 위치를 따라가면 영역 쓰기가 매 프레임 일어난다.
+        var lane = new Rect2(from.X - BananaLaneHalfWidth, from.Y - BananaLaneHalfWidth,
+            BananaLaneHalfWidth * 2f, GroundY - from.Y + BananaLaneHalfWidth * 2f);
+        _bananaLanes.Add(lane);
+        banana.TreeExiting += () => _bananaLanes.Remove(lane);
 
         // 팔이 닿기 전에 떨어지면 원인과 결과가 뒤집혀 보인다.
         GetTree().CreateTimer(delay).Timeout += () => banana.Drop(GroundY);
@@ -1321,39 +1337,51 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     };
 
     /// <summary>
-    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>).
+    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>) - 보이는 것들의 사각형 여럿. 셸이 하나의 다각형으로 합친다.
     ///
-    /// <b>메뉴가 열린 동안은 창 전체를 신고한다.</b> 셸은 옵션 창을 열 때
-    /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임
-    /// 레이어는 이 계약으로만 말할 수 있다 - 그래서 "창 전체" 를 이 좌표계로
-    /// 옮겨서 돌려준다. 플랫폼 코드는 한 줄도 안 바뀐다.
+    /// <b>메뉴가 열린 동안은 창 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 셸은 옵션 창을 열 때
+    /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임 레이어는 이 계약으로만 말할 수 있다 -
+    /// 그래서 "창 전체" 를 이 좌표계로 옮겨서 돌려준다.
+    ///
+    /// <b>보이는 모양만 (2026-09-28).</b> 예전엔 나무·원숭이·버튼을 감싸는 사각형 하나였고, 옵션 "위치 잠금" 을 끄면
+    /// 창 전체였다 - 나무 옆 빈 공간까지 끌리고 뒤 창 클릭을 막았다. 이제 나무·원숭이는 알파 띠(<see cref="Shapes.Silhouette"/>),
+    /// 거기에 [메뉴] 버튼 · HUD 글자 · 떠 있는 송이 말풍선 · 떨어지는 바나나의 길. <b>이 밖은 바탕화면에 그려지지 않는다</b>
+    /// (SetWindowRgn) - 보여야 하는 것은 전부 여기 넣는다. 나무 잎 파티클은 넣지 않았다 - 잎 밖으로 나가면 잘린다.
     /// </summary>
-    public Rect2 GetClickableBounds()
+    public IReadOnlyList<Rect2> GetClickableRects()
     {
+        _clickRects.Clear();
         if (_menu is { IsOpen: true } || _onboarding is { IsOpen: true })
         {
-            return ViewportInParentSpace();
+            _clickRects.Add(ViewportInParentSpace());
+            return _clickRects;
         }
 
-        Rect2 bounds = _tree.GetBounds().Merge(_monkey.GetBounds());
+        _clickRects.AddRange(_tree.GetShape());
+        _clickRects.AddRange(_monkey.GetShape());
 
-        // [메뉴] 버튼도 클릭을 받아야 한다. 원숭이 바로 왼쪽에 둔 이유가
-        // 이것이다 - Rect2.Merge 는 외접 사각형이라, 버튼이 화면 반대편에 있으면
-        // 그 사이의 빈 공간까지 전부 클릭을 먹는다.
-        //
         // **Size 를 그대로 믿으면 안 된다.** 레이아웃이 돌기 전에는 (0,0) 이라
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        bounds = bounds.Merge(ButtonRect(_menuButton));
+        // 원숭이 꼬리와 여백(셸 8px) 안으로 붙여 두었다 - 떨어지면 셸이 감싸는 사각형으로 물러난다.
+        _clickRects.Add(ButtonRect(_menuButton));
 
-        // HUD 도 넣는다 - 클릭은 안 받지만(mouse_filter 무시) **이 영역 밖은 그려지지도 않는다.**
-        // Windows 에서 클릭 통과 영역은 창 모양(SetWindowRgn)이라 위치 잠금이 켜져 있으면(기본값) 밖의
-        // 글자가 바탕화면에서 사라진다 (shared/Contracts/ISatelliteWindow.cs 의 이름표와 같은 일).
-        // 원숭이 바로 아래라 넓어지는 빈 공간이 거의 없다.
-        bounds = bounds.Merge(new Rect2(_hud.Position, _hud.Size.Max(_hud.GetCombinedMinimumSize())));
+        _hud.AddTextRects(_clickRects);
 
-        return Transform * bounds;
+        if (_slotTip.Visible)
+        {
+            _clickRects.Add(new Rect2(_slotTip.Position, _slotTip.Size));
+        }
+
+        _clickRects.AddRange(_bananaLanes);
+
+        for (int i = 0; i < _clickRects.Count; i++)
+        {
+            _clickRects[i] = Transform * _clickRects[i];
+        }
+
+        return _clickRects;
     }
 
     private static Rect2 ButtonRect(Button button) =>

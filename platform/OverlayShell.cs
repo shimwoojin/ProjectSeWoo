@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using ProjectSeWoo.Shared;
 using ProjectSeWoo.Shared.Mocks;
@@ -42,7 +43,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <summary>
     /// 클릭 영역의 출처. <c>game/GameRoot</c> 가 신고한다 -
     /// shared/Contracts/IInteractiveArea.cs. 씬이 깨져서 못 찾은 경우에만 null 이고,
-    /// 그때는 <see cref="BuildRegion"/>/<see cref="CurrentHitRect"/> 가 빈 값으로 답한다.
+    /// 그때는 <see cref="BuildRegion"/> 이 빈 값(창 전체)으로 답한다.
     /// </summary>
     private IInteractiveArea _content;
 
@@ -69,7 +70,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     /// <summary>
     /// 지금 세션의 옵션 값 (§7-4). 세이브에서 읽어와 이 객체 하나로 유지한다 -
-    /// Scale/Opacity/PositionLocked 뿐 아니라 A6이 추가한 옵션(§7-4) 전부 여기 있다.
+    /// Scale/Opacity 뿐 아니라 A6이 추가한 옵션(§7-4) 전부 여기 있다.
     /// 값이 바뀔 때마다 <see cref="PersistSettings"/>가 저장을 예약한다.
     /// 옵션 UI(A6)가 아직 시험용 debug 키(OverlayShell.DebugKeys.cs)와 같이 쓰인다.
     ///
@@ -153,6 +154,19 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
     /// <summary>마지막으로 실제 적용한 passthrough 폴리곤. "바뀔 때만 쓰기"의 비교 대상이다.</summary>
     private Vector2[] _appliedRegion = Array.Empty<Vector2>();
+
+    /// <summary>이번 프레임에 신고된 사각형 (창 px, 여백 포함). <see cref="BuildRegion"/> 이 매 프레임 채운다.</summary>
+    private readonly List<Rect2> _hitRects = new();
+
+    /// <summary><see cref="_mergedRegion"/> 을 만든 사각형들. 그대로면 다시 합치지 않는다.</summary>
+    private Rect2[] _mergedFrom = Array.Empty<Rect2>();
+
+    private Vector2[] _mergedRegion = Array.Empty<Vector2>();
+
+    private static bool _warnedDisjointRegion;
+
+    /// <summary>F2 (디버그) - 창 전체가 클릭을 받게. 예전 옵션 "위치 잠금" 끔과 같은 상태로 비교할 때만 쓴다. 저장 안 함.</summary>
+    private bool _debugWholeWindow;
 
     public override void _Ready()
     {
@@ -454,6 +468,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             Width = 1.0f,
             DefaultColor = new Color(0.30f, 0.75f, 1.0f, 0.85f),
             Visible = false,
+            // 영역은 창 px 이다 - 셸 루트의 배율·메뉴 칸 이동을 물려받으면 엉뚱한 자리에 그린다.
+            TopLevel = true,
         };
         AddChild(_outline);
 
@@ -634,20 +650,6 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     }
 
     /// <summary>
-    /// 클릭 통과 On/Off. 옵션의 "위치 잠금"이 이것이다 (§7-1, §7-4).
-    ///
-    /// on(잠금) = 게임 콘텐츠 영역만 클릭을 받고 나머지는 통과 - 실수로 안 끌리고,
-    /// 뒤에 있는 다른 창 작업도 안 막는다. off(잠금 해제) = 창 전체가 클릭을 받아서
-    /// 작은 히트박스를 정확히 안 눌러도 어디서든 끌 수 있다 - 처음
-    /// 위치를 잡을 때 편하라고 두는 탈출구다.
-    /// </summary>
-    public void SetClickThrough(bool on)
-    {
-        _settings.PositionLocked = on;
-        ApplyPassthrough(force: true);
-    }
-
-    /// <summary>
     /// 창을 놓을 수 있는 영역. 멀티모니터·작업표시줄을 고려한 현재 화면의 작업 영역이다.
     ///
     /// 개발 PC는 모니터가 3대고 하나는 X 좌표가 음수다(shared/Contracts/IShell.cs 문서
@@ -726,7 +728,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
 
         SetScale(_settings.Scale);
         SetOpacity(_settings.Opacity);
-        SetClickThrough(_settings.PositionLocked);
+        ApplyPassthrough(force: true);
         ApplyVisibility();
 
         // 레지스트리를 세이브 값과 맞춘다. 무인 실행에서는 절대 안 한다 - 유저의
@@ -782,49 +784,164 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     // ------------------------------------------------------------------ 클릭 통과
 
     /// <summary>
-    /// 창 픽셀 좌표 기준의 클릭 수신 폴리곤.
+    /// 창 픽셀 좌표 기준의 클릭 수신 폴리곤 - 게임 레이어가 신고한 사각형들(<see cref="IInteractiveArea.GetClickableRects"/>)을
+    /// 배율·여백을 붙여 <b>다각형 하나로 합친 것</b>이다 (2026-09-28). 예전엔 전부를 감싸는 사각형 하나였고, 옵션
+    /// "위치 잠금" 을 끄면 창 전체였다 - 나무 옆 빈 공간까지 클릭을 막고 끌렸다.
+    ///
+    /// <b>다각형 하나여야 한다.</b> <c>WindowSetMousePassthrough</c> 는 하나만 받는다. 그래서 떨어진 조각은 여백
+    /// (<see cref="HitPadding"/>)으로 이어져야 하고, 끝내 안 이어지면 전부를 감싸는 사각형으로 물러난다(경고 한 번).
+    /// 이 영역 밖은 그려지지도 않는다(SetWindowRgn) - 보여야 하는 것은 게임 레이어가 전부 신고한다.
+    ///
     /// 빈 배열을 넘기면 passthrough 가 꺼지고 창 전체가 마우스를 가로챈다(Godot 기본 동작).
+    /// 매 프레임 불린다 - 사각형이 그대로면 지난 결과를 돌려준다.
     /// </summary>
     private Vector2[] BuildRegion()
     {
         // _content 가 없으면 신고된 클릭 영역도 없다 - BuildScene 이 이미 에러를 찍었다.
-        if (!_settings.PositionLocked || _content == null)
+        if (_debugWholeWindow || _content == null)
         {
             return Array.Empty<Vector2>();
         }
 
-        Rect2 r = CurrentHitRect();
-        return new[]
+        IReadOnlyList<Rect2> local = _content.GetClickableRects();
+        if (local.Count == 0)
         {
-            r.Position,
-            new Vector2(r.End.X, r.Position.Y),
-            r.End,
-            new Vector2(r.Position.X, r.End.Y),
-        };
+            // 신고가 비면 창 전체 - 반대로 빈 모양을 주면 창이 통째로 잘려 안 보인다(CursorLayer 주석).
+            return Array.Empty<Vector2>();
+        }
+
+        _hitRects.Clear();
+        foreach (Rect2 r in local)
+        {
+            _hitRects.Add(new Rect2(r.Position * _settings.Scale + Position, r.Size * _settings.Scale).Grow(HitPadding));
+        }
+
+        if (!SameRects(_hitRects, _mergedFrom))
+        {
+            _mergedFrom = _hitRects.ToArray();
+            _mergedRegion = MergeRects(_mergedFrom);
+        }
+
+        return _mergedRegion;
     }
 
     /// <summary>
-    /// 클릭을 받을 창-픽셀 좌표 기준 사각형. 값의 출처는 <see cref="_content"/>
-    /// (게임 레이어가 신고한 것, shared/Contracts/IInteractiveArea.cs) 이고,
-    /// 여기서는 플랫폼 몫(배율 적용, 클릭 여백)만 더한다.
-    ///
-    /// <see cref="IInteractiveArea.GetClickableBounds"/>는 셸 루트의 로컬 좌표계
-    /// 값을 돌려준다. <see cref="SetScale"/>이 루트에 <see cref="Node2D.Scale"/>을
-    /// 걸어 두므로, passthrough 에 넘길 **창 픽셀** 좌표를 얻으려면
-    /// <see cref="SaveData.SettingsState.Scale"/>을 직접 곱해야 한다 - Godot 렌더링은
-    /// 이 배율을 자동으로 반영하지만, Win32 <c>SetWindowRgn</c>에 넘기는 이 좌표는
-    /// 그 파이프라인을 안 거친다.
+    /// 사각형들을 다각형 하나로. 맞닿는 것끼리 되는 만큼 합치고, 합친 결과의 구멍은 메운다(구멍 자리도 클릭을 받는다 -
+    /// 모양이 둘로 갈라지지 않게). 조각이 둘 이상 남으면 전부를 감싸는 사각형.
     /// </summary>
-    private Rect2 CurrentHitRect()
+    private static Vector2[] MergeRects(Rect2[] rects)
     {
-        if (_content == null)
+        var pieces = new List<Vector2[]>(rects.Length);
+        foreach (Rect2 r in rects)
         {
-            return new Rect2();
+            pieces.Add(Corners(r));
         }
 
-        Rect2 local = _content.GetClickableBounds();
-        var scaled = new Rect2(local.Position * _settings.Scale + Position, local.Size * _settings.Scale);
-        return scaled.Grow(HitPadding);
+        bool merged = true;
+        while (pieces.Count > 1 && merged)
+        {
+            merged = false;
+            for (int i = 0; i < pieces.Count && !merged; i++)
+            {
+                for (int j = i + 1; j < pieces.Count; j++)
+                {
+                    List<Vector2[]> outer = Outlines(Geometry2D.MergePolygons(pieces[i], pieces[j]));
+                    if (outer.Count == 1)
+                    {
+                        pieces[i] = outer[0];
+                        pieces.RemoveAt(j);
+                        merged = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (pieces.Count == 1)
+        {
+            return pieces[0];
+        }
+
+        if (!_warnedDisjointRegion)
+        {
+            _warnedDisjointRegion = true;
+            GD.PushWarning($"[shell] 클릭 영역이 {pieces.Count} 조각으로 떨어져 있다 - 감싸는 사각형으로 대신한다. "
+                + "게임 레이어가 신고한 사각형이 서로 닿게 할 것");
+        }
+
+        Rect2 all = rects[0];
+        foreach (Rect2 r in rects)
+        {
+            all = all.Merge(r);
+        }
+
+        return Corners(all);
+    }
+
+    /// <summary>합친 결과에서 구멍을 뺀 바깥 윤곽들. 구멍은 다른 윤곽 안에 들어 있는 것이다.</summary>
+    private static List<Vector2[]> Outlines(Godot.Collections.Array<Vector2[]> polygons)
+    {
+        // 번호로 돈다 - Godot 배열은 꺼낼 때마다 새 C# 배열을 주므로 참조 비교로는 "자기 자신" 을 못 가린다.
+        var all = new List<Vector2[]>(polygons);
+        var outer = new List<Vector2[]>(all.Count);
+        for (int i = 0; i < all.Count; i++)
+        {
+            bool hole = false;
+            for (int j = 0; j < all.Count && !hole; j++)
+            {
+                hole = i != j && Geometry2D.IsPointInPolygon(all[i][0], all[j]);
+            }
+
+            if (!hole)
+            {
+                outer.Add(all[i]);
+            }
+        }
+
+        return outer;
+    }
+
+    private static Vector2[] Corners(Rect2 r) => new[]
+    {
+        r.Position,
+        new Vector2(r.End.X, r.Position.Y),
+        r.End,
+        new Vector2(r.Position.X, r.End.Y),
+    };
+
+    private static bool SameRects(List<Rect2> a, Rect2[] b)
+    {
+        if (a.Count != b.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < b.Length; i++)
+        {
+            if (!a[i].IsEqualApprox(b[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>지금 클릭 영역을 감싸는 사각형 (창 px). 계측 표시용.</summary>
+    private Rect2 RegionBounds()
+    {
+        if (_appliedRegion.Length == 0)
+        {
+            return new Rect2(Vector2.Zero, _win.Size);
+        }
+
+        var rect = new Rect2(_appliedRegion[0], Vector2.Zero);
+        foreach (Vector2 p in _appliedRegion)
+        {
+            rect = rect.Expand(p);
+        }
+
+        return rect;
     }
 
     /// <summary>

@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 10;
+    public const int CurrentVersion = 11;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -89,6 +89,11 @@ public static class SaveSchema
                 case 9:
                     MigrateV9ToV10(root);
                     version = 10;
+                    break;
+
+                case 10:
+                    MigrateV10ToV11(root);
+                    version = 11;
                     break;
 
                 default:
@@ -227,6 +232,16 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v10 -> v11 (2026-09-28): <c>settings.positionLocked</c> 를 걷어냈다. 옵션 "위치 잠금" 을 끄면 창 사각형 전체가
+    /// 클릭을 받아 빈 공간까지 끌렸다 - 이제 클릭 영역은 늘 나무·원숭이 모양이라 켜고 끌 것이 없다.
+    /// <see cref="MigrateV3ToV4"/> 와 같은 이유로 지우는 코드는 없다 - 모르는 필드는 읽을 때 버려진다.
+    /// </summary>
+    private static void MigrateV10ToV11(JsonNode root)
+    {
+        root["version"] = 11;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -253,7 +268,7 @@ public static class SaveSchema
             "version", "totalKeystrokes",
             "inventory", "equipped", "monkey", "banana", "deco",
             "settings", "scale", "opacity", "pos", "autostart",
-            "positionLocked", "cursorEnabled", "hideOnFullscreen",
+            "cursorEnabled", "hideOnFullscreen",
             "cursorIndependent",
             "multi", "friendPositions", "lastLobby",
             "onboardingSeen",

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace ProjectSeWoo.Shared;
@@ -28,10 +29,17 @@ namespace ProjectSeWoo.Shared;
 public interface IInteractiveArea
 {
     /// <summary>
-    /// 클릭을 받을 사각형. **이 콘텐츠의 부모 Node2D 로컬 좌표계** 기준이다 —
+    /// 클릭을 받을 사각형들. **이 콘텐츠의 부모 Node2D 로컬 좌표계** 기준이다 —
     /// 셸의 배율(<see cref="IShell.SetScale"/>)이나 클릭 여백은 플랫폼이 별도로
     /// 적용하므로 여기 넣지 않는다. 애니메이션 등으로 매 프레임 값이 달라져도
     /// 된다 — 플랫폼이 매 프레임 다시 읽는다(별도 변경 이벤트가 필요 없다).
+    ///
+    /// <b>사각형 여럿 (2026-09-28).</b> 예전엔 전부를 감싸는 사각형 하나라 나무 옆 빈 공간까지 클릭을 막고
+    /// 끌렸다. 이제 플랫폼이 이 사각형들을 여백을 붙여 <b>다각형 하나</b>로 합친다 — 그래서 서로 닿거나 여백
+    /// (8px) 안으로 가까워야 한다. 떨어진 조각이 남으면 플랫폼은 전부를 감싸는 사각형으로 물러난다.
+    ///
+    /// <b>이 영역 밖은 바탕화면에 그려지지 않는다</b> (Windows 의 클릭 통과 영역은 창 모양이다). 클릭을
+    /// 받지 않는 것이라도 보여야 하면(글자, 떨어지는 바나나) 넣는다. 비어 있으면 창 전체.
     /// </summary>
-    Rect2 GetClickableBounds();
+    IReadOnlyList<Rect2> GetClickableRects();
 }

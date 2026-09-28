@@ -17,12 +17,6 @@ public interface IShell
     void SetOpacity(float a);
 
     /// <summary>
-    /// 클릭 통과 On/Off. 끄면 나무·원숭이 영역이 마우스를 받는다 (§7-1).
-    /// 옵션의 "위치 잠금" 이 이것과 연결된다.
-    /// </summary>
-    void SetClickThrough(bool on);
-
-    /// <summary>
     /// 창을 놓을 수 있는 영역. **멀티모니터와 작업표시줄을 고려한 값**이다 (§7-1).
     ///
     /// 게임 레이어가 화면 크기를 직접 묻지 않게 하는 것이 요점이다. 모니터가

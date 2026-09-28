@@ -18,7 +18,6 @@ public partial class OptionsWindow : CanvasLayer
 {
     private HSlider _scaleSlider;
     private HSlider _opacitySlider;
-    private CheckBox _positionLocked;
     private CheckBox _cursorEnabled;
     private CheckBox _cursorIndependent;
     private CheckBox _hideOnFullscreen;
@@ -41,7 +40,6 @@ public partial class OptionsWindow : CanvasLayer
 
     public event Action<float> ScaleChanged;
     public event Action<float> OpacityChanged;
-    public event Action<bool> PositionLockedChanged;
     public event Action<bool> CursorEnabledChanged;
     public event Action<bool> CursorIndependentChanged;
     public event Action<bool> HideOnFullscreenChanged;
@@ -116,7 +114,6 @@ public partial class OptionsWindow : CanvasLayer
 
         _scaleSlider.Value = s.Scale;
         _opacitySlider.Value = s.Opacity;
-        _positionLocked.ButtonPressed = s.PositionLocked;
         _cursorEnabled.ButtonPressed = s.CursorEnabled;
         _cursorIndependent.ButtonPressed = s.CursorIndependent;
         _cursorIndependent.Disabled = !s.CursorEnabled;
@@ -163,8 +160,6 @@ public partial class OptionsWindow : CanvasLayer
         rows.AddChild(MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider));
         _opacitySlider.ValueChanged += v => Relay(() => OpacityChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeCheckRow("위치 잠금", out _positionLocked));
-        _positionLocked.Toggled += on => Relay(() => PositionLockedChanged?.Invoke(on));
 
         rows.AddChild(MakeCheckRow("커서 장식", out _cursorEnabled));
         _cursorEnabled.Toggled += on =>

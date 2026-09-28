@@ -40,8 +40,6 @@ public sealed class MockShell : IShell
 
     public float Opacity { get; private set; } = 1.0f;
 
-    public bool ClickThrough { get; private set; } = true;
-
     /// <summary>
     /// 목이 돌려줄 배치 가능 영역. 기본값은 현재 화면이지만, **멀티모니터 좌표를
     /// 시험하려면 음수 원점을 넣어 본다** — 실제로 이 프로젝트의 개발 PC 는
@@ -52,8 +50,6 @@ public sealed class MockShell : IShell
     public void SetScale(float s) => Scale = s;
 
     public void SetOpacity(float a) => Opacity = a;
-
-    public void SetClickThrough(bool on) => ClickThrough = on;
 
     public Rect2I GetSafeArea() => SafeArea;
 

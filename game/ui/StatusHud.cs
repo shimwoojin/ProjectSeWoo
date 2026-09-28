@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace ProjectSeWoo.Game;
@@ -12,7 +13,7 @@ namespace ProjectSeWoo.Game;
 /// 맡는다. 로비 줄과 안내 줄은 그때만 나타난다.
 ///
 /// <b>원숭이 바로 아래, 가운데 맞춤 (2026-09-28).</b> 예전엔 창 왼쪽 위 구석에 있어서 나무·원숭이와 따로 놀았다.
-/// 클릭을 받지 않으므로(<c>mouse_filter = 2</c>) 클릭 영역(<see cref="GameRoot.GetClickableBounds"/>)을 넓히지 않는다.
+/// 클릭은 받지 않지만(<c>mouse_filter = 2</c>) 글자 자리는 클릭 영역에 들어간다 - 그 밖은 안 그려진다(<see cref="AddTextRects"/>).
 ///
 /// <b>한글을 쓴다 (B4 이후).</b> B4 가 Pretendard 를 번들하고 <c>gui/theme/custom</c> 으로
 /// 걸면서 한글 글리프 제약이 풀렸다 (assets/ui/theme.tres).
@@ -90,6 +91,29 @@ public partial class StatusHud : VBoxContainer
             .SetTrans(Tween.TransitionType.Quad);
         _bananaPop.TweenProperty(_bananas, "scale", Vector2.One, 0.14)
             .SetTrans(Tween.TransitionType.Quad);
+    }
+
+    /// <summary>
+    /// 보이는 줄마다 글자가 차지하는 사각형 (부모 좌표). 클릭 영역에 넣는다 - 그 밖은 바탕화면에 안 그려진다
+    /// (<see cref="GameRoot.GetClickableRects"/>). 가운데 맞춤이라 줄 폭 전체가 아니라 글자 폭만큼이다.
+    /// </summary>
+    public void AddTextRects(List<Rect2> into)
+    {
+        foreach (Node child in GetChildren())
+        {
+            if (child is not Label { Visible: true } label || label.Text.Length == 0)
+            {
+                continue;
+            }
+
+            Font font = label.GetThemeFont("font");
+            int fontSize = label.GetThemeFontSize("font_size");
+            float outline = label.GetThemeConstant("outline_size");
+            float width = Mathf.Min(font.GetStringSize(label.Text, HorizontalAlignment.Left, -1, fontSize).X + outline * 2f, label.Size.X);
+            float height = Mathf.Max(label.Size.Y, label.GetCombinedMinimumSize().Y);
+            float left = label.Position.X + (label.Size.X - width) / 2f;
+            into.Add(new Rect2(Position + new Vector2(left, label.Position.Y), new Vector2(width, height)));
+        }
     }
 
     /// <summary>누적 타수 (§6). 재화가 아니라 기록이다.</summary>

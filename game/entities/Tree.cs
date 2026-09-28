@@ -95,6 +95,9 @@ public partial class Tree : Node2D
     /// </summary>
     private Rect2 _restBounds;
 
+    /// <summary>쉴 때의 보이는 모양 - 알파 띠 (<see cref="Shapes.Silhouette"/>, 부모 좌표). 클릭 영역이 이것이다.</summary>
+    private Rect2[] _restShape;
+
     public override void _Ready()
     {
         _sway = GetNode<Node2D>("Sway");
@@ -104,6 +107,13 @@ public partial class Tree : Node2D
 
         // 나무가 한 장이라 밑동과 잎을 따로 잴 것이 없어졌다 (B4).
         _restBounds = Transform * (_sway.Transform * Shapes.Bounds(_body));
+
+        List<Rect2> bands = Shapes.Silhouette(_body, ShapeBands);
+        _restShape = new Rect2[bands.Count];
+        for (int i = 0; i < bands.Count; i++)
+        {
+            _restShape[i] = Transform * (_sway.Transform * bands[i]);
+        }
     }
 
     /// <summary>
@@ -231,6 +241,12 @@ public partial class Tree : Node2D
         _body.Transform * (texturePx - _body.Texture.GetSize() / 2f) - _slotRoot.Position;
 
     public Rect2 GetBounds() => _restBounds;
+
+    /// <summary>잎은 넓고 줄기는 좁다 - 띠가 촘촘할수록 줄기 옆 빈 공간이 덜 잡힌다. 한 번만 재므로 비용은 없다.</summary>
+    private const int ShapeBands = 16;
+
+    /// <summary>보이는 모양 (부모 좌표 사각형 여럿). 클릭 영역·그리기 영역이 된다 (<see cref="GameRoot.GetClickableRects"/>).</summary>
+    public IReadOnlyList<Rect2> GetShape() => _restShape;
 
     /// <summary>
     /// 마우스(<paramref name="global"/>, 캔버스 전역 좌표)가 올라간 송이. 송이들이 서로 겹쳐 있어서 반지름 안에

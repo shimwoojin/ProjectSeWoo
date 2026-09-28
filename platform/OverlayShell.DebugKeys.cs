@@ -62,10 +62,9 @@ public partial class OverlayShell
                 break;
 
             case Key.F2:
-                // A6부터는 진짜 옵션이다 - 옵션 창의 "위치 잠금" 체크박스와 정확히
-                // 같은 경로(SetClickThrough)를 부른다.
-                SetClickThrough(!_settings.PositionLocked);
-                PersistSettings();
+                // 창 전체가 클릭을 받게 (측정 비교용). 옵션 "위치 잠금" 은 2026-09-28 에 없앴다.
+                _debugWholeWindow = !_debugWholeWindow;
+                ApplyPassthrough(force: true);
                 break;
 
             case Key.F3:

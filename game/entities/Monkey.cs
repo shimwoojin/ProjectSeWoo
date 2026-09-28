@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace ProjectSeWoo.Game;
@@ -51,6 +52,7 @@ public partial class Monkey : Node2D
 
     private AnimationPlayer _punches;
     private Rect2 _restBounds;
+    private Rect2[] _restShape;
     private int _lastVariant = -1;
 
     public override void _Ready()
@@ -64,6 +66,7 @@ public partial class Monkey : Node2D
         // Shapes.Bounds(Sprite2D) 가 시트 전체가 아니라 **한 칸**을 기준으로 잰다 -
         // 통째로 재면 영역이 8칸 폭만큼 부풀어 나무 너머까지 먹는다.
         _restBounds = Transform * Shapes.Bounds(_sprite);
+        _restShape = Shapes.Silhouette(_sprite, 8).ConvertAll(r => Transform * r).ToArray();
     }
 
     /// <summary>뻗은 주먹이 닿는 자리 (부모 좌표). 타격 이펙트를 여기에 놓는다.</summary>
@@ -84,4 +87,7 @@ public partial class Monkey : Node2D
     }
 
     public Rect2 GetBounds() => _restBounds;
+
+    /// <summary>보이는 모양 - 펀치 프레임까지 합친 알파 띠 (부모 좌표). 클릭 영역·그리기 영역이 된다.</summary>
+    public IReadOnlyList<Rect2> GetShape() => _restShape;
 }

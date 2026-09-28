@@ -189,7 +189,6 @@ public partial class OverlayShell
     {
         _options.ScaleChanged += v => { SetScale(v); PersistSettings(); };
         _options.OpacityChanged += v => { SetOpacity(v); PersistSettings(); };
-        _options.PositionLockedChanged += v => { SetClickThrough(v); PersistSettings(); };
         _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
         _options.CursorIndependentChanged += v => { _settings.CursorIndependent = v; ApplyVisibility(); PersistSettings(); };
         _options.HideOnFullscreenChanged += v => { _settings.HideOnFullscreen = v; PersistSettings(); };
