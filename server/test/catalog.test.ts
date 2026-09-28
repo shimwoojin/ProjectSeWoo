@@ -44,7 +44,7 @@ describe("catalog", () => {
       expect(steamItemDefIdOf(item.id)).toBe(item.steamItemDefId);
     }
 
-    expect(priceOf("banana_02")).toBe(10);
+    expect(priceOf("banana_02")).toBe(15);   // B19: 바나나도 껍질에 한 일로 15 / 200 / 500
     expect(priceOf("monkey_02")).toBe(15);   // B19: 색만 다른 원숭이는 15 고정
   });
 

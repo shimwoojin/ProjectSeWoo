@@ -468,6 +468,114 @@
       "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/monkey/monkey_25/icon.png",
       "tradable": true,
       "marketable": true
+    },
+    {
+      "itemdefid": 40,
+      "type": "item",
+      "name": "Blueberry Banana",
+      "name_koreana": "블루베리 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_07/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_07/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 41,
+      "type": "item",
+      "name": "Peach Banana",
+      "name_koreana": "복숭아 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_08/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_08/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 42,
+      "type": "item",
+      "name": "Gold Banana",
+      "name_koreana": "금 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_09/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_09/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 43,
+      "type": "item",
+      "name": "Leopard Banana",
+      "name_koreana": "호피 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_10/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_10/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 44,
+      "type": "item",
+      "name": "Candy Stripe Banana",
+      "name_koreana": "캔디 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_11/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_11/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 45,
+      "type": "item",
+      "name": "Sprinkle Banana",
+      "name_koreana": "스프링클 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_12/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_12/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 46,
+      "type": "item",
+      "name": "Rainbow Banana",
+      "name_koreana": "무지개 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_13/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_13/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 47,
+      "type": "item",
+      "name": "Galaxy Banana",
+      "name_koreana": "은하 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_14/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_14/icon.png",
+      "tradable": true,
+      "marketable": true
+    },
+    {
+      "itemdefid": 48,
+      "type": "item",
+      "name": "Lava Banana",
+      "name_koreana": "용암 바나나",
+      "description": "A cursor decoration - the banana your monkey hangs from.",
+      "description_koreana": "원숭이가 매달리는 커서의 바나나 장식",
+      "icon_url": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_15/icon.png",
+      "icon_url_large": "https://raw.githubusercontent.com/shimwoojin/ProjectSeWoo/main/assets/cursor/banana/banana_15/icon.png",
+      "tradable": true,
+      "marketable": true
     }
   ]
 }

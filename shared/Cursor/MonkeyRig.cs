@@ -80,7 +80,9 @@ public partial class MonkeyRig : Node2D
     // 어깨는 몸통 **안쪽**에 둔다 - 몸통 가장자리에 붙이면 팔이 따로 붙인 막대처럼 보였다 (2026-09-26 갑).
     // 외곽선을 전부 먼저 그리고 채움을 나중에 그려서(_Draw) 이음매의 외곽선도 없앤다.
     private static readonly Vector2 ShoulderR = new(-1, 43);  // 잡은 팔의 어깨
-    private static readonly Vector2 ShoulderL = new(-13, 45); // 빈 팔의 어깨 (머리 아래)
+    // 빈 팔의 어깨는 몸통 **왼쪽 끝**. 머리 바로 아래 가슴 안쪽(-13, 45)에 두었더니 윗팔이 머리에 가려 팔이 배에서 나온 것처럼
+    // 보였다 (2026-09-28 갑: "흔들리는 팔 위치").
+    private static readonly Vector2 ShoulderL = new(-18, 47);
     private static readonly Vector2 Neck = new(-20, 39);
     private static readonly Vector2 Chest = new(-7, 50);
     private static readonly Vector2 HipL = new(-13, 60), HipR = new(-2, 62);
@@ -92,8 +94,12 @@ public partial class MonkeyRig : Node2D
     /// <summary>빈 팔의 외곽선이 시작되는 자리 (어깨 0 ~ 손 1). 그 앞은 몸통과 털색으로 이어진다.</summary>
     private const float FreeArmOutlineFrom = 0.38f;
 
-    /// <summary>빈 팔을 늘어뜨린 각도.</summary>
-    private const float RestArm = 0.35f;
+    /// <summary>
+    /// 빈 팔을 늘어뜨린 각도. <b>각도 부호: + 는 몸 바깥(왼쪽), - 는 몸 쪽(오른쪽·바나나)</b> - 팔 = 어깨 + (0, 길이).Rotated(각).
+    /// 신남·손 흔들기·버둥·기지개가 전부 - 쪽이어서 빈 팔이 턱 앞을 가로질러 올라갔다 (2026-09-28 갑). 바깥으로 들게 + 로 바꿨다.
+    /// 바나나를 다시 잡으러 뻗는 것(놓침)만 - 쪽이다.
+    /// </summary>
+    private const float RestArm = 0.5f;
 
     private MonkeySkin _skin;
     private Sprite2D _head;
@@ -197,7 +203,7 @@ public partial class MonkeyRig : Node2D
         if (State == Pose.Sleep)
         {
             SetState(Pose.Hang);
-            _freeArmAngle = -2.6f;   // 기지개
+            _freeArmAngle = 2.6f;    // 기지개 (바깥 위로)
         }
 
         IsFrozen = false;
@@ -330,11 +336,11 @@ public partial class MonkeyRig : Node2D
 
         float targetArm = State switch
         {
-            Pose.Cheer => -2.4f + Mathf.Sin((float)_time * 18f) * 0.35f,            // 번쩍 들고 흔든다
-            Pose.Drop => -2.9f,                                                    // 바나나를 향해 뻗는다
-            Pose.Flail => -1.6f + Mathf.Sin((float)_time * 22f) * 0.6f,
+            Pose.Cheer => 2.3f + Mathf.Sin((float)_time * 18f) * 0.35f,             // 바깥 위로 번쩍 들고 흔든다
+            Pose.Drop => -2.9f,                                                    // 바나나를 향해 뻗는다 (몸 쪽)
+            Pose.Flail => 1.5f + Mathf.Sin((float)_time * 22f) * 0.6f,
             Pose.Sleep => 0.2f,
-            _ when _idleAction == 1 => -2.2f + Mathf.Sin((float)_time * 9f) * 0.45f,   // 손 흔들기
+            _ when _idleAction == 1 => 2.2f + Mathf.Sin((float)_time * 9f) * 0.45f,    // 손 흔들기
             _ => RestArm + Mathf.Sin((float)_time * 1.6f) * 0.08f,                  // 늘어뜨림
         };
         _freeArmAngle = Mathf.Lerp(_freeArmAngle, targetArm, 1f - Mathf.Exp(-9f * dt));
@@ -453,6 +459,7 @@ public partial class MonkeyRig : Node2D
         //    보였다 (2026-09-26 갑). 빈 팔은 맨 끝에 자기 외곽선과 함께 몸 앞에 그린다 (3).
         const float Edge = 3.6f;
         DrawPolyline(_tail, ol, 3.5f + Edge, true);
+        DrawCircle(_tail[^1], (3.5f + Edge) / 2, ol);   // 꼬리 끝을 둥글게 - 선 끝이 잘린 것처럼 납작했다 (2026-09-28 갑)
         for (int side = 0; side < 2; side++)
         {
             Stroke(hips[side], feet[side], LegWidth + Edge, ol);
@@ -465,6 +472,7 @@ public partial class MonkeyRig : Node2D
 
         // 2) 채움 — 꼬리 → 다리 → 잡은 팔 → 몸통 → 배 → 발 · 잡은 손
         DrawPolyline(_tail, fur, 3.5f, true);
+        DrawCircle(_tail[^1], 3.5f / 2, fur);
         DrawTailDress();
         for (int side = 0; side < 2; side++)
         {

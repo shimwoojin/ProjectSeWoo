@@ -6,6 +6,7 @@
     "tier 0 = 기본 지급품: 가격이 없고 스팀 인벤토리에도 없다.",
     "가격(B14, 2026-09-26): 1·2티어는 첫 재미라 그대로, 3~5티어를 올려 하루 4시간 기준 완주 6~8주. 바나나 변형은 원숭이보다 한 티어 싸다(커서에서 작게 보이는 부품) - docs/B14-BALANCE.md",
     "원숭이 가격(B19, 2026-09-28): 티어 표 대신 price - 꾸밈 부위 수로 매긴다. 털 색만 15 · 부위 1개 200 · 2개 500 · 3개+털 2,000. 티어는 등급 표시용(1·2·3·5). 스킨 구성은 tools/monkey_skins.py - docs/B19-MONKEY-SKINS.md",
+    "바나나 가격(B19, 2026-09-28): 껍질에 한 일로 - 색만 15 · 재질·무늬 200 · 특수 효과 500. 규칙은 tools/make-banana-variants.py",
     "그림은 규칙으로 찾는다: res://assets/cursor/<category>/<id>/icon.png (+ 분류별 리소스)."
   ],
   "tierPrices": [10, 40, 250, 900, 3000],
@@ -41,11 +42,23 @@
     { "id": "monkey_25", "category": "monkey", "tier": 5, "price": 2000, "steamItemDefId": 39, "name": { "ko": "얼음 왕자 원숭이", "en": "Ice Prince Monkey" } },
 
     { "id": "banana_01", "category": "banana", "tier": 0, "name": { "ko": "노란 바나나", "en": "Yellow Banana" } },
-    { "id": "banana_02", "category": "banana", "tier": 1, "steamItemDefId": 16, "name": { "ko": "풋바나나", "en": "Green Banana" } },
-    { "id": "banana_03", "category": "banana", "tier": 1, "steamItemDefId": 17, "name": { "ko": "초코 바나나", "en": "Choco Banana" } },
-    { "id": "banana_04", "category": "banana", "tier": 2, "steamItemDefId": 18, "name": { "ko": "딸기 바나나", "en": "Strawberry Banana" } },
-    { "id": "banana_05", "category": "banana", "tier": 3, "steamItemDefId": 19, "name": { "ko": "은 바나나", "en": "Silver Banana" } },
-    { "id": "banana_06", "category": "banana", "tier": 4, "steamItemDefId": 20, "name": { "ko": "다이아 바나나", "en": "Diamond Banana" } },
+
+    { "id": "banana_02", "category": "banana", "tier": 1, "price": 15, "steamItemDefId": 16, "name": { "ko": "풋바나나", "en": "Green Banana" } },
+    { "id": "banana_03", "category": "banana", "tier": 1, "price": 15, "steamItemDefId": 17, "name": { "ko": "초코 바나나", "en": "Choco Banana" } },
+    { "id": "banana_04", "category": "banana", "tier": 1, "price": 15, "steamItemDefId": 18, "name": { "ko": "딸기 바나나", "en": "Strawberry Banana" } },
+    { "id": "banana_07", "category": "banana", "tier": 1, "price": 15, "steamItemDefId": 40, "name": { "ko": "블루베리 바나나", "en": "Blueberry Banana" } },
+    { "id": "banana_08", "category": "banana", "tier": 1, "price": 15, "steamItemDefId": 41, "name": { "ko": "복숭아 바나나", "en": "Peach Banana" } },
+
+    { "id": "banana_05", "category": "banana", "tier": 2, "price": 200, "steamItemDefId": 19, "name": { "ko": "은 바나나", "en": "Silver Banana" } },
+    { "id": "banana_09", "category": "banana", "tier": 2, "price": 200, "steamItemDefId": 42, "name": { "ko": "금 바나나", "en": "Gold Banana" } },
+    { "id": "banana_10", "category": "banana", "tier": 2, "price": 200, "steamItemDefId": 43, "name": { "ko": "호피 바나나", "en": "Leopard Banana" } },
+    { "id": "banana_11", "category": "banana", "tier": 2, "price": 200, "steamItemDefId": 44, "name": { "ko": "캔디 바나나", "en": "Candy Stripe Banana" } },
+    { "id": "banana_12", "category": "banana", "tier": 2, "price": 200, "steamItemDefId": 45, "name": { "ko": "스프링클 바나나", "en": "Sprinkle Banana" } },
+
+    { "id": "banana_06", "category": "banana", "tier": 3, "price": 500, "steamItemDefId": 20, "name": { "ko": "다이아 바나나", "en": "Diamond Banana" } },
+    { "id": "banana_13", "category": "banana", "tier": 3, "price": 500, "steamItemDefId": 46, "name": { "ko": "무지개 바나나", "en": "Rainbow Banana" } },
+    { "id": "banana_14", "category": "banana", "tier": 3, "price": 500, "steamItemDefId": 47, "name": { "ko": "은하 바나나", "en": "Galaxy Banana" } },
+    { "id": "banana_15", "category": "banana", "tier": 3, "price": 500, "steamItemDefId": 48, "name": { "ko": "용암 바나나", "en": "Lava Banana" } },
 
     { "id": "leaf_01", "category": "deco", "tier": 1, "steamItemDefId": 6, "deco": { "kind": "trail" }, "name": { "ko": "초록 잎", "en": "Green Leaf" } },
     { "id": "chunk_01", "category": "deco", "tier": 2, "steamItemDefId": 7, "deco": { "kind": "trail" }, "name": { "ko": "과일 조각", "en": "Fruit Chunk" } },
