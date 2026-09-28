@@ -143,7 +143,7 @@ public partial class UpgradeWindow : CanvasLayer
         margin.AddThemeConstantOverride("margin_top", MenuHub.ContentTop);
         margin.AddThemeConstantOverride("margin_bottom", 10);
         AddChild(margin);
-        margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        MenuHub.AnchorToPanel(margin);
 
         var panel = new PanelContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         panel.AddThemeStyleboxOverride("panel", ShopWindow.MakeBackground());

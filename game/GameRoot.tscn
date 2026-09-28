@@ -24,12 +24,16 @@ position = Vector2(210, 262)
 position = Vector2(140, 360)
 
 [node name="StatusHud" parent="." instance=ExtResource("5_statushud")]
+offset_left = 30.0
+offset_top = 420.0
+offset_right = 250.0
+offset_bottom = 490.0
 
 [node name="MenuButton" type="Button" parent="."]
-offset_left = 170.0
-offset_top = 424.0
-offset_right = 250.0
-offset_bottom = 450.0
+offset_left = 12.0
+offset_top = 340.0
+offset_right = 84.0
+offset_bottom = 366.0
 custom_minimum_size = Vector2(80, 26)
 tooltip_text = "상점 · 강화 · 멀티 · 설정"
 text = "메뉴"

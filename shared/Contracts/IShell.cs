@@ -39,9 +39,10 @@ public interface IShell
     /// 사이 빈 공간까지 클릭을 먹는다.
     ///
     /// <paramref name="topInset"/> 은 패널이 시작할 높이(창 px)다 - 그 위를 메뉴의 탭 줄이 덮는다.
-    /// 트레이에서 열 때는 0 이다(기본 여백).
+    /// <paramref name="width"/> 는 패널이 차지할 창 왼쪽 폭(창 px)이다 - 메뉴 칸(<see cref="SetSidePanel"/>) 안에만
+    /// 뜨게 한다 (2026-09-28). 트레이에서 열 때는 둘 다 0 이다(창 전체, 기본 여백).
     /// </summary>
-    void OpenOptions(float topInset);
+    void OpenOptions(float topInset, float width);
 
     /// <summary>옵션 창을 닫는다. 이미 닫혀 있으면 아무 일도 없다.</summary>
     void CloseOptions();
@@ -53,6 +54,19 @@ public interface IShell
     /// 같이 걷을지 판단하는 데 쓴다.
     /// </summary>
     event System.Action OptionsClosed;
+
+    /// <summary>
+    /// 메뉴 칸 (2026-09-28). 메인 창을 <b>왼쪽으로</b> <paramref name="width"/> 만큼(창 px, 배율과 무관) 넓혀 게임 화면을
+    /// 가리지 않는 자리를 만든다. 0 이면 원래 크기로 돌린다.
+    ///
+    /// 넓힌 칸은 창 좌표 x 0 ~ <paramref name="width"/> 이다 - 게임 화면(셸 루트 아래)은 그만큼 오른쪽으로 옮겨 그리고,
+    /// 화면에서 보이는 자리는 그대로다. <c>CanvasLayer</c> 창(상점·강화·로비·설정·안내)은 배율·위치를 안 물려받으므로
+    /// 그 칸에 스스로 붙는다. 칸의 높이는 창 높이를 따르되 배율 1 때의 높이보다 작아지지 않는다.
+    ///
+    /// 화면 왼쪽(또는 아래)에 자리가 모자라면 창을 화면 안에 두고 게임 화면이 잠깐 비켜난다 - 닫으면 제자리로
+    /// 돌아온다. 열린 동안 창을 끌어 옮겼으면 옮긴 자리에 남는다.
+    /// </summary>
+    void SetSidePanel(int width);
 
     /// <summary>
     /// 작은 창을 하나 띄운다 (B10 친구 칸, <see cref="ISatelliteWindow"/>).

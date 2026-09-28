@@ -28,7 +28,7 @@ public partial class OptionsWindow : CanvasLayer
     private Button _closeButton;
     private HSeparator _closeRule;
 
-    /// <summary>기본 위쪽 여백. <see cref="SetTopInset"/> 이 이보다 작게는 안 줄인다.</summary>
+    /// <summary>기본 위쪽 여백. <see cref="SetArea"/> 가 이보다 작게는 안 줄인다.</summary>
     private const int MarginTop = 12;
 
     /// <summary>
@@ -65,21 +65,36 @@ public partial class OptionsWindow : CanvasLayer
     public void Open() => Visible = true;
 
     /// <summary>
-    /// 패널이 시작할 높이. 게임 메뉴(MenuHub)에서 열면 그 탭 줄이 창 위를 덮고 있어서 줄 아래로 내린다 -
-    /// 트레이에서 열면 0 이라 기본 여백(<see cref="MarginTop"/>)을 쓴다 (IShell.OpenOptions).
+    /// 패널을 놓을 자리. 게임 메뉴(MenuHub)에서 열면 그 탭 줄이 창 위를 덮고 있어서 줄 아래로 내리고, 창 왼쪽의 메뉴 칸
+    /// (<paramref name="width"/>, IShell.SetSidePanel) 안에만 둔다 - 게임 화면을 가리지 않는다 (2026-09-28).
+    /// 트레이에서 열면 둘 다 0 이라 창 전체에 기본 여백(<see cref="MarginTop"/>)을 쓴다 (IShell.OpenOptions).
     ///
-    /// <b>메뉴 안에서는 상점·강화·로비 창과 같은 모양이 된다</b> (2026-09-27): 창 아래까지 채우고, 옆·아래 여백을
-    /// 그 창들과 같은 10 으로, 자기 [닫기] 는 숨긴다 - 탭 줄에 [닫기] 가 있다. 전에는 탭을 옮길 때 설정만 짧은
-    /// 패널로 떠서 아래로 게임 화면이 비쳤다. 트레이에서 열면 예전 모양 그대로다.
+    /// <b>메뉴 안에서는 상점·강화·로비 창과 같은 모양이 된다</b> (2026-09-27): 칸 아래까지 채우고, 옆·아래 여백을
+    /// 그 창들과 같은 10 으로, 자기 [닫기] 는 숨긴다 - 탭 줄에 [닫기] 가 있다. 트레이에서 열면 예전 모양 그대로다.
     /// </summary>
-    public void SetTopInset(float inset)
+    public void SetArea(float topInset, float width)
     {
-        bool inMenu = inset > 0f;
+        bool inMenu = topInset > 0f;
         int side = inMenu ? 10 : MarginTop;
-        _margin.AddThemeConstantOverride("margin_top", Math.Max(MarginTop, Mathf.RoundToInt(inset)));
+        _margin.AddThemeConstantOverride("margin_top", Math.Max(MarginTop, Mathf.RoundToInt(topInset)));
         _margin.AddThemeConstantOverride("margin_left", side);
         _margin.AddThemeConstantOverride("margin_right", side);
         _margin.AddThemeConstantOverride("margin_bottom", side);
+
+        // 폭이 있으면 창 왼쪽 그 폭에, 위아래는 창 끝까지. 창 크기가 바뀌어도(배율 슬라이더) 앵커가 따라간다.
+        if (width > 0f)
+        {
+            _margin.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+            _margin.OffsetLeft = 0;
+            _margin.OffsetTop = 0;
+            _margin.OffsetRight = width;
+            _margin.OffsetBottom = 0;
+        }
+        else
+        {
+            _margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        }
+
         _panel.SizeFlagsVertical = inMenu ? Control.SizeFlags.ExpandFill : Control.SizeFlags.Fill;
         _closeButton.Visible = !inMenu;
         _closeRule.Visible = !inMenu;

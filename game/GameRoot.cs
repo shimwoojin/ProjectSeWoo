@@ -206,6 +206,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _platform.Economy.OnStateChanged += OnEconomyStateChanged;
         _menu.BindShell(_platform.Shell);
 
+        // 메뉴·안내가 뜨면 창을 왼쪽으로 넓혀 그 칸에 띄운다 - 게임 화면을 가리지 않는다 (2026-09-28).
+        // 어느 경로로 열고 닫든(탭 줄, Esc, 설정의 [닫기], [안내]) 레이어의 보이기가 바뀌므로 여기 하나로 받는다.
+        _menu.VisibilityChanged += UpdateSidePanel;
+        _onboarding.VisibilityChanged += UpdateSidePanel;
+        UpdateSidePanel();
+
         // 목 경제는 가격표를 받아야 판다. 실물은 서버가 자기 사본(server/src/catalog.ts)으로
         // 판정하지만 목에는 표가 없어서, 9/23 리와이어 뒤로 **디버그 상점 구매가 전부
         // ItemUnknown 으로 실패하고 있었다**(2026-09-24 A15 시험 중 발견). 원본인
@@ -590,7 +596,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
     private void UpdateSlotHover(Vector2 global)
     {
-        if (_platform == null || _menu.IsOpen || _onboarding.IsOpen)
+        if (_platform == null)
         {
             HideSlotTip();
             return;
@@ -612,17 +618,11 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         RefreshSlotTip();
     }
 
-    /// <summary>떠 있는 동안 카운트다운·남은 타격을 고친다. 메뉴가 열리거나 슬롯이 줄면 걷는다.</summary>
+    /// <summary>떠 있는 동안 카운트다운·남은 타격을 고친다. 슬롯이 줄면 걷는다 - 메뉴는 옆 칸에 뜨므로 열려 있어도 둔다.</summary>
     private void TickSlotTip(double delta)
     {
         if (_hoverSlot < 0)
         {
-            return;
-        }
-
-        if (_menu.IsOpen || _onboarding.IsOpen)
-        {
-            HideSlotTip();
             return;
         }
 
@@ -1337,7 +1337,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         Rect2 bounds = _tree.GetBounds().Merge(_monkey.GetBounds());
 
-        // [메뉴] 버튼도 클릭을 받아야 한다. 나무·원숭이 바로 아래에 둔 이유가
+        // [메뉴] 버튼도 클릭을 받아야 한다. 원숭이 바로 왼쪽에 둔 이유가
         // 이것이다 - Rect2.Merge 는 외접 사각형이라, 버튼이 화면 반대편에 있으면
         // 그 사이의 빈 공간까지 전부 클릭을 먹는다.
         //
@@ -1354,7 +1354,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         new(button.Position, button.Size.Max(button.GetCombinedMinimumSize()));
 
     /// <summary>
-    /// 처음 안내를 연다 (B15). 메뉴가 열려 있으면 닫는다 - 둘 다 창 전체를 덮는 CanvasLayer 라 겹치면 아래
+    /// 처음 안내를 연다 (B15). 메뉴가 열려 있으면 닫는다 - 둘 다 같은 메뉴 칸에 뜨는 CanvasLayer 라 겹치면 아래
     /// 것이 가려진 채로 남는다.
     /// </summary>
     private void OpenOnboarding()
@@ -1362,6 +1362,13 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _menu.Close();
         _onboarding.Open();
     }
+
+    /// <summary>
+    /// 메뉴나 안내가 떠 있으면 창 왼쪽에 메뉴 칸을 연다 (<see cref="IShell.SetSidePanel"/>). 안내를 열 때 메뉴를 먼저
+    /// 닫으므로 칸이 한 번 닫혔다 열리는데, 같은 프레임 안이라 화면에는 안 보인다.
+    /// </summary>
+    private void UpdateSidePanel() =>
+        _platform?.Shell.SetSidePanel(_menu.IsOpen || _onboarding.IsOpen ? MenuHub.PanelWidth : 0);
 
     /// <summary>안내를 끝까지 봤거나 건너뛰었다. 다음부터는 안 뜬다 - 이미 본 판이면 쓸 것이 없다.</summary>
     private void OnOnboardingFinished()

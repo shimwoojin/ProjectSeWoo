@@ -14,7 +14,7 @@ public sealed class MockShell : IShell
 
     public event System.Action OptionsClosed;
 
-    public void OpenOptions(float topInset)
+    public void OpenOptions(float topInset, float width)
     {
         IsOptionsOpen = true;
         GD.Print("[mock-shell] 옵션 창 열기 (목이라 창은 없다)");
@@ -30,6 +30,11 @@ public sealed class MockShell : IShell
         IsOptionsOpen = false;
         OptionsClosed?.Invoke();
     }
+
+    /// <summary>메뉴 칸 폭 (<see cref="IShell.SetSidePanel"/>). 목은 기억만 한다.</summary>
+    public int SidePanelWidth { get; private set; }
+
+    public void SetSidePanel(int width) => SidePanelWidth = width;
 
     public float Scale { get; private set; } = 1.0f;
 

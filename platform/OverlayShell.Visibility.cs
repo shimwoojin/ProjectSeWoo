@@ -211,9 +211,10 @@ public partial class OverlayShell
     }
 
     /// <param name="topInset">위쪽에 비워 둘 높이 - 게임 메뉴의 탭 줄 자리 (<see cref="IShell.OpenOptions"/>). 트레이·O 키는 0.</param>
-    private void OpenOptionsWindow(float topInset = 0f)
+    /// <param name="width">창 왼쪽 몇 px 안에 둘지 - 메뉴 칸 폭. 트레이·O 키는 0 (창 전체).</param>
+    private void OpenOptionsWindow(float topInset = 0f, float width = 0f)
     {
-        _options.SetTopInset(topInset);
+        _options.SetArea(topInset, width);
         _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
         _options.Open();
         DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());

@@ -50,6 +50,18 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     private Vector2I _baseWindowSize;
 
     /// <summary>
+    /// 메뉴 칸 폭 (창 px, <see cref="IShell.SetSidePanel"/>). 0 이면 닫힘. 열려 있으면 창이 왼쪽으로 이만큼 넓고,
+    /// 게임 화면은 셸 루트의 <see cref="Node2D.Position"/> 으로 그만큼 오른쪽에 그린다.
+    /// </summary>
+    private int _panelWidth;
+
+    /// <summary>
+    /// 메뉴 칸을 열기 직전 게임 화면의 화면 좌표. 닫을 때 여기로 돌아온다 - 화면 끝이라 칸을 열면서 게임 화면이
+    /// 비켜났어도 제자리로. 열린 동안 창을 끌어 옮기면 버린다(옮긴 자리에 남는다).
+    /// </summary>
+    private Vector2I? _panelHome;
+
+    /// <summary>
     /// 셸이 띄운 작은 창들 (B10 친구 칸, <see cref="OpenSatellite"/>). 배율·투명도·숨기기를
     /// 메인 창과 같이 따르게 하고, 끌기 틱을 돌린다.
     /// </summary>
@@ -506,7 +518,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     // ------------------------------------------------------------------ IShell 실물
 
     /// <summary>게임 메뉴의 "설정" 탭 (<see cref="IShell.OpenOptions"/>). 트레이 "설정" 과 같은 창을 연다.</summary>
-    void IShell.OpenOptions(float topInset) => OpenOptionsWindow(topInset);
+    void IShell.OpenOptions(float topInset, float width) => OpenOptionsWindow(topInset, width);
 
     void IShell.CloseOptions()
     {
@@ -545,11 +557,61 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             satellite.SetScale(_settings.Scale);
         }
 
-        _win.Size = new Vector2I(
-            Mathf.RoundToInt(_baseWindowSize.X * _settings.Scale),
-            Mathf.RoundToInt(_baseWindowSize.Y * _settings.Scale));
+        ApplyWindowSize();
 
         // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다.
+        ApplyPassthrough(force: true);
+    }
+
+    /// <summary>게임 화면(배율 적용) + 메뉴 칸. 칸이 열려 있으면 높이는 배율 1 때보다 작아지지 않는다 - 상점이 너무 납작해진다.</summary>
+    private void ApplyWindowSize()
+    {
+        int height = Mathf.RoundToInt(_baseWindowSize.Y * _settings.Scale);
+        if (_panelWidth > 0)
+        {
+            height = Math.Max(height, _baseWindowSize.Y);
+        }
+
+        _win.Size = new Vector2I(Mathf.RoundToInt(_baseWindowSize.X * _settings.Scale) + _panelWidth, height);
+    }
+
+    /// <summary>게임 화면의 왼쪽 위 (화면 좌표). 메뉴 칸이 열려 있으면 창 왼쪽 끝이 아니라 칸 오른쪽이다.</summary>
+    private Vector2I ContentOrigin => _win.Position + new Vector2I(_panelWidth, 0);
+
+    /// <inheritdoc cref="IShell.SetSidePanel"/>
+    public void SetSidePanel(int width)
+    {
+        width = Math.Max(0, width);
+        if (width == _panelWidth)
+        {
+            return;
+        }
+
+        Vector2I content = ContentOrigin;
+        if (_panelWidth == 0)
+        {
+            _panelHome = content;
+        }
+        else if (width == 0)
+        {
+            content = _panelHome ?? content;
+            _panelHome = null;
+        }
+
+        _panelWidth = width;
+        Position = new Vector2(width, 0);
+        ApplyWindowSize();
+
+        var position = new Vector2I(content.X - width, content.Y);
+        if (width > 0)
+        {
+            // 화면 왼쪽·아래로 칸이 잘리지 않게 창을 화면 안으로 민다. 게임 화면이 그만큼 비켜난다 - 닫으면 _panelHome 으로.
+            Rect2I usable = GetSafeArea();
+            position.X = Math.Max(position.X, usable.Position.X);
+            position.Y = Math.Max(Math.Min(position.Y, usable.End.Y - _win.Size.Y), usable.Position.Y);
+        }
+
+        _win.Position = position;
         ApplyPassthrough(force: true);
     }
 
@@ -629,10 +691,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         }
 
         Rect2I usable = GetSafeArea();
-        Vector2I first = _win.Position;
+        Vector2I first = ContentOrigin;
         for (int i = 0; i < offsets.Length; i++)
         {
-            Vector2I candidate = _win.Position + (Vector2I)(offsets[i] * _settings.Scale).Round();
+            Vector2I candidate = ContentOrigin + (Vector2I)(offsets[i] * _settings.Scale).Round();
             if (i == 0)
             {
                 first = candidate;
@@ -711,7 +773,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// </summary>
     private void PersistSettings()
     {
-        _settings.Pos = new[] { _win.Position.X, _win.Position.Y };
+        // 메뉴 칸이 열려 있으면 창 왼쪽 끝이 아니라 게임 화면 자리를 남긴다 - 다음 실행은 칸 없이 뜬다.
+        Vector2I pos = _panelHome ?? ContentOrigin;
+        _settings.Pos = new[] { pos.X, pos.Y };
         _save.MarkDirty();
     }
 
@@ -759,7 +823,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         }
 
         Rect2 local = _content.GetClickableBounds();
-        var scaled = new Rect2(local.Position * _settings.Scale, local.Size * _settings.Scale);
+        var scaled = new Rect2(local.Position * _settings.Scale + Position, local.Size * _settings.Scale);
         return scaled.Grow(HitPadding);
     }
 
@@ -967,6 +1031,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         if (_win.Position != _dragStart)
         {
             _drags++;
+            _panelHome = null;
             PersistSettings();
         }
 

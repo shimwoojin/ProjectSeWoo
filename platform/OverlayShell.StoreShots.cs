@@ -340,6 +340,11 @@ public partial class OverlayShell
         await Seconds(0.3);
         await Capture(dir, manifest, "upgrade");
 
+        // 설정 - 셸 창이지만 메뉴 칸에 뜬다 (2026-09-28). 스토어에 쓰지는 않고 확인용이다.
+        PressGameButton("설정");
+        await Seconds(0.3);
+        await Capture(dir, manifest, "settings");
+
         PressGameButton("닫기");   // 메뉴의 [닫기]
         await Seconds(0.3);
 
@@ -374,25 +379,14 @@ public partial class OverlayShell
             PressKey(Key.M);
         }
 
-        // 5) 처음 안내(B15) 세 장. 게임 타입을 모르므로 노드 이름으로 찾아 열고 [다음] 버튼을 누른다.
+        // 5) 처음 안내(B15). 2026-09-28 부터 한 장이다. 게임 타입을 모르므로 노드 이름으로 찾아 연다.
         Node onboarding = GetTree().GetFirstNodeInGroup(SceneGroups.GameRoot)?.GetNodeOrNull("OnboardingWindow");
         if (onboarding != null)
         {
             await Seconds(0.3);
             onboarding.Call("Open");
-            for (int page = 0; page < 3; page++)
-            {
-                await Seconds(0.4);
-                await Capture(dir, manifest, $"onboarding_{page}");
-                foreach (Node node in onboarding.FindChildren("*", "Button", true, false))
-                {
-                    if (node is Button { Text: "다음" } next)
-                    {
-                        next.EmitSignal(BaseButton.SignalName.Pressed);
-                        break;
-                    }
-                }
-            }
+            await Seconds(0.4);
+            await Capture(dir, manifest, "onboarding_0");
         }
     }
 

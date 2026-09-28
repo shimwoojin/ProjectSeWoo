@@ -210,9 +210,8 @@ public partial class ShopWindow : CanvasLayer
         margin.AddThemeConstantOverride("margin_bottom", 10);
         AddChild(margin);
 
-        // 앵커와 오프셋을 같이 세운다. SetAnchorsPreset 만 부르면 오프셋이 그대로
-        // 남아, 창 크기가 바뀌었을 때 패널이 따라가지 않는다.
-        margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        // 메뉴 칸(창 왼쪽)에 붙인다 - 게임 화면을 가리지 않는다 (2026-09-28).
+        MenuHub.AnchorToPanel(margin);
 
         var panel = new PanelContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         panel.AddThemeStyleboxOverride("panel", MakeBackground());

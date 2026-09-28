@@ -11,6 +11,9 @@ namespace ProjectSeWoo.Game;
 /// 문턱을 직접 본다 - <see cref="Shared.AchievementIds.KeystrokeMilestones"/>), 도감 % 는 메뉴의 도감 탭이
 /// 맡는다. 로비 줄과 안내 줄은 그때만 나타난다.
 ///
+/// <b>원숭이 바로 아래, 가운데 맞춤 (2026-09-28).</b> 예전엔 창 왼쪽 위 구석에 있어서 나무·원숭이와 따로 놀았다.
+/// 클릭을 받지 않으므로(<c>mouse_filter = 2</c>) 클릭 영역(<see cref="GameRoot.GetClickableBounds"/>)을 넓히지 않는다.
+///
 /// <b>한글을 쓴다 (B4 이후).</b> B4 가 Pretendard 를 번들하고 <c>gui/theme/custom</c> 으로
 /// 걸면서 한글 글리프 제약이 풀렸다 (assets/ui/theme.tres).
 ///
@@ -81,6 +84,7 @@ public partial class StatusHud : VBoxContainer
     {
         _bananaPop?.Kill();
         _bananas.Scale = Vector2.One;
+        _bananas.PivotOffset = _bananas.Size / 2;   // 가운데 맞춤이라 가운데서 튕긴다
         _bananaPop = CreateTween();
         _bananaPop.TweenProperty(_bananas, "scale", Vector2.One * 1.18f, 0.07)
             .SetTrans(Tween.TransitionType.Quad);

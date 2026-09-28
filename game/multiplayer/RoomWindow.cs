@@ -355,7 +355,7 @@ public partial class RoomWindow : CanvasLayer
         margin.AddThemeConstantOverride("margin_top", MenuHub.ContentTop);
         margin.AddThemeConstantOverride("margin_bottom", 10);
         AddChild(margin);
-        margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        MenuHub.AnchorToPanel(margin);
 
         var panel = new PanelContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         panel.AddThemeStyleboxOverride("panel", ShopWindow.MakeBackground());
@@ -396,7 +396,7 @@ public partial class RoomWindow : CanvasLayer
             MouseFilter = Control.MouseFilterEnum.Stop,
             Visible = false,
         };
-        dim.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        MenuHub.AnchorToPanel(dim);   // 메뉴 칸만 어둡게 - 옆의 게임 화면은 그대로 보인다
 
         var center = new CenterContainer();
         center.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);

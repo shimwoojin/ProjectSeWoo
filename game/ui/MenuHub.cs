@@ -18,6 +18,10 @@ namespace ProjectSeWoo.Game;
 ///
 /// 어떤 경로로 닫히든(탭 줄의 ×, Esc, 설정 창의 [닫기]) 지금 탭의 창이 닫히면 줄도 같이 걷는다
 /// (<see cref="OnWindowClosed"/>).
+///
+/// <b>메뉴는 게임 화면 왼쪽 옆에 뜬다 (2026-09-28).</b> 예전엔 창 전체를 덮어서 메뉴를 보는 동안 나무·원숭이가
+/// 안 보였다. 이제 열리면 셸이 창을 왼쪽으로 <see cref="PanelWidth"/> 만큼 넓히고(<see cref="IShell.SetSidePanel"/>,
+/// <see cref="GameRoot"/> 가 이 레이어의 보이기에 맞춰 부른다), 탭 줄과 창들은 그 칸에 붙는다(<see cref="AnchorToPanel"/>).
 /// </summary>
 public partial class MenuHub : CanvasLayer
 {
@@ -37,6 +41,25 @@ public partial class MenuHub : CanvasLayer
 
     /// <summary>탭 줄 아래 창들이 시작하는 높이. 상점·강화·로비 창의 위쪽 여백이다.</summary>
     public const int ContentTop = BarMargin + BarHeight + 6;
+
+    /// <summary>
+    /// 메뉴 칸 폭 (창 px). 배율과 무관하다 - <c>CanvasLayer</c> 는 셸 루트의 배율을 안 받아서 글자 크기가 늘 같다.
+    /// 배율 1 일 때의 창 폭(project.godot 420)과 같게 두어 예전 창 전체 메뉴와 같은 폭이 된다.
+    /// </summary>
+    public const int PanelWidth = 420;
+
+    /// <summary>
+    /// <paramref name="control"/> 을 메뉴 칸 - 창 왼쪽 <see cref="PanelWidth"/>, 위아래는 창 끝까지 - 에 붙인다.
+    /// 앵커로 붙이므로 창 높이가 바뀌어도(배율) 따라간다. 메뉴 칸이 닫혀 있으면 게임 화면 위에 겹친다.
+    /// </summary>
+    public static void AnchorToPanel(Control control)
+    {
+        control.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+        control.OffsetLeft = 0;
+        control.OffsetTop = 0;
+        control.OffsetRight = PanelWidth;
+        control.OffsetBottom = 0;
+    }
 
     /// <summary>[안내] - 처음 안내는 세이브에 본 판을 남겨야 해서 게임 레이어가 연다.</summary>
     public event Action HelpRequested;
@@ -186,7 +209,7 @@ public partial class MenuHub : CanvasLayer
                 _room.Open();
                 break;
             case Tab.Options:
-                _shell.OpenOptions(ContentTop);
+                _shell.OpenOptions(ContentTop, PanelWidth);
                 break;
         }
     }
@@ -253,9 +276,13 @@ public partial class MenuHub : CanvasLayer
         margin.AddThemeConstantOverride("margin_right", BarMargin);
         margin.AddThemeConstantOverride("margin_top", BarMargin);
         AddChild(margin);
-        margin.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide);
+        AnchorToPanel(margin);
 
-        var panel = new PanelContainer { CustomMinimumSize = new Vector2(0, BarHeight) };
+        var panel = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(0, BarHeight),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkBegin,
+        };
         StyleBoxFlat background = ShopWindow.MakeBackground();
         background.SetContentMarginAll(4);
         panel.AddThemeStyleboxOverride("panel", background);
