@@ -26,10 +26,8 @@ namespace ProjectSeWoo.Game;
 /// </summary>
 public static class ShopCatalog
 {
-    public sealed record Item(string Id, CursorSlot Slot, int Tier, string Name, string NameEn, string DecoKind)
+    public sealed record Item(string Id, CursorSlot Slot, int Tier, string Name, string NameEn, string DecoKind, int Price)
     {
-        /// <summary>0 이면 기본 지급품이라 살 수 없다.</summary>
-        public int Price => Tier == 0 ? 0 : ItemManifest.TierPrices[Tier - 1];
 
         /// <summary>
         /// 처음부터 가진 것 (원숭이 하나, 바나나 하나). 빈손으로 시작하면 커서 꾸미기가 뭔지 보여줄 방법이 없고,
@@ -43,7 +41,7 @@ public static class ShopCatalog
 
     /// <summary>JSON 순서 그대로.</summary>
     public static readonly Item[] All = ItemManifest.Items
-        .Select(e => new Item(e.Id, e.Slot, e.Tier, e.NameKo, e.NameEn, e.DecoKind))
+        .Select(e => new Item(e.Id, e.Slot, e.Tier, e.NameKo, e.NameEn, e.DecoKind, e.Price))
         .ToArray();
 
     private static readonly Dictionary<string, Item> ById =

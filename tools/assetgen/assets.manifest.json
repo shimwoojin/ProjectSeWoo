@@ -233,6 +233,198 @@
         "prompt": "a flat circular wooden slice platform seen from above, brown wood grain rings, game icon",
         "neg_extra": "character, ground, grass, shadow, perspective"
       }
+    ],
+    "parts": [
+      {
+        "id": "part_glove_base",
+        "style": "parts",
+        "out": "assets/_source/parts/glove/base.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 215,
+        "prompt": "a puffy red leather boxing glove, round padded fist with thumb, short white wrist cuff, side view, cartoon",
+        "neg_extra": "hand, arm, fingers, person, mitten, oven mitt, sock, boot, shoe, pair, two gloves, multiple objects"
+      },
+      {
+        "id": "part_hat_bandana",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/bandana.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a red bandana headband with the knot tails on the side, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_beanie",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/beanie.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 201,
+        "prompt": "a teal knitted beanie hat with a white pompom on top, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_cap",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/cap.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a red baseball cap, three quarter view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_chef",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/chef.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "an empty tall white puffy chef toque hat, solid white fabric, side folds, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_cowboy",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/cowboy.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a brown leather cowboy hat, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_crown",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/crown.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a golden king crown with red and blue jewels, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_icecrown",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/icecrown.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a crown made of light blue ice crystals, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_pirate",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/pirate.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 203,
+        "prompt": "an empty black pirate captain tricorn hat with gold trim, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_straw",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/straw.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a straw sun hat with a red ribbon band, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_sweatband",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/sweatband.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a red terry cloth sports sweatband headband ring, empty, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_viking",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/viking.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a silver viking helmet with two white horns, front view, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_hat_wizard",
+        "style": "parts",
+        "out": "assets/_source/parts/hat/wizard.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a purple pointed wizard hat with yellow stars, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_tip_bolt",
+        "style": "parts",
+        "out": "assets/_source/parts/tail/bolt.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 201,
+        "prompt": "a yellow lightning bolt, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_tip_bow",
+        "style": "parts",
+        "out": "assets/_source/parts/tail/bow.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 201,
+        "prompt": "a red ribbon bow, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_tip_flame",
+        "style": "parts",
+        "out": "assets/_source/parts/tail/flame.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a single cartoon fire flame shape, orange and yellow, teardrop flame with curled tips, no wood, no logs, no base, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_tip_heart",
+        "style": "parts",
+        "out": "assets/_source/parts/tail/heart.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 202,
+        "prompt": "a pink heart, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_tip_snow",
+        "style": "parts",
+        "out": "assets/_source/parts/tail/snow.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 201,
+        "prompt": "a light blue snowflake ice crystal, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      },
+      {
+        "id": "part_tip_star",
+        "style": "parts",
+        "out": "assets/_source/parts/tail/star.png",
+        "px": 256,
+        "pivot": "center",
+        "seed": 201,
+        "prompt": "a yellow five pointed star, single object",
+        "neg_extra": "monkey, animal, person, hand, arm, body, mannequin, head, multiple objects, pattern, background scene"
+      }
     ]
   },
   "$entities_removed": "2026-09-21: 엔티티 아트(원숭이/나무/바나나)를 ComfyUI 생성에서 **시트 슬라이스**로 바꿨다. 애니메이션 스프라이트는 GPT 쪽 산출물이 나았고, 무엇보다 펀치 8프레임처럼 '같은 캐릭터가 여러 포즈로' 나오는 것은 시드만 바꾸는 단발 생성으로는 안 된다. 생성 경로(gen.py)는 커서 장식 16종(B9)처럼 낱장이 필요한 쪽에 그대로 남는다. 지웠던 프롬프트가 필요하면 git 이력의 이 파일을 봐라."

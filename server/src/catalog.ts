@@ -20,6 +20,8 @@ export interface ShopItem {
    * tier 0(기본 지급품)은 스팀 인벤토리에 없으므로 번호가 없다.
    */
   steamItemDefId?: number;
+  /** 있으면 티어 가격 대신 이 값 (B19 원숭이: 꾸밈 부위 수로 15/200/500/3000). 게임 ItemManifest.Entry.Price 와 같은 규칙. */
+  price?: number;
 }
 
 /** §2-2 의 5티어 가격. 인덱스는 tier - 1. */
@@ -31,6 +33,7 @@ export const CATALOG: ShopItem[] = manifest.items.map((item) => ({
   category: item.category as ShopItem["category"],
   tier: item.tier,
   steamItemDefId: "steamItemDefId" in item ? (item as { steamItemDefId: number }).steamItemDefId : undefined,
+  price: "price" in item ? (item as { price: number }).price : undefined,
 }));
 
 const byId = new Map(CATALOG.map((item) => [item.id, item]));
@@ -43,7 +46,7 @@ export function priceOf(itemDefId: string): number | null {
     return null;
   }
 
-  return TIER_PRICES[item.tier - 1];
+  return item.price ?? TIER_PRICES[item.tier - 1];
 }
 
 export function isKnownItem(itemDefId: string): boolean {

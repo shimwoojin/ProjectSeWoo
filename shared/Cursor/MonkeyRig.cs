@@ -153,7 +153,7 @@ public partial class MonkeyRig : Node2D
         }
 
         _head.Texture = _skin.Head;
-        float s = HeadWidth / _skin.Head.GetWidth();
+        float s = HeadWidth / (_skin.HeadWidthPx > 0 ? _skin.HeadWidthPx : _skin.Head.GetWidth());
         _head.Scale = Vector2.One * s;
         _head.Offset = -_skin.Neck;
         Wake();
@@ -465,6 +465,7 @@ public partial class MonkeyRig : Node2D
 
         // 2) 채움 — 꼬리 → 다리 → 잡은 팔 → 몸통 → 배 → 발 · 잡은 손
         DrawPolyline(_tail, fur, 3.5f, true);
+        DrawTailDress();
         for (int side = 0; side < 2; side++)
         {
             Stroke(hips[side], feet[side], LegWidth, fur);
@@ -479,6 +480,7 @@ public partial class MonkeyRig : Node2D
         }
 
         DrawCircle(grip, 3.6f, belly);
+        DrawGlove(grip, grip - shoulderR);
 
         // 3) 빈 팔 - 몸 앞. **외곽선은 팔 중간부터 손까지만** 그린다. 어깨까지 외곽선을 두르면 둥근 끝이 "몸에
         //    붙인 원통" 처럼 보였다 (2026-09-26 갑). 어깨 쪽은 털색끼리 이어져 몸에서 뻗어 나온 것처럼 보인다.
@@ -487,10 +489,53 @@ public partial class MonkeyRig : Node2D
         DrawCircle(hand, 3.6f + Edge / 2, ol);
         Stroke(shoulderL, hand, ArmWidth, fur);
         DrawCircle(hand, 3.6f, belly);
+        DrawGlove(hand, hand - shoulderL);
 
         // 머리는 자식 스프라이트 (몸 위에 그려진다)
         _head.Position = At(Neck);
         _head.Rotation = _angle * 0.8f - 0.22f + _headTilt;
+    }
+
+    /// <summary>글러브 높이(px). 12 는 아이콘에서 점으로 보였다 (2026-09-28) - 손(반지름 3.6)의 네 배쯤이어야 "글러브" 로 읽힌다.</summary>
+    private const float GloveHeight = 16f, TailTipSize = 14f;
+
+    /// <summary>
+    /// 손 자리에 글러브 (B19). 그림은 주먹이 위라서, 팔 방향(<paramref name="along"/>, 어깨→손)이 그림의 위가 되게 돌린다.
+    /// 주먹 쪽이 손 끝에 오도록 가운데를 팔 방향으로 조금 민다.
+    /// </summary>
+    private void DrawGlove(Vector2 hand, Vector2 along)
+    {
+        Texture2D glove = _skin.Glove;
+        if (glove == null)
+        {
+            return;
+        }
+
+        float rot = (along.LengthSquared() < 0.01f ? Vector2.Up : along).Angle() + Mathf.Pi / 2;
+        var size = new Vector2(GloveHeight * glove.GetWidth() / glove.GetHeight(), GloveHeight);
+        DrawSetTransform(hand + along.Normalized() * 1.5f, rot, Vector2.One);
+        DrawTextureRect(glove, new Rect2(-size / 2, size), false);
+        DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+    }
+
+    /// <summary>꼬리 줄무늬(마디 하나 건너) + 끝 장식 (B19). 꼬리는 선이라 그림 대신 마디 색으로 줄무늬를 낸다.</summary>
+    private void DrawTailDress()
+    {
+        if (_skin.TailStripe is Color stripe)
+        {
+            for (int i = 1; i + 1 < _tail.Length; i += 2)
+            {
+                DrawLine(_tail[i], _tail[i + 1], stripe, 3.5f, true);
+            }
+        }
+
+        if (_skin.TailTip is Texture2D tip)
+        {
+            Vector2 end = _tail[^1];
+            var size = new Vector2(TailTipSize * tip.GetWidth() / Mathf.Max(tip.GetWidth(), tip.GetHeight()),
+                                   TailTipSize * tip.GetHeight() / Mathf.Max(tip.GetWidth(), tip.GetHeight()));
+            DrawTextureRect(tip, new Rect2(end - size / 2, size), false);
+        }
     }
 
     /// <summary>둥근 끝 막대 - 팔·다리. 외곽선 단계와 채움 단계에서 굵기만 달리 두 번 부른다.</summary>

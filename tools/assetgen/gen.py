@@ -36,6 +36,14 @@ STYLES = {
         neg="drop shadow, cast shadow, ground, grass, soil, floor, pedestal, 3d render, "
             "realistic, photo, blurry, smooth gradient, text, watermark, multiple, cropped"),
 }
+# B19 원숭이 꾸밈 부위 (모자·글러브·꼬리 끝). cartoon 그대로(LoRA 0.7, "full body")는 물건을 달라고 해도 얼굴 달린
+# 마스코트를 그렸다 (2026-09-28 첫 시도 - 모자 쓴 캐릭터, 글자 박힌 모자). LoRA 를 낮추고 "아이템 아이콘" 으로 묻는다.
+STYLES["parts"] = dict(
+    STYLES["cartoon"], strength=0.45,
+    pos="cute cartoon game item icon, 2d vector illustration, thick dark brown outline, simple cel shading, "
+        "vibrant colors, centered, single isolated object, plain white background",
+    neg=STYLES["cartoon"]["neg"] + ", eyes, mouth, face, mascot, cartoon character, creature, letters, text, logo, "
+        "number, emblem letter, circle behind, frame")
 
 
 def workflow(style, entry):
@@ -159,7 +167,7 @@ def main():
     for i, (group, e) in enumerate(todo, 1):
         print(f"  [{i}/{len(todo)}] {e['id']} (seed {e['seed']}) ...", end="", flush=True)
         try:
-            outs, secs = run(workflow(style, e))
+            outs, secs = run(workflow(e.get("style", style), e))
         except RuntimeError as ex:
             print(f" 실패: {ex}")
             failed.append(e["id"])

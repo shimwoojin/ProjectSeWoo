@@ -93,7 +93,12 @@ public partial class Monkey : Node2D
         }
 
         _sprite.Texture = sheet;
-        MeasureShape();   // 모자(monkey_05)가 원판 머리 위로 나온다
+
+        // 모자 쓴 스킨의 시트는 칸 위에 여백이 더 있다 (B19, tools/monkey_skins.py HAT_HEADROOM) - 원판보다 키가 크다.
+        // 스프라이트는 가운데 정렬이라 그대로 두면 원숭이가 여백의 반만큼 내려간다. 발 자리가 원판과 같도록 그만큼 올린다.
+        // ImpactPoint(FistFront)는 원판 칸 가운데 기준이고 Offset 은 그리는 자리만 옮기므로 그대로 맞는다.
+        _sprite.Offset = new Vector2(0, -(sheet.GetHeight() - _baseSheet.GetHeight()) / 2f);
+        MeasureShape();   // 모자가 원판 머리 위로 나온다
     }
 
     private void MeasureShape()

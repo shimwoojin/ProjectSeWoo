@@ -29,7 +29,7 @@ def items(tier_prices, banana_shift):
             continue
         if i["category"] == "banana" and banana_shift:
             t = max(1, t - 1)
-        out.append((i["id"], i["category"], t, tier_prices[t - 1]))
+        out.append((i["id"], i["category"], t, i.get("price", tier_prices[t - 1])))   # price 가 있으면 그 값 (B19 원숭이)
     return out
 
 

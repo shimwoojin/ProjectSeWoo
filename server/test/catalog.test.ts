@@ -38,13 +38,14 @@ describe("catalog", () => {
     }
   });
 
-  it("살 수 있는 것은 티어 가격이고 스팀 번호가 있다", () => {
+  it("살 수 있는 것은 price 가 있으면 그 값, 없으면 티어 가격이고 스팀 번호가 있다", () => {
     for (const item of CATALOG.filter((i) => i.tier > 0)) {
-      expect(priceOf(item.id)).toBe(TIER_PRICES[item.tier - 1]);
+      expect(priceOf(item.id)).toBe(item.price ?? TIER_PRICES[item.tier - 1]);
       expect(steamItemDefIdOf(item.id)).toBe(item.steamItemDefId);
     }
 
     expect(priceOf("banana_02")).toBe(10);
+    expect(priceOf("monkey_02")).toBe(15);   // B19: 색만 다른 원숭이는 15 고정
   });
 
   it("모르는 id 는 살 수 없다", () => {

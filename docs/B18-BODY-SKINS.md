@@ -25,7 +25,7 @@
 |---|---|
 | 그림 | `assets/cursor/monkey/<id>/punch.png` — `monkey_punch.png` 와 같은 크기·같은 8칸. `monkey_01`(갈색)은 원판 그대로라 안 만든다 |
 | 만드는 법 | `tools/make-body-skins.py` — 커서 스킨 표(`make-monkey-parts.py` 의 `SKINS`)와 **같은 털 마스크·같은 색 규칙**으로 원판 8칸의 털 색만 바꾼다. 프레임을 새로 생성하면 칸 사이 일관성이 깨진다(B17 §1-1) |
-| 모자 (05) | 커서 머리에 그리는 모자를 칸마다 머리 자리(대기 칸 머리를 알파로 맞춘 위치)에 붙이고 `CAP_DROP` 14px 내린다 — 본편은 정수리 털이 위로 뻗어 그대로 붙이면 모자가 떴다 |
+| 모자 (05) | ~~커서 머리에 그리던 모자를 칸마다 붙였다~~ → **B19 에서 생성 그림 모자 + 부위 체계로 바꿨다** ([B19](B19-MONKEY-SKINS.md)). 표는 `tools/monkey_skins.py` |
 | 오랑우탄 (06) | 색만(주황). 커서 쪽도 장신구 없이 색만이라 같다 |
 | 게임 | `Monkey.SetSkin(id)` — `GameRoot._Process` 가 매 프레임 장착 원숭이 id 로 부른다(바뀔 때만 일한다). 친구 칸은 받은 `EquippedMonkey` 를 카탈로그로 확인하고 부른다. 그림이 없으면 원판 |
 

@@ -37,10 +37,18 @@ public static class ItemManifest
         int? SteamItemDefId,
         string NameKo,
         string NameEn,
-        string DecoKind)
+        string DecoKind,
+        int? FixedPrice = null)
     {
         /// <summary>tier 0 = 기본 지급품. 가격이 없고 스팀 인벤토리에도 없다.</summary>
         public bool IsStarter => Tier == 0;
+
+        /// <summary>
+        /// 바나나 가격. JSON 에 <c>price</c> 가 있으면 그 값, 없으면 티어 가격. 기본 지급품은 0.
+        /// <c>price</c> 는 원숭이(B19)가 쓴다 - 원숭이는 꾸밈 부위 수로 값을 매겨서(15/200/500/3000) 바나나·장식이 같이 쓰는
+        /// 티어 표와 따로 간다. 서버(<c>server/src/catalog.ts</c> <c>priceOf</c>)도 같은 규칙이다.
+        /// </summary>
+        public int Price => IsStarter ? 0 : FixedPrice ?? TierPrices[Tier - 1];
     }
 
     private static int[] _tierPrices = Array.Empty<int>();
@@ -126,7 +134,8 @@ public static class ItemManifest
                 name.GetProperty("en").GetString(),
                 e.TryGetProperty("deco", out JsonElement deco) && deco.TryGetProperty("kind", out JsonElement kind)
                     ? kind.GetString()
-                    : null));
+                    : null,
+                e.TryGetProperty("price", out JsonElement price) ? price.GetInt32() : null));
         }
 
         _items = items.ToArray();
@@ -171,6 +180,11 @@ public static class ItemManifest
             if (item.Tier < 0 || item.Tier > _tierPrices.Length)
             {
                 return $"{item.Id}: tier {item.Tier} 에 가격이 없다";
+            }
+
+            if (item.FixedPrice is int fixedPrice && (fixedPrice <= 0 || item.IsStarter))
+            {
+                return $"{item.Id}: price 는 살 수 있는 아이템(tier 1 이상)에만, 1 이상이어야 한다";
             }
 
             if (item.IsStarter != (item.SteamItemDefId == null))

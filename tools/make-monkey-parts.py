@@ -10,7 +10,7 @@
 
 스킨마다 (assets/cursor/monkey/<id>/):
   head.png   머리 (털 색만 바꾼다 — 얼굴·귀 안쪽·외곽선은 그대로)
-  skin.json  몸을 그릴 색 + 머리의 목·눈 좌표 + 장신구
+  skin.json  몸을 그릴 색 + 머리의 목·눈 좌표 + 글러브·꼬리 (B19 - 모자는 head.png 에 굽는다)
   (icon.png 는 여기서 안 만든다 - 게임이 실제 리그로 그린다: Godot.exe --path . -- --make-icons)
 
 원숭이 목록·이름은 game/shop/items.json. 여기 SKINS 에 규칙이 없는 id 는 만들지 않는다.
@@ -20,11 +20,14 @@ import colorsys
 import json
 import pathlib
 
+import sys
+
 import numpy as np
 from PIL import Image, ImageDraw
 from scipy import ndimage
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
 SHEET = ROOT / "assets" / "entities" / "monkey_punch.png"
 OUT = ROOT / "assets" / "cursor" / "monkey"
 ITEMS = ROOT / "game" / "shop" / "items.json"
@@ -37,15 +40,10 @@ OUTLINE = (62, 32, 18)
 # 원본 털 색 (대기 프레임에서 뽑은 값). 몸을 그릴 때 기본값이다.
 BASE = {"fur": (158, 96, 52), "furShade": (122, 70, 36), "belly": (250, 205, 165), "outline": OUTLINE}
 
-# id -> (털 색조(도) 또는 None=그대로, 채도 배율, 밝기 더하기, 장신구)
-SKINS = {
-    "monkey_01": (None, 1.0, 0.0, None),          # 갈색 - 본편 그대로
-    "monkey_02": (46, 1.05, 0.22, None),          # 노랑
-    "monkey_03": (None, 0.10, 0.06, None),        # 회색
-    "monkey_04": (272, 0.55, 0.12, None),         # 보라
-    "monkey_05": (None, 1.0, 0.0, "cap"),         # 빨간 모자 - 갈색 + 모자
-    "monkey_06": (18, 1.25, 0.10, None),          # 오랑우탄 - 주황
-}
+# 스킨 표는 tools/monkey_skins.py 한 곳 (B19) - 본편 펀치 시트(make-body-skins.py)와 같이 쓴다.
+import monkey_skins as ms  # noqa: E402
+
+SKINS = ms.SKINS
 
 
 def head_from_sheet():
@@ -96,59 +94,49 @@ def recolor_head(head, hue, sat_mul, val_add):
     return Image.fromarray(arr.astype(np.uint8), "RGBA")
 
 
-def draw_cap(head, color=(214, 42, 42)):
-    """빨간 모자: 정수리에 반원 + 챙. 외곽선은 머리와 같은 색."""
-    w, h = head.size
-    d = ImageDraw.Draw(head)
-    cx, top, bottom = w * 0.55, -h * 0.02, h * 0.40       # 정수리 털까지 덮는다
-    rx = w * 0.36
-    d.pieslice((cx - rx, top, cx + rx, top + (bottom - top) * 2), 180, 360, fill=color + (255,), outline=OUTLINE + (255,), width=5)
-    d.rounded_rectangle((cx - rx * 0.2, bottom - 9, cx + rx * 1.1, bottom + 9), 9, fill=color + (255,), outline=OUTLINE + (255,), width=5)
-    d.ellipse((cx - 10, top + 2, cx + 10, top + 22), fill=(250, 245, 240, 255), outline=OUTLINE + (255,), width=4)
-    return head
-
-
-def draw_tufts(head, color):
-    """오랑우탄 볼 털: 얼굴 양옆 아래에 삐죽한 털 뭉치."""
-    w, h = head.size
-    d = ImageDraw.Draw(head)
-    for sx in (0.16, 0.86):
-        x0 = w * sx
-        pts = [(x0 - 22, h * 0.70), (x0 - 30, h * 0.92), (x0 - 10, h * 0.84), (x0 - 4, h * 1.0),
-               (x0 + 8, h * 0.84), (x0 + 26, h * 0.93), (x0 + 18, h * 0.70)]
-        d.polygon(pts, fill=color + (255,), outline=OUTLINE + (255,), width=4)
-    return head
-
-
 def main():
     ids = [i["id"] for i in json.loads(ITEMS.read_text(encoding="utf-8"))["items"] if i["category"] == "monkey"]
     head, box = head_from_sheet()
-    neck = ((CELL[0] // 2) - box[0] - 8, NECK_Y - box[1])        # 목 = 머리 그림 안의 회전 중심
-    eyes = [(x - box[0], y - box[1]) for x, y in EYES]
 
     for item_id in ids:
-        rule = SKINS.get(item_id)
-        if rule is None:
-            print(f"{item_id}: 스킨 규칙이 없다 - SKINS 에 추가할 것")
+        spec = SKINS.get(item_id)
+        if spec is None:
+            print(f"{item_id}: 스킨 규칙이 없다 - tools/monkey_skins.py 의 SKINS 에 추가할 것")
             continue
-        hue, sat_mul, val_add, accessory = rule
+        hue, sat_mul, val_add = spec["fur"]
         colors = {k: shift(v, hue, sat_mul, val_add) if k in ("fur", "furShade") else v for k, v in BASE.items()}
         h = recolor_head(head, hue, sat_mul, val_add)
-        if accessory == "cap":
-            h = draw_cap(h)
-        elif accessory == "tuft":
-            h = draw_tufts(h, colors["fur"])
+
+        # 모자는 머리 그림에 굽는다. 모자가 머리 밖으로 나가면 캔버스를 넓히고, 목·눈 좌표를 그만큼 옮긴다.
+        # 원점 = 대기 칸 (0,0) 이 캔버스에서 오는 자리.
+        origin = (-box[0], -box[1])
+        if spec.get("hat"):
+            hat_box = ms.hat_extent(spec["hat"])
+            ux0, uy0 = min(box[0], hat_box[0]), min(box[1], hat_box[1])
+            ux1, uy1 = max(box[2], hat_box[2]), max(box[3], hat_box[3])
+            canvas = Image.new("RGBA", (ux1 - ux0, uy1 - uy0), (0, 0, 0, 0))
+            canvas.alpha_composite(h, (box[0] - ux0, box[1] - uy0))
+            h, origin = ms.put_hat(canvas, spec["hat"], (-ux0, -uy0)), (-ux0, -uy0)
+
+        neck = ((CELL[0] // 2) - 8 + origin[0], NECK_Y + origin[1])      # 목 = 머리 그림 안의 회전 중심
+        eyes = [(x + origin[0], y + origin[1]) for x, y in EYES]
 
         folder = OUT / item_id
         folder.mkdir(parents=True, exist_ok=True)
         h.save(folder / "head.png", optimize=True)
         skin = {
-            "$comment": "tools/make-monkey-parts.py 가 만든다 - 손으로 고치지 않는다",
-            "head": {"size": list(h.size), "neck": list(neck), "eyes": [list(e) for e in eyes]},
+            "$comment": "tools/make-monkey-parts.py 가 만든다 - 손으로 고치지 않는다. 표는 tools/monkey_skins.py",
+            "head": {"size": list(h.size), "headWidth": box[2] - box[0], "neck": list(neck), "eyes": [list(e) for e in eyes]},
             "colors": {k: "#%02x%02x%02x" % v for k, v in colors.items()},
         }
+        if spec.get("glove"):
+            skin["glove"] = spec["glove"]
+        if spec.get("tail"):
+            skin["tail"] = {k: v for k, v in spec["tail"].items() if v}
         (folder / "skin.json").write_text(json.dumps(skin, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
-        print(f"{item_id}: head {h.size[0]}x{h.size[1]}, fur {skin['colors']['fur']}")
+        print(f"{item_id}: head {h.size[0]}x{h.size[1]}, fur {skin['colors']['fur']}, 부위 {ms.parts_count(spec)}")
+
+    print("실행 중 부위 그림:", len(ms.write_runtime_parts()), "장")
 
 
 if __name__ == "__main__":
