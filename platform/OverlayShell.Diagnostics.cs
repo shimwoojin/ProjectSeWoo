@@ -439,6 +439,7 @@ public partial class OverlayShell
             $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
             $"passthrough    {OnOff(_settings.PositionLocked)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
                 + $" writes {_regionWrites}",
+            $"hit rect       {CurrentHitRect().Position.X:F0},{CurrentHitRect().Position.Y:F0} .. {CurrentHitRect().End.X:F0},{CurrentHitRect().End.Y:F0} (창 px)",
             $"always on top  {OnOff(_win.AlwaysOnTop)}",
             $"screen         #{screen} of {DisplayServer.GetScreenCount()},"
                 + $" dpi {DisplayServer.ScreenGetDpi(screen)},"

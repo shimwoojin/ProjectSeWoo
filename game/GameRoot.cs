@@ -1347,6 +1347,12 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
         bounds = bounds.Merge(ButtonRect(_menuButton));
 
+        // HUD 도 넣는다 - 클릭은 안 받지만(mouse_filter 무시) **이 영역 밖은 그려지지도 않는다.**
+        // Windows 에서 클릭 통과 영역은 창 모양(SetWindowRgn)이라 위치 잠금이 켜져 있으면(기본값) 밖의
+        // 글자가 바탕화면에서 사라진다 (shared/Contracts/ISatelliteWindow.cs 의 이름표와 같은 일).
+        // 원숭이 바로 아래라 넓어지는 빈 공간이 거의 없다.
+        bounds = bounds.Merge(new Rect2(_hud.Position, _hud.Size.Max(_hud.GetCombinedMinimumSize())));
+
         return Transform * bounds;
     }
 
