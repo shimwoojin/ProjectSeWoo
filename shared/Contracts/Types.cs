@@ -159,4 +159,7 @@ public readonly record struct PlayerState
 
     /// <summary>도감 수집률 0~100 (§3-3).</summary>
     public byte CollectionPercent { get; init; }
+
+    /// <summary>나무 겉모습 단계 0~3 (B18) - 강화 레벨 합에서 나온다. 레벨 자체는 보내지 않는다.</summary>
+    public byte TreeStage { get; init; }
 }

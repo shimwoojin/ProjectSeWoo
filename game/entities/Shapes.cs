@@ -60,7 +60,7 @@ internal static class Shapes
     /// 픽셀의 왼쪽 끝~오른쪽 끝 사각형이다 - 잎이 넓고 줄기가 좁은 나무가 계단 모양으로 잡힌다. 빈 띠는 뺀다.
     ///
     /// 시트(<see cref="Sprite2D.Hframes"/>)는 <b>모든 칸을 합친</b> 모양이다 - 펀치로 뻗은 팔도 들어간다.
-    /// 텍스처를 CPU 로 읽으므로 <c>_Ready</c> 에서 한 번만 부른다. 이미지를 못 읽으면 <see cref="Bounds(Sprite2D)"/> 하나.
+    /// 텍스처를 CPU 로 읽으므로 <c>_Ready</c> 와 그림이 바뀔 때(B18 나무 단계·원숭이 스킨)만 부른다. 이미지를 못 읽으면 <see cref="Bounds(Sprite2D)"/> 하나.
     /// </summary>
     public static List<Rect2> Silhouette(Sprite2D sprite, int bands)
     {

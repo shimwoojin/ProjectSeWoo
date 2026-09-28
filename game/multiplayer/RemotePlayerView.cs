@@ -172,6 +172,10 @@ public partial class RemotePlayerView : Node2D
         ShowDecoration(CursorSlot.Deco, state.EquippedDeco);
         _ornament.Keystrokes(state.KeystrokesInWindow);
 
+        // 친구 나무·원숭이도 내 것과 같은 규칙 (B18). 스킨 id 는 SetSkin 이 카탈로그 밖·이상한 값을 원판으로 돌린다.
+        _tree.SetStage(state.TreeStage);
+        _monkey.SetSkin(ShopCatalog.Find(state.EquippedMonkey)?.Id);
+
         _collectionPercent = state.CollectionPercent;
 
         ulong now = Time.GetTicksMsec();

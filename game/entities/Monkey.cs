@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using ProjectSeWoo.Shared;
 
 namespace ProjectSeWoo.Game;
 
@@ -47,6 +48,10 @@ public partial class Monkey : Node2D
     private static readonly Vector2 FistFront = new(127, 7);
 
     private Sprite2D _sprite;
+    private Texture2D _baseSheet;
+
+    /// <summary>지금 입은 스킨 id. 처음엔 원판(<c>monkey_01</c> 과 같은 모습)이라 null.</summary>
+    private string _skin;
 
     private readonly RandomNumberGenerator _rng = new();
 
@@ -59,8 +64,40 @@ public partial class Monkey : Node2D
     {
         _punches = GetNode<AnimationPlayer>("Punches");
         _sprite = GetNode<Sprite2D>("Sprite");
+        _baseSheet = _sprite.Texture;
         _rng.Randomize();
 
+        MeasureShape();
+    }
+
+    /// <summary>
+    /// 장착한 커서 원숭이 스킨의 색으로 (B18). 본편 원숭이는 따로 사는 아이템이 아니다 - 커서 원숭이를 사면 나무를
+    /// 치는 원숭이도 같이 바뀐다. 시트는 스킨 폴더의 <c>punch.png</c>(<c>tools/make-body-skins.py</c>, 원판과 같은
+    /// 칸)이고, 없으면(기본 갈색·가져오기 전·모르는 id) 원판. 매 프레임 불러도 된다 - id 가 바뀔 때만 일한다.
+    /// </summary>
+    public void SetSkin(string monkeyId)
+    {
+        if (monkeyId == _skin || _sprite == null)
+        {
+            return;
+        }
+
+        _skin = monkeyId;
+        string path = monkeyId != null && PlayerStateCodec.IsValidId(monkeyId)
+            ? ItemManifest.AssetDir(CursorSlot.Monkey, monkeyId) + "punch.png"
+            : null;
+        Texture2D sheet = path != null && ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : _baseSheet;
+        if (sheet == _sprite.Texture)
+        {
+            return;
+        }
+
+        _sprite.Texture = sheet;
+        MeasureShape();   // 모자(monkey_05)가 원판 머리 위로 나온다
+    }
+
+    private void MeasureShape()
+    {
         // 쉴 때(프레임 0) 한 번만 잰다. 펀치 중에 다시 재면 클릭 영역이 매 프레임
         // 바뀌고, 그만큼 WindowSetMousePassthrough 쓰기가 늘어난다 (§7-3).
         // Shapes.Bounds(Sprite2D) 가 시트 전체가 아니라 **한 칸**을 기준으로 잰다 -

@@ -32,6 +32,30 @@ public static class UpgradeTable
     /// <summary>황금 바나나 한 송이의 값. 보통 바나나는 1.</summary>
     public const int GoldenMultiplier = 5;
 
+    /// <summary>
+    /// 나무 겉모습 단계 (B18). 세 축 레벨의 합이 이 값 이상이면 그 단계 - 0 기본 · 1 무성한 · 2 꽃 핀 · 3 황금.
+    /// 합의 최대는 11(가지 3 + 빨리 익기 4 + 황금 4)이고, <b>황금 나무는 전부 올렸을 때만</b> - 완주 보상이다.
+    /// 그림은 <c>assets/entities/tree_stage_N.png</c> (<c>tools/make-body-skins.py</c>). 서버 사본은 없다 - 겉모습만이다.
+    /// </summary>
+    public static readonly int[] TreeStageMinLevels = { 0, 3, 7, 11 };
+
+    public static int TreeStageAt(int slotsLevel, int cycleLevel, int goldenLevel)
+    {
+        int total = Math.Max(0, slotsLevel) + Math.Max(0, cycleLevel) + Math.Max(0, goldenLevel);
+        int stage = 0;
+        for (int i = 1; i < TreeStageMinLevels.Length; i++)
+        {
+            if (total >= TreeStageMinLevels[i])
+            {
+                stage = i;
+            }
+        }
+
+        return stage;
+    }
+
+    public static int MaxTreeStage => TreeStageMinLevels.Length - 1;
+
     public static int MaxLevel(UpgradeAxis axis) => Prices(axis).Length;
 
     /// <summary>다음 단계 가격. 최대 레벨이면 null.</summary>

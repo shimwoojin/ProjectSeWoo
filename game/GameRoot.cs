@@ -546,6 +546,14 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private void OnEconomyStateChanged() => _hud.SetBananas(_platform.Economy.Balance);
 
+    /// <summary>강화 레벨 합으로 정하는 나무 겉모습 단계 (B18, <see cref="UpgradeTable.TreeStageAt"/>). 서버 레벨을 그대로 읽는다.</summary>
+    private int TreeStage => _platform == null
+        ? 0
+        : UpgradeTable.TreeStageAt(
+            _platform.Economy.UpgradeLevel(UpgradeAxis.Slots),
+            _platform.Economy.UpgradeLevel(UpgradeAxis.Cycle),
+            _platform.Economy.UpgradeLevel(UpgradeAxis.Golden));
+
     /// <summary>
     /// 셸이 실물을 안 넘겼으면 목으로 돈다. <see cref="_Ready"/> 가 프레임 끝으로
     /// 미뤄 두고 부른다 - 그때는 부모의 <c>_Ready</c> 까지 전부 끝나 있다.
@@ -572,6 +580,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         if (_platform != null)
         {
             _tree.SyncSlots(_platform.Economy.Slots);
+            _tree.SetStage(TreeStage);
+            _monkey.SetSkin(_inventory?.EquippedIn(CursorSlot.Monkey));
             TickResync(delta);
             TickReceiving(delta);
             UpdateOfflineNotice();
@@ -1328,6 +1338,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private PlayerState SnapshotForPeers() => new()
     {
         TotalKeystrokes = Save.TotalKeystrokes,
+        TreeStage = (byte)TreeStage,
         EquippedMonkey = _inventory?.EquippedIn(CursorSlot.Monkey),
         EquippedBanana = _inventory?.EquippedIn(CursorSlot.Banana),
         EquippedDeco = _inventory?.EquippedIn(CursorSlot.Deco),

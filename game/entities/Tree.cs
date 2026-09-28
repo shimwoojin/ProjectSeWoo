@@ -98,13 +98,48 @@ public partial class Tree : Node2D
     /// <summary>쉴 때의 보이는 모양 - 알파 띠 (<see cref="Shapes.Silhouette"/>, 부모 좌표). 클릭 영역이 이것이다.</summary>
     private Rect2[] _restShape;
 
+    /// <summary>
+    /// 강화 단계별 나무 그림 (B18, <see cref="UpgradeTable.TreeStageAt"/>). 0 은 씬에 박힌 <c>tree_empty.png</c>.
+    /// <b>전부 같은 크기·같은 줄기 자리다</b> - <see cref="SlotAnchors"/> 가 텍스처 픽셀 좌표라 그대로 맞는다.
+    /// </summary>
+    private const string StageTexture = "res://assets/entities/tree_stage_{0}.png";
+
+    private Texture2D _baseTexture;
+    private int _stage;
+
     public override void _Ready()
     {
         _sway = GetNode<Node2D>("Sway");
         _slotRoot = GetNode<Node2D>("Sway/Slots");
         _body = GetNode<Sprite2D>("Sway/Body");
         _leaves = GetNode<CpuParticles2D>("Sway/Leaves");
+        _baseTexture = _body.Texture;
 
+        MeasureShape();
+    }
+
+    /// <summary>
+    /// 강화 단계에 맞는 그림으로 바꾼다. 매 프레임 불러도 된다 - 단계가 바뀔 때만 텍스처를 바꾸고 모양을 다시 잰다.
+    /// 그림이 없으면(가져오기 전) 기본 그림으로 둔다.
+    /// </summary>
+    public void SetStage(int stage)
+    {
+        stage = Mathf.Clamp(stage, 0, UpgradeTable.MaxTreeStage);
+        if (stage == _stage || _body == null)
+        {
+            return;
+        }
+
+        string path = string.Format(StageTexture, stage);
+        _body.Texture = stage == 0 || !ResourceLoader.Exists(path) ? _baseTexture : GD.Load<Texture2D>(path);
+        _stage = stage;
+
+        // 덤불·꽃·반짝임이 원판 알파 밖으로 나간다. 모양은 그리기 영역이기도 해서(SetWindowRgn) 안 다시 재면 잘린다.
+        MeasureShape();
+    }
+
+    private void MeasureShape()
+    {
         // 나무가 한 장이라 밑동과 잎을 따로 잴 것이 없어졌다 (B4).
         _restBounds = Transform * (_sway.Transform * Shapes.Bounds(_body));
 

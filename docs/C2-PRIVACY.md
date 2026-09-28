@@ -9,7 +9,7 @@
 |---|---|
 | 짧은 문구 (스토어 요약 · 게임 내 최초 실행) | ☑ 초안 — §1 |
 | 전체 문구 (개인정보 처리 안내) | ☑ 초안 — §2 |
-| **공개 URL** (스토어 "개인정보처리방침 URL") | 2026-09-28 경제 서버 `GET /privacy` 로 §2 한/영을 그대로 서빙 — `server/src/privacy.ts`. **§2 를 고치면 그 파일도 같이 고친다.** ☑ 배포(버전 `e21a3fca`) · 파트너 사이트 Store Page Admin > Basic Info > External Links 의 Privacy Policy URL 에 `https://punchmonkey-economy.shimwoojin627.workers.dev/privacy` 저장 |
+| **공개 URL** (스토어 "개인정보처리방침 URL") | 2026-09-28 경제 서버 `GET /privacy` 로 §2 한/영을 그대로 서빙 — `server/src/privacy.ts`. **§2 를 고치면 그 파일도 같이 고친다.** ☑ 배포(버전 `e21a3fca`) · 파트너 사이트 Store Page Admin > Basic Info > External Links 의 Privacy Policy URL 에 `https://punchmonkey-economy.shimwoojin627.workers.dev/privacy` 저장. **2026-09-28 B18 로 §2-5 에 "나무 단계" 를 더했다 - 서버 재배포(`npm run deploy`) 전까지 공개 페이지는 옛 문구다** |
 | 근거표 (문장마다 코드 위치) | ☑ — §3 |
 | **문의처 이메일** | ☑ 2026-09-28 `ggoggal@gmail.com` — 스팀 파트너 사이트 지원 이메일도 같게 |
 | **A10 (P2P) 전송 목록** | ☑ 2026-09-24 — 코드(`PlayerStateCodec`)와 대조해 §2-5 에 확정. 도감 수집률이 빠져 있던 것을 넣었다. P2P 는 스팀 릴레이만 쓰게 해서(직접 연결 끔) IP 비노출 문장을 넣었다 |
@@ -51,7 +51,7 @@
 
 ### 한국어
 
-**PunchMonkey 개인정보 처리 안내** (최종 수정: 2026-09-24)
+**PunchMonkey 개인정보 처리 안내** (최종 수정: 2026-09-28)
 
 **1. 입력을 어떻게 세나요**
 PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼이 **눌렸다는 사실**만 셉니다.
@@ -96,7 +96,7 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 - 친구 목록과 친구의 접속 상태(온라인·게임 중·참가 정보)는 로비 창에서 참가·초대를 보여 주는 데만 이
   PC 에서 읽으며, 우리 서버로 보내지 않습니다.
 - 같은 로비의 사람들에게, 로비에 있는 동안 0.2초마다: 그 사이 친 횟수, 딴 바나나 수, 누적 타수, 장착한
-  커서 장식, 도감 수집률. 친구 화면에서 원숭이와 나무를 움직이는 데만 씁니다. 어떤 키를 눌렀는지는 들어
+  커서 장식, 도감 수집률, 나무 단계(강화 정도에 따라 바뀌는 나무 모습). 친구 화면에서 원숭이와 나무를 움직이는 데만 씁니다. 어떤 키를 눌렀는지는 들어
   있지 않습니다. 스팀 중계 서버를 거쳐 전달되므로 서로의 IP 주소는 보이지 않습니다.
 
 **6. 하지 않는 것**
@@ -114,7 +114,7 @@ PunchMonkey 는 바탕화면에 떠 있는 동안 키보드와 마우스 버튼�
 
 ### English
 
-**PunchMonkey Privacy Notice** (Last updated: 2026-09-24)
+**PunchMonkey Privacy Notice** (Last updated: 2026-09-28)
 
 **1. How we count your input**
 While PunchMonkey sits on your desktop, it only counts **that** a key or mouse button was pressed.
@@ -162,7 +162,7 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 - Your friends list and your friends' status (online / in game / join information) are read on your PC only
   to show join and invite options in the lobby window, and are never sent to our server.
 - To people in the same lobby, every 0.2 seconds while you are in it: how many times you typed in that
-  moment, bananas harvested, total keystrokes, equipped cursor decorations, and collection progress. This
+  moment, bananas harvested, total keystrokes, equipped cursor decorations, collection progress, and your tree stage (how your tree looks, based on your upgrades). This
   is used only to animate your monkey and tree on their screens. It never contains which keys you pressed.
   It is delivered through Steam's relay servers, so your IP address is not visible to others.
 
@@ -205,7 +205,7 @@ Multiplayer lobbies run on Steam lobbies and do not go through our game server.
 | 코드를 아는 누구나 입장·로비 정보 조회 | 같은 파일 `CreateLobby(k_ELobbyTypePublic, 4)`. 로비 목록 검색은 안 하지만 ID 로 `JoinLobby`·`RequestLobbyData` 가 된다 — 코드 입장의 사전 확인이 바로 이 `RequestLobbyData` 다 |
 | 나간 뒤에도 로비 타수가 스팀 ID 와 함께 남는다 | 같은 파일 `OnLobbyChatUpdate`(방장이 나간 사람의 `s:<steamid>` 기록), `LeaveRoom`(방장 자신의 것). 로비 데이터라 로비가 사라지면 같이 사라진다 |
 | 친구에게 참가 정보 | 같은 파일 `SetRichPresence("connect", "+connect_lobby <id>")`, 나가면 `ClearRichPresence` |
-| 0.2초 상태에 든 것 (A10) | `shared/Contracts/PlayerStateCodec.cs` — 창 타건 수·수확 수·누적 타수·도감 %·장식 ID 3개가 전부다. 키 코드 필드가 없다. 보내는 곳은 `game/multiplayer/PlayerStateSender.cs` → `SteamNetSession.Broadcast`, **로비 멤버에게만** |
+| 0.2초 상태에 든 것 (A10) | `shared/Contracts/PlayerStateCodec.cs` — 창 타건 수·수확 수·누적 타수·도감 %·나무 단계(0~3, B18 v3 - 강화 레벨 자체는 안 보낸다)·장식 ID 3개가 전부다. 키 코드 필드가 없다. 보내는 곳은 `game/multiplayer/PlayerStateSender.cs` → `SteamNetSession.Broadcast`, **로비 멤버에게만** |
 | IP 가 안 보인다 | `SteamNetSession.ForceRelayOnly` — `P2P_Transport_ICE_Enable = Disable`(직접 연결 끔)을 전역으로 걸고 되읽어 확인한다. 걸렸으면 로그 `[net] P2P 는 스팀 릴레이만 쓴다`. 기본값은 직접 연결을 시도할 수 있어서 이 설정 없이는 쓸 수 없는 문장이다 |
 | 친구 목록·접속 상태는 PC 에서만 | 같은 파일 `GetFriends` — `GetFriendPersonaName`/`GetFriendPersonaState`/`GetFriendGamePlayed`/`GetFriendRichPresence`(`connect`)/`RequestFriendRichPresence`. 결과를 서버로 보내는 코드 없음 |
 
