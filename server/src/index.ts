@@ -1,4 +1,5 @@
 import { getState, harvest, purchaseItem, purchaseUpgrade } from "./economy";
+import { PRIVACY_HTML } from "./privacy";
 import { authenticateUserTicket } from "./steam";
 import { bearerTokenFrom, issueSessionToken, verifySessionToken } from "./session";
 import { allow, D1Limiter, localApiLimiter, PERIOD_MS, RETRY_AFTER_SECONDS, SESSION_LIMIT, sessionKey } from "./ratelimit";
@@ -49,6 +50,13 @@ export default {
     const url = new URL(request.url);
 
     try {
+      // -------------------------------------------------------------- 개인정보 처리 안내 (스토어가 링크한다)
+      if (request.method === "GET" && (url.pathname === "/privacy" || url.pathname === "/privacy/")) {
+        return new Response(PRIVACY_HTML, {
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" },
+        });
+      }
+
       // -------------------------------------------------------------- 세션 (인증 불필요)
       if (request.method === "POST" && url.pathname === "/v1/session") {
         // 세션 발급은 D1 로 정확히 센다 (요청마다 밸브 API 를 부른다) - src/ratelimit.ts

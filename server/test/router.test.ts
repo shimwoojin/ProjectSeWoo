@@ -52,6 +52,17 @@ describe("세션 토큰", () => {
 });
 
 describe("라우터", () => {
+  it("개인정보 안내는 인증 없이 HTML 로 - 한/영 둘 다, 문의처 포함", async () => {
+    const res = await worker.fetch(new Request(`${base}/privacy`), env());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("개인정보 처리 안내");
+    expect(html).toContain("Privacy Notice");
+    expect(html).toContain("ggoggal@gmail.com");
+    expect(html).toContain("%APPDATA%\\PunchMonkey\\");
+  });
+
   it("티켓 없는 세션 요청은 400", async () => {
     const res = await worker.fetch(new Request(`${base}/v1/session`, { method: "POST", body: "{}" }), env());
     expect(res.status).toBe(400);

@@ -104,6 +104,7 @@ npm run deploy
 | `src/steam.ts` | 스팀 Web API 호출 (`AuthenticateUserTicket`·`AddItem` 둘 다 실측 검증됨) |
 | `src/economy.ts` | 잔액·슬롯 성장·강화의 핵심 로직. 순수 계산(`recomputeSlots`)과 DB I/O 를 분리했다 |
 | `src/catalog.ts` | 상품표 서버 사본 (§3-3) |
+| `src/privacy.ts` | `GET /privacy` 개인정보 처리 안내 페이지(인증 없음). 스토어의 개인정보처리방침 URL. 원본은 `docs/C2-PRIVACY.md` §2 - 거기를 고치면 여기도 |
 | `src/db.ts` | D1 쿼리 |
 | `src/types.ts` | 클라이언트 계약(`shared/Contracts/*.cs`)과 대응하는 DTO |
 | `schema.sql` | D1 스키마. `npm run db:migrate:*` 로 적용 |
