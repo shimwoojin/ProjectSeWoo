@@ -359,6 +359,9 @@ Drag them anywhere. See who punched the most on the lobby leaderboard.
 | 태그 (17개, 순서대로) | Idler · Collectathon · Incremental · Animals · 2D · Cute · Cozy · Funny · Relaxing · Casual · Simulation · Cartoony · Colorful · Family Friendly · Multiplayer · Singleplayer · Indie. 태그 마법사에 **Clicker 태그가 없었다**. 미리 들어 있던 Co-op · Online Co-Op 은 뺐다(§5) |
 | 앱 아이콘 / 바로가기 아이콘 | `community_icon.jpg` 184 / `shortcut_icon.ico` (256 포함). Steamworks 설정 쪽이라 **Steamworks "Publish" 탭에서 게시해야 반영된다** — 아직 안 함 |
 
+| 지원 언어 (9/28 고침) | **한국어 인터페이스만.** 영어·한국어에 자막·풀 오디오·인터페이스가 다 체크돼 있었다 - 게임엔 음성이 없고(자막·풀 오디오 거짓) 화면 글자는 한국어뿐(영어 인터페이스 거짓). 스토어 설명문은 한/영 그대로 둔다(설명문 언어와 지원 언어는 별개). **영어 UI 를 넣으면 영어 인터페이스를 다시 켠다** |
+| 출시일 (9/28 고침) | **2026-10-27 02:00 KST = 10/26(월) 10:00 PDT**, 공개 표시 **"October 2026"**. 10/12 은 불가 - 출시 예정 2주 노출 조건. KST 오전으로 잡으면 PDT 가 일요일이 된다(스팀은 주말 출시 불가, 기준은 미국 태평양) |
+
 남은 것: 트레일러(게임 빌드 체크리스트), Steamworks 설정 게시, 스토어 페이지 검수 제출, 추천 항목(도전과제 지원 표시).
 
 ---
