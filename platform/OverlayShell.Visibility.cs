@@ -216,7 +216,8 @@ public partial class OverlayShell
     /// <param name="width">창 왼쪽 몇 px 안에 둘지 - 메뉴 칸 폭. 트레이·O 키는 0 (창 전체).</param>
     private void OpenOptionsWindow(float topInset = 0f, float width = 0f)
     {
-        _options.SetArea(topInset, width);
+        // 메뉴 칸 안이면 높이는 배율 1 때 창 높이로 고정 - "내 창 크기" 를 키워도 메뉴가 아래로 늘어나지 않는다 (2026-09-30).
+        _options.SetArea(topInset, width, width > 0f ? _baseWindowSize.Y : 0f);
         _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
         _options.Open();
         DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());

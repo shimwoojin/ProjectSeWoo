@@ -34,7 +34,7 @@ public sealed class MockShell : IShell
     /// <summary>메뉴 칸 폭 (<see cref="IShell.SetSidePanel"/>). 목은 기억만 한다.</summary>
     public int SidePanelWidth { get; private set; }
 
-    public void SetSidePanel(int width) => SidePanelWidth = width;
+    public void SetSidePanel(int width, float overlap) => SidePanelWidth = width;
 
     public float Scale { get; private set; } = 1.0f;
 

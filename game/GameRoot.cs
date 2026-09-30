@@ -1427,9 +1427,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>
     /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>) - 보이는 것들의 사각형 여럿. 셸이 하나의 다각형으로 합친다.
     ///
-    /// <b>메뉴가 열린 동안은 창 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 셸은 옵션 창을 열 때
+    /// <b>메뉴가 열린 동안은 메뉴 칸과 게임 화면 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 셸은 옵션 창을 열 때
     /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임 레이어는 이 계약으로만 말할 수 있다 -
-    /// 그래서 "창 전체" 를 이 좌표계로 옮겨서 돌려준다.
+    /// 그래서 창 좌표의 메뉴 칸을 이 좌표계로 옮겨서 돌려준다. 예전엔 창 전체였는데, 메뉴 칸 높이를 고정한 뒤로
+    /// (2026-09-30) "내 창 크기" 를 키우면 칸 아래가 비어서 거기까지 잡으면 뒤 창 클릭을 막는다.
     ///
     /// <b>보이는 모양만 (2026-09-28).</b> 예전엔 나무·원숭이·버튼을 감싸는 사각형 하나였고, 옵션 "위치 잠금" 을 끄면
     /// 창 전체였다 - 나무 옆 빈 공간까지 끌리고 뒤 창 클릭을 막았다. 이제 나무·원숭이는 알파 띠(<see cref="Shapes.Silhouette"/>),
@@ -1441,7 +1442,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _clickRects.Clear();
         if (_menu is { IsOpen: true } || _onboarding is { IsOpen: true })
         {
-            _clickRects.Add(ViewportInParentSpace());
+            _clickRects.Add(WindowRectInParentSpace(new Rect2(0, 0, MenuHub.PanelWidth, MenuHub.PanelHeight)));
+            _clickRects.Add(Transform * new Rect2(Vector2.Zero, GameAreaSize));
             return _clickRects;
         }
 
@@ -1452,7 +1454,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        // 원숭이 꼬리와 여백(셸 8px) 안으로 붙여 두었다 - 떨어지면 셸이 감싸는 사각형으로 물러난다.
+        // 이름 줄 오른쪽, 나무 오른쪽 덤불 바로 아래에 둔다 (2026-09-30) - 덤불과 여백(셸 8px 씩, 합쳐 16) 안으로 붙어 있어야
+        // 한다. 떨어지면 셸이 감싸는 사각형으로 물러난다. 덤불이 가장 짧은 0단계 나무(tree_empty)도 버튼 위 x 256~273 에서
+        // 아래 끝이 y 401 이라 버튼 윗변(412)까지 11. HUD 칸(x 30~250) 밖이라 긴 이름이 버튼을 덮지 않는다.
         _clickRects.Add(ButtonRect(_menuButton));
 
         _hud.AddTextRects(_clickRects);
@@ -1490,7 +1494,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 닫으므로 칸이 한 번 닫혔다 열리는데, 같은 프레임 안이라 화면에는 안 보인다.
     /// </summary>
     private void UpdateSidePanel() =>
-        _platform?.Shell.SetSidePanel(_menu.IsOpen || _onboarding.IsOpen ? MenuHub.PanelWidth : 0);
+        _platform?.Shell.SetSidePanel(_menu.IsOpen || _onboarding.IsOpen ? MenuHub.PanelWidth : 0, MenuHub.PanelOverlap);
 
     /// <summary>안내를 끝까지 봤거나 건너뛰었다. 다음부터는 안 뜬다 - 이미 본 판이면 쓸 것이 없다.</summary>
     private void OnOnboardingFinished()
@@ -1527,26 +1531,33 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     }
 
     /// <summary>
-    /// 창 전체를 <see cref="IInteractiveArea"/> 가 요구하는 좌표계(부모 로컬)로 옮긴다.
+    /// 창 좌표의 사각형(예: 메뉴 칸)을 <see cref="IInteractiveArea"/> 가 요구하는 좌표계(부모 로컬)로 옮긴다.
     ///
     /// 셸 루트에 배율이 걸려 있고 플랫폼이 그 배율을 다시 곱하므로
     /// (<c>OverlayShell.CurrentHitRect</c>), 여기서는 역변환으로 되돌려야 값이
     /// 한 바퀴 돌아 제자리에 온다. 네 모서리를 각각 옮겨 감싸는 것은 회전이
     /// 걸렸을 때도 축에 정렬된 사각형을 얻기 위해서다.
     /// </summary>
-    private Rect2 ViewportInParentSpace() =>
-        GetParent() is Node2D parent ? ViewportIn(parent) : GetViewportRect();
+    private Rect2 WindowRectInParentSpace(Rect2 window) =>
+        GetParent() is Node2D parent ? WindowRectIn(parent, window) : window;
 
-    /// <summary>창 전체를 <paramref name="space"/> 의 로컬 좌표로. 네 모서리를 옮겨 감싼다.</summary>
-    private Rect2 ViewportIn(Node2D space)
+    /// <summary>게임 화면의 크기 (게임 좌표) - 배율 1 일 때의 창 크기(project.godot).</summary>
+    private static Vector2 GameAreaSize => new(
+        (int)ProjectSettings.GetSetting("display/window/size/viewport_width"),
+        (int)ProjectSettings.GetSetting("display/window/size/viewport_height"));
+
+    /// <summary>창 전체를 <paramref name="space"/> 의 로컬 좌표로.</summary>
+    private Rect2 ViewportIn(Node2D space) => WindowRectIn(space, GetViewportRect());
+
+    /// <summary>창 좌표의 사각형을 <paramref name="space"/> 의 로컬 좌표로. 네 모서리를 옮겨 감싼다.</summary>
+    private static Rect2 WindowRectIn(Node2D space, Rect2 window)
     {
-        Rect2 viewport = GetViewportRect();
         Transform2D toLocal = space.GlobalTransform.AffineInverse();
 
-        var rect = new Rect2(toLocal * viewport.Position, Vector2.Zero);
-        rect = rect.Expand(toLocal * new Vector2(viewport.End.X, viewport.Position.Y));
-        rect = rect.Expand(toLocal * new Vector2(viewport.Position.X, viewport.End.Y));
-        rect = rect.Expand(toLocal * viewport.End);
+        var rect = new Rect2(toLocal * window.Position, Vector2.Zero);
+        rect = rect.Expand(toLocal * new Vector2(window.End.X, window.Position.Y));
+        rect = rect.Expand(toLocal * new Vector2(window.Position.X, window.End.Y));
+        rect = rect.Expand(toLocal * window.End);
         return rect;
     }
 }

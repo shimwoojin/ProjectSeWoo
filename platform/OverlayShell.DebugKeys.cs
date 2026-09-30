@@ -140,12 +140,13 @@ public partial class OverlayShell
 
             // IShell 실물을 옵션 창 없이 빠르게 시험하기 위한 debug 키.
             // 옵션 창의 슬라이더와 정확히 같은 SetScale/SetOpacity를 부른다.
+            // 크기는 ScaleStep 칸으로 붙는다 - 0.1 씩 빼면 가장 가까운 칸으로 되돌아가 안 움직였다.
             case Key.Bracketleft:
-                SetScale(_settings.Scale - 0.1f);
+                SetScale(_settings.Scale - ScaleStep);
                 break;
 
             case Key.Bracketright:
-                SetScale(_settings.Scale + 0.1f);
+                SetScale(_settings.Scale + ScaleStep);
                 break;
 
             case Key.Minus:

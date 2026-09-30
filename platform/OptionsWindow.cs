@@ -76,7 +76,8 @@ public partial class OptionsWindow : CanvasLayer
     /// <b>메뉴 안에서는 상점·강화·로비 창과 같은 모양이 된다</b> (2026-09-27): 칸 아래까지 채우고, 옆·아래 여백을
     /// 그 창들과 같은 10 으로, 자기 [닫기] 는 숨긴다 - 탭 줄에 [닫기] 가 있다. 트레이에서 열면 예전 모양 그대로다.
     /// </summary>
-    public void SetArea(float topInset, float width)
+    /// <param name="height">메뉴 칸 높이(창 px). 0 이면 창 아래 끝까지.</param>
+    public void SetArea(float topInset, float width, float height)
     {
         bool inMenu = topInset > 0f;
         int side = inMenu ? 10 : MarginTop;
@@ -85,14 +86,15 @@ public partial class OptionsWindow : CanvasLayer
         _margin.AddThemeConstantOverride("margin_right", side);
         _margin.AddThemeConstantOverride("margin_bottom", side);
 
-        // 폭이 있으면 창 왼쪽 그 폭에, 위아래는 창 끝까지. 창 크기가 바뀌어도(배율 슬라이더) 앵커가 따라간다.
+        // 폭이 있으면 창 왼쪽 위에 그 폭·높이로 (메뉴 칸, MenuHub.AnchorToPanel 과 같은 자리). 높이를 고정하는 것은 배율
+        // 슬라이더로 창이 길어져도 메뉴까지 길어지지 않게 하려는 것이다 (2026-09-30).
         if (width > 0f)
         {
-            _margin.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+            _margin.SetAnchorsPreset(height > 0f ? Control.LayoutPreset.TopLeft : Control.LayoutPreset.LeftWide);
             _margin.OffsetLeft = 0;
             _margin.OffsetTop = 0;
             _margin.OffsetRight = width;
-            _margin.OffsetBottom = 0;
+            _margin.OffsetBottom = height;
         }
         else
         {
@@ -163,20 +165,23 @@ public partial class OptionsWindow : CanvasLayer
         rows.AddChild(MakeTitle("설정"));
         rows.AddChild(new HSeparator());
 
-        // 크기는 넷으로 나뉜다 (2026-09-30). 범위는 OverlayShell 의 Set*Scale clamp 와 같다.
-        rows.AddChild(MakeSliderRow("내 창 크기", 0.5f, 2.0f, 0.05f, out _scaleSlider));
+        // 크기는 넷으로 나뉜다 (2026-09-30). 범위는 OverlayShell 의 Set*Scale clamp 와 같고, 0.25 칸씩 끊는다
+        // (OverlayShell.ScaleStep) - 0.05 씩이면 조금만 끌어도 크기가 바뀌어 원하는 값에 멈추기 어려웠다. 칸마다 눈금을 단다.
+        rows.AddChild(MakeScaleRow("내 창 크기", 0.5f, 2.0f, out _scaleSlider));
         _scaleSlider.ValueChanged += v => Relay(() => ScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeSliderRow("친구 칸 크기", 0.5f, 2.0f, 0.05f, out _friendScaleSlider));
+        rows.AddChild(MakeScaleRow("친구 칸 크기", 0.5f, 2.0f, out _friendScaleSlider));
         _friendScaleSlider.ValueChanged += v => Relay(() => FriendScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeSliderRow("내 커서 크기", 0.5f, 2.0f, 0.05f, out _cursorScaleSlider));
+        rows.AddChild(MakeScaleRow("내 커서 크기", 0.5f, 2.0f, out _cursorScaleSlider));
         _cursorScaleSlider.ValueChanged += v => Relay(() => CursorScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeSliderRow("친구 커서 크기 (왼쪽 끝 숨김)", 0f, 1.25f, 0.05f, out _friendCursorScaleSlider));
+        rows.AddChild(MakeScaleRow("친구 커서 크기 (왼쪽 끝 숨김)", 0f, 1.25f, out _friendCursorScaleSlider));
         _friendCursorScaleSlider.ValueChanged += v => Relay(() => FriendCursorScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider));
+        HBoxContainer opacityRow = MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider);
+        AddValueLabel(opacityRow, _opacitySlider, PercentText);
+        rows.AddChild(opacityRow);
         _opacitySlider.ValueChanged += v => Relay(() => OpacityChanged?.Invoke((float)v));
 
 
@@ -246,6 +251,44 @@ public partial class OptionsWindow : CanvasLayer
 
         return row;
     }
+
+    /// <summary>
+    /// 크기 슬라이더 - <see cref="OverlayShell.ScaleStep"/> 칸마다 눈금, 오른쪽에 지금 배율("1.0x", "1.25x"). 0 은 숨김이다
+    /// (친구 커서).
+    /// </summary>
+    private static HBoxContainer MakeScaleRow(string label, float min, float max, out HSlider slider)
+    {
+        HBoxContainer row = MakeSliderRow(label, min, max, OverlayShell.ScaleStep, out slider);
+        slider.TickCount = Mathf.RoundToInt((max - min) / OverlayShell.ScaleStep) + 1;
+        slider.TicksOnBorders = true;
+        AddValueLabel(row, slider, ScaleText);
+        return row;
+    }
+
+    /// <summary>
+    /// 슬라이더 줄 오른쪽 끝에 지금 값을 글자로 단다. <see cref="SetValues"/> 로 값을 맞출 때도 바뀐다 - 이벤트를 막는
+    /// <see cref="Relay"/> 밖에서 단다.
+    /// </summary>
+    private static void AddValueLabel(HBoxContainer row, HSlider slider, Func<double, string> format)
+    {
+        var value = new Label
+        {
+            CustomMinimumSize = new Vector2(40, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Text = format(slider.Value),
+        };
+        value.AddThemeFontSizeOverride("font_size", 12);
+        value.AddThemeColorOverride("font_color", new Color(0.85f, 0.88f, 0.93f));
+        row.AddChild(value);
+        slider.ValueChanged += v => value.Text = format(v);
+    }
+
+    /// <summary>투명도 0.1~1.0 → "10%"~"100%". 0.05 칸이라 5% 단위로 나온다.</summary>
+    private static string PercentText(double v) => $"{Math.Round(v * 100):0}%";
+
+    /// <summary>1 → "1.0x", 1.25 → "1.25x", 0.5 → "0.5x", 0 → "숨김".</summary>
+    private static string ScaleText(double v) =>
+        v <= 0 ? "숨김" : v.ToString("0.0#", System.Globalization.CultureInfo.InvariantCulture) + "x";
 
     private static HBoxContainer MakeCheckRow(string label, out CheckBox box)
     {
