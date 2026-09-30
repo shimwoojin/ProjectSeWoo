@@ -223,7 +223,7 @@ public sealed class CursorLayer : ICursorLayer
         ApplyScale();
 
         // 커서 창은 아직 OS 창이 아니다 (VerifyWindow 주석) - 처음엔 메인 창의 모니터로 잰다.
-        UpdateArrowScale(DisplayServer.WindowGetCurrentScreen());
+        UpdateArrowTail(DisplayServer.WindowGetCurrentScreen());
 
         _pos = DisplayServer.MouseGetPosition();
 
@@ -370,7 +370,7 @@ public sealed class CursorLayer : ICursorLayer
     {
         // 바나나 꼭지는 시스템 화살표의 꼬리 끝에 닿는다 (CursorOrnament.StemFromTip). 화살표는 모니터 배율·포인터 크기를
         // 따르고 "내 커서 크기" 로는 안 커지므로, 화면 px 로 잰 틈을 장식 배율로 나눠 로컬에 넣는다. 창은 그 틈만큼 넓힌다.
-        Vector2 tail = CursorOrnament.ArrowTail * _arrowScale;
+        Vector2 tail = _arrowTail;
         _tip = new Vector2I(Mathf.RoundToInt(TipInWindow.X * _scale), Mathf.RoundToInt(TipInWindow.Y * _scale));
         int side = Mathf.RoundToInt(WindowSize * _scale);
         _win.Size = new Vector2I(side + Mathf.CeilToInt(tail.X), side + Mathf.CeilToInt(tail.Y));
@@ -379,55 +379,45 @@ public sealed class CursorLayer : ICursorLayer
         _ornament.StemFromTip = tail / _scale;
     }
 
-    // --- 시스템 화살표 크기 ----------------------------------------------------
+    // --- 시스템 화살표의 꼬리 끝 -----------------------------------------------
     //
-    // Windows 는 화살표를 커서가 있는 모니터의 배율(DPI)로, 그리고 접근성 "마우스 포인터 크기"(CursorBaseSize, 기본 32)로
-    // 키운다. 모니터마다 배율이 다를 수 있어서 커서 창이 다른 모니터로 넘어가면 다시 잰다 - 매 프레임은 아니고
-    // ArrowCheckSec 마다 (모니터 번호를 찾는 호출이 모니터를 전부 훑는다).
+    // Windows 는 화살표를 접근성 "마우스 포인터 크기"(CursorBaseSize, 기본 32)와 커서가 있는 모니터의 배율(DPI)로 그린다.
+    // 꼬리 끝은 지금 쓰는 화살표 커서 파일을 재서 구한다(SystemArrow) - 크기를 최대로 두면 모양이 흔한 화살표와 달라서
+    // 비례로는 10~15px 어긋났다 (2026-09-30). ArrowCheckSec 마다 모니터와 설정(크기·파일·파일 시각)을 보고, 바뀌었으면
+    // 다시 잰다 - 실행 중에 Windows 설정에서 크기를 바꿔도 따라간다. 매 프레임은 아니다: 모니터 번호를 찾는 호출이
+    // 모니터를 전부 훑는다.
 
     private const double ArrowCheckSec = 0.5;
 
-    /// <summary>화살표가 100%(32px) 때의 몇 배로 그려지는가.</summary>
-    private float _arrowScale = 1f;
+    /// <summary>화살표 꼬리 끝 - 커서 끝에서 화면 px. 처음엔 100% 흔한 화살표.</summary>
+    private Vector2 _arrowTail = CursorOrnament.ArrowTail;
     private int _arrowScreen = -1;
+    private string _arrowSignature;
     private double _sinceArrowCheck;
 
-    private void UpdateArrowScale(int screen)
+    private void UpdateArrowTail(int screen)
     {
-        if (screen < 0 || screen == _arrowScreen)
+        string signature = SystemArrow.Signature();
+        if (screen < 0 || (screen == _arrowScreen && signature == _arrowSignature))
         {
             return;
         }
 
         _arrowScreen = screen;
-        float scale = DisplayServer.ScreenGetDpi(screen) / 96f * PointerBaseSize() / 32f;
-        if (Mathf.IsEqualApprox(scale, _arrowScale))
+        _arrowSignature = signature;
+
+        int drawn = Mathf.RoundToInt(SystemArrow.BaseSize() * DisplayServer.ScreenGetDpi(screen) / 96f);
+        Vector2? measured = SystemArrow.MeasureTail(drawn);
+        Vector2 tail = measured ?? CursorOrnament.ArrowTail * (drawn / 32f);
+        if (tail.IsEqualApprox(_arrowTail))
         {
             return;
         }
 
-        _arrowScale = scale;
+        _arrowTail = tail;
         ApplyScale();
-        GD.Print($"[cursor] 화살표 배율 {_arrowScale:F2} (화면 #{screen})");
-    }
-
-    /// <summary>접근성 "마우스 포인터 크기". 없거나 못 읽으면 기본 32.</summary>
-    private static int PointerBaseSize()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return 32;
-        }
-
-        try
-        {
-            using Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors");
-            return key?.GetValue("CursorBaseSize") is int size && size >= 32 ? size : 32;
-        }
-        catch (Exception)
-        {
-            return 32;
-        }
+        GD.Print($"[cursor] 화살표 꼬리 끝 ({tail.X:F1}, {tail.Y:F1}) - {drawn}px, 화면 #{screen},"
+            + (measured != null ? " 커서 파일에서 잼" : " 파일을 못 읽어 흔한 화살표로 셈"));
     }
 
     /// <summary>타건·클릭 (횟수만). 원숭이가 반응한다 - 셸이 입력 헬퍼에서 받아 넘긴다.</summary>
@@ -480,7 +470,7 @@ public sealed class CursorLayer : ICursorLayer
         if (_sinceArrowCheck >= ArrowCheckSec)
         {
             _sinceArrowCheck = 0;
-            UpdateArrowScale(DisplayServer.WindowGetCurrentScreen(_win.GetWindowId()));
+            UpdateArrowTail(DisplayServer.WindowGetCurrentScreen(_win.GetWindowId()));
         }
 
         _sinceMove += delta * 1000.0;
