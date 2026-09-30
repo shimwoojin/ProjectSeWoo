@@ -34,6 +34,11 @@ public sealed class CursorLayer : ICursorLayer
     /// <summary>창 안에서 커서 끝의 자리. 장식은 커서 아래·양옆으로 퍼지므로 위쪽 가운데에 둔다.</summary>
     private static readonly Vector2I TipInWindow = new(104, 40);
 
+    /// <summary>옵션 "내 커서 크기" (2026-09-30). 창·장식·커서 끝 자리를 같이 키운다.</summary>
+    private float _scale = 1f;
+
+    /// <summary>배율을 건 창 안의 커서 끝 자리. 창을 옮기고 장식을 맞추는 곳은 전부 이걸 쓴다.</summary>
+    private Vector2I _tip = TipInWindow;
 
 
     /// <summary>이동 주기 후보(ms). 0 = 매 프레임.</summary>
@@ -215,6 +220,7 @@ public sealed class CursorLayer : ICursorLayer
         // 장식 → 바나나 → 원숭이. 원점이 창 안의 커서 끝이다.
         _ornament = new CursorOrnament { Name = "Ornament", Position = TipInWindow };
         _win.AddChild(_ornament);
+        ApplyScale();
 
         _pos = DisplayServer.MouseGetPosition();
 
@@ -253,7 +259,7 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         IsSupported = true;
-        GD.Print($"[cursor] window id={id} size={WindowSize}x{WindowSize} -> OS window OK"
+        GD.Print($"[cursor] window id={id} size={_win.Size.X}x{_win.Size.Y} -> OS window OK"
             + $" (transparent {_win.Transparent}, bg {_win.TransparentBg})");
     }
 
@@ -340,6 +346,32 @@ public sealed class CursorLayer : ICursorLayer
         SetWindowPos(_hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate | SwpNoOwnerZOrder);
     }
 
+    /// <summary>
+    /// 옵션 "내 커서 크기". 창을 같이 키운다 - 장식만 키우면 진자로 흔들리는 원숭이가 창 밖으로 잘린다.
+    /// <see cref="Build"/> 전에 오면 값만 기억해 두고 Build 가 건다.
+    /// </summary>
+    public void SetScale(float scale)
+    {
+        _scale = scale;
+        if (_built)
+        {
+            ApplyScale();
+            if (Enabled)
+            {
+                MoveWindow();
+            }
+        }
+    }
+
+    private void ApplyScale()
+    {
+        _tip = new Vector2I(Mathf.RoundToInt(TipInWindow.X * _scale), Mathf.RoundToInt(TipInWindow.Y * _scale));
+        int side = Mathf.RoundToInt(WindowSize * _scale);
+        _win.Size = new Vector2I(side, side);
+        _ornament.Position = _tip;
+        _ornament.Scale = Vector2.One * _scale;
+    }
+
     /// <summary>타건·클릭 (횟수만). 원숭이가 반응한다 - 셸이 입력 헬퍼에서 받아 넘긴다.</summary>
     public void OnKeystrokes(int count) => _ornament?.Keystrokes(count);
 
@@ -383,7 +415,7 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         // 리그·장식은 창 이동 주기와 상관없이 스스로 갱신 빈도를 정한다 (움직이면 매 프레임, 가만히 있으면 MonkeyRig.IdleHz).
-        _ornament.Follow(target, _win.Position + (Vector2)TipInWindow);
+        _ornament.Follow(target, _win.Position + (Vector2)_tip);
         _ornament.Tick(delta);
 
         _sinceMove += delta * 1000.0;
@@ -415,7 +447,7 @@ public sealed class CursorLayer : ICursorLayer
     /// </summary>
     private void MoveWindow()
     {
-        var next = new Vector2I(Mathf.RoundToInt(_pos.X), Mathf.RoundToInt(_pos.Y)) - TipInWindow;
+        var next = new Vector2I(Mathf.RoundToInt(_pos.X), Mathf.RoundToInt(_pos.Y)) - _tip;
 
         if (_win.Position == next)
         {
@@ -494,7 +526,7 @@ public sealed class CursorLayer : ICursorLayer
 
         Vector2I mouse = DisplayServer.MouseGetPosition();
         Vector2I win = _win.Position;
-        Vector2I center = win + TipInWindow;
+        Vector2I center = win + _tip;
         Vector2I off = center - mouse;
 
         return $"cursor pos: mouse {mouse.X},{mouse.Y}  deco-center {center.X},{center.Y}"

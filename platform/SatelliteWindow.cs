@@ -82,7 +82,7 @@ public sealed class SatelliteWindow : ISatelliteWindow
 
     // ------------------------------------------------------------------ 셸이 부른다
 
-    /// <summary>옵션 배율 (메인 창과 같은 값). 창 크기와 내용을 같이 키운다.</summary>
+    /// <summary>옵션 "친구 칸 크기" (메인 창과 따로, 2026-09-30). 창 크기와 내용을 같이 키운다.</summary>
     public void SetScale(float scale)
     {
         _scale = scale;

@@ -76,7 +76,7 @@ public partial class OverlayShell
 
         OS.LowProcessorUsageMode = false;
         Engine.MaxFps = 0;
-        SetScale(StoreShotScale);
+        SetStoreShotScales();
         SetOpacity(1.0f);
         _hud.Visible = false;
 

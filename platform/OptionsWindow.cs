@@ -17,6 +17,9 @@ namespace ProjectSeWoo.Platform;
 public partial class OptionsWindow : CanvasLayer
 {
     private HSlider _scaleSlider;
+    private HSlider _friendScaleSlider;
+    private HSlider _cursorScaleSlider;
+    private HSlider _friendCursorScaleSlider;
     private HSlider _opacitySlider;
     private CheckBox _cursorEnabled;
     private CheckBox _cursorIndependent;
@@ -39,6 +42,9 @@ public partial class OptionsWindow : CanvasLayer
     private bool _initializing;
 
     public event Action<float> ScaleChanged;
+    public event Action<float> FriendScaleChanged;
+    public event Action<float> CursorScaleChanged;
+    public event Action<float> FriendCursorScaleChanged;
     public event Action<float> OpacityChanged;
     public event Action<bool> CursorEnabledChanged;
     public event Action<bool> CursorIndependentChanged;
@@ -113,6 +119,9 @@ public partial class OptionsWindow : CanvasLayer
         _initializing = true;
 
         _scaleSlider.Value = s.Scale;
+        _friendScaleSlider.Value = s.FriendScale;
+        _cursorScaleSlider.Value = s.CursorScale;
+        _friendCursorScaleSlider.Value = s.FriendCursorScale;
         _opacitySlider.Value = s.Opacity;
         _cursorEnabled.ButtonPressed = s.CursorEnabled;
         _cursorIndependent.ButtonPressed = s.CursorIndependent;
@@ -154,8 +163,18 @@ public partial class OptionsWindow : CanvasLayer
         rows.AddChild(MakeTitle("설정"));
         rows.AddChild(new HSeparator());
 
-        rows.AddChild(MakeSliderRow("크기", 0.5f, 2.0f, 0.05f, out _scaleSlider));
+        // 크기는 넷으로 나뉜다 (2026-09-30). 범위는 OverlayShell 의 Set*Scale clamp 와 같다.
+        rows.AddChild(MakeSliderRow("내 창 크기", 0.5f, 2.0f, 0.05f, out _scaleSlider));
         _scaleSlider.ValueChanged += v => Relay(() => ScaleChanged?.Invoke((float)v));
+
+        rows.AddChild(MakeSliderRow("친구 칸 크기", 0.5f, 2.0f, 0.05f, out _friendScaleSlider));
+        _friendScaleSlider.ValueChanged += v => Relay(() => FriendScaleChanged?.Invoke((float)v));
+
+        rows.AddChild(MakeSliderRow("내 커서 크기", 0.5f, 2.0f, 0.05f, out _cursorScaleSlider));
+        _cursorScaleSlider.ValueChanged += v => Relay(() => CursorScaleChanged?.Invoke((float)v));
+
+        rows.AddChild(MakeSliderRow("친구 커서 크기 (왼쪽 끝 숨김)", 0f, 1.25f, 0.05f, out _friendCursorScaleSlider));
+        _friendCursorScaleSlider.ValueChanged += v => Relay(() => FriendCursorScaleChanged?.Invoke((float)v));
 
         rows.AddChild(MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider));
         _opacitySlider.ValueChanged += v => Relay(() => OpacityChanged?.Invoke((float)v));

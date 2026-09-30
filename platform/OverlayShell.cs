@@ -560,7 +560,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     }
 
     /// <summary>
-    /// 창 배율. 옵션 창(A6) "크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
+    /// 내 창 배율. 옵션 창(A6) "내 창 크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
+    /// 친구 칸은 <see cref="SetFriendScale"/>, 내 커서는 <see cref="SetCursorScale"/> 로 따로 정한다 (2026-09-30).
     ///
     /// 루트 <see cref="Node2D.Scale"/>을 바꿔서 게임 콘텐츠/외곽선을 같이 키운다.
     /// <see cref="DebugHud"/>/<see cref="OptionsWindow"/>는 <c>CanvasLayer</c>라 이
@@ -575,15 +576,43 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 뒤덮는" 극단만 막는다. A6 옵션 슬라이더도 이 범위로 맞췄다(OptionsWindow).
         _settings.Scale = Mathf.Clamp(s, 0.5f, 2.0f);
         Scale = Vector2.One * _settings.Scale;
-        foreach (SatelliteWindow satellite in _satellites)
-        {
-            satellite.SetScale(_settings.Scale);
-        }
-
         ApplyWindowSize();
 
         // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다.
         ApplyPassthrough(force: true);
+    }
+
+    /// <summary>친구 칸 창 배율 - 옵션 "친구 칸 크기", 모든 친구 공통. 범위는 내 창과 같다.</summary>
+    public void SetFriendScale(float s)
+    {
+        _settings.FriendScale = Mathf.Clamp(s, 0.5f, 2.0f);
+        foreach (SatelliteWindow satellite in _satellites)
+        {
+            satellite.SetScale(_settings.FriendScale);
+        }
+    }
+
+    /// <summary>내 커서 장식 배율 - 옵션 "내 커서 크기". 범위는 내 창과 같다.</summary>
+    public void SetCursorScale(float s)
+    {
+        _settings.CursorScale = Mathf.Clamp(s, 0.5f, 2.0f);
+        _cursor.SetScale(_settings.CursorScale);
+    }
+
+    /// <inheritdoc cref="IShell.FriendCursorScale"/>
+    public float FriendCursorScale => _settings?.FriendCursorScale ?? 1f;
+
+    public event Action FriendCursorScaleChanged;
+
+    /// <summary>
+    /// 친구 칸 안의 커서 장식 배율 - 옵션 "친구 커서 크기". 0 이면 숨긴다. 상한이 다른 셋보다 낮은 이유는
+    /// 칸(140x200) 안에 커서가 들어가야 해서다 - 1.5 에서는 매달린 원숭이 발끝이 이름표 띠에 닿아서 1.25 로 잡았다
+    /// (2026-09-30, RemotePlayerView.SetCursorScale).
+    /// </summary>
+    public void SetFriendCursorScale(float s)
+    {
+        _settings.FriendCursorScale = Mathf.Clamp(s, 0f, 1.25f);
+        FriendCursorScaleChanged?.Invoke();
     }
 
     /// <summary>게임 화면(배율 적용) + 메뉴 칸. 칸이 열려 있으면 높이는 배율 1 때보다 작아지지 않는다 - 상점이 너무 납작해진다.</summary>
@@ -672,11 +701,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         string name, Vector2I contentSize, Vector2I? savedPosition, params Vector2[] preferredOffsets)
     {
         var size = new Vector2I(
-            Mathf.RoundToInt(contentSize.X * _settings.Scale),
-            Mathf.RoundToInt(contentSize.Y * _settings.Scale));
+            Mathf.RoundToInt(contentSize.X * _settings.FriendScale),
+            Mathf.RoundToInt(contentSize.Y * _settings.FriendScale));
 
         var satellite = new SatelliteWindow(
-            this, name, contentSize, PlaceSatellite(size, savedPosition, preferredOffsets), _settings.Scale,
+            this, name, contentSize, PlaceSatellite(size, savedPosition, preferredOffsets), _settings.FriendScale,
             closed => _satellites.Remove(closed));
         satellite.SetOpacity(_settings.Opacity);
         _satellites.Add(satellite);
@@ -734,6 +763,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         _settings = _save.Data.Settings;
 
         SetScale(_settings.Scale);
+        SetFriendScale(_settings.FriendScale);
+        SetCursorScale(_settings.CursorScale);
+        SetFriendCursorScale(_settings.FriendCursorScale);
         SetOpacity(_settings.Opacity);
         ApplyPassthrough(force: true);
         ApplyVisibility();

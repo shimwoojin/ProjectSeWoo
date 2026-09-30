@@ -10,8 +10,19 @@ namespace ProjectSeWoo.Shared;
 /// </summary>
 public interface IShell
 {
-    /// <summary>창 배율. 옵션의 "크기" (§7-4).</summary>
+    /// <summary>
+    /// 내 창 배율. 옵션의 "내 창 크기" (§7-4). 친구 칸·내 커서 크기는 옵션에서 따로 정하고 셸 안에서 끝난다 (2026-09-30).
+    /// </summary>
     void SetScale(float s);
+
+    /// <summary>
+    /// 친구 칸 안의 커서 장식 크기 - 옵션 "친구 커서 크기" (2026-09-30). 1 이 원래 크기, <b>0 이면 숨긴다.</b>
+    /// 친구 칸 안은 게임 레이어가 그리므로(<c>RemotePlayerView</c>) 이 값만 넘긴다.
+    /// </summary>
+    float FriendCursorScale { get; }
+
+    /// <summary><see cref="FriendCursorScale"/> 가 바뀌었다.</summary>
+    event System.Action FriendCursorScaleChanged;
 
     /// <summary>창 투명도. 옵션의 "투명도" (§7-4).</summary>
     void SetOpacity(float a);

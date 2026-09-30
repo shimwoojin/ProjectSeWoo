@@ -66,13 +66,30 @@ public partial class RemotePlayerView : Node2D
 
     /// <summary>이름표 띠의 위쪽. 여기부터 칸 아래 끝까지 이름·로비 타수·도감 세 줄.</summary>
     private const float LabelsTop = 144f;
-    private static readonly Vector2 CursorAt = new(CellWidth - 30f, 34f);
+    private const float CursorY = 34f;
+
+    /// <summary>
+    /// 커서 장식이 커서 끝에서 왼쪽·오른쪽으로 퍼지는 폭 (<see cref="CursorScale"/>, 옵션 1 기준). 오른쪽은 친구가 칠 때
+    /// 원숭이가 오른팔을 뻗는 몫까지다 - 26 으로 잡았더니 옵션 1.5(당시 상한)에서 뻗은 손이 칸 끝에서 잘렸다 (2026-09-30 캡처).
+    /// </summary>
+    private const float CursorLeft = 30f, CursorRight = 34f;
+
     private Tree _tree;
     private Monkey _monkey;
     private Label _name;
     private Label _stats;
     private Label _collection;
     private CursorOrnament _ornament;
+    private Node2D _arrow;
+
+    /// <summary>옵션 "친구 커서 크기" (2026-09-30, <see cref="IShell.FriendCursorScale"/>). 0 이면 숨긴다.</summary>
+    private float _cursorScale = 1f;
+
+    /// <summary>
+    /// 커서 끝의 자리. 커서가 커지면 오른쪽으로 퍼지는 몫이 칸 밖으로 안 나가게 왼쪽으로 옮긴다 - 옵션 1 에서는
+    /// 칸 오른쪽 끝에서 38 (예전 30 에서 조금 안쪽).
+    /// </summary>
+    private Vector2 CursorAt => new(CellWidth - CursorRight * _cursorScale - 4f, CursorY);
 
     /// <summary>마지막 상태·타건을 받은 시각(ms, <see cref="Time.GetTicksMsec"/>). 0 = 아직 없음.</summary>
     private ulong _lastStateMs;
@@ -98,9 +115,11 @@ public partial class RemotePlayerView : Node2D
         _monkey.Scale = Vector2.One * MiniScale;
         AddChild(_monkey);
 
-        _ornament = new CursorOrnament { Still = true, Position = CursorAt, Scale = Vector2.One * CursorScale };
+        _ornament = new CursorOrnament { Still = true };
         AddChild(_ornament);
-        AddChild(MakeArrow(CursorAt));
+        _arrow = MakeArrow();
+        AddChild(_arrow);
+        ApplyCursorScale();
 
         _name = MakeLabel(new Vector2(0, LabelsTop), 13);
         _stats = MakeLabel(new Vector2(0, 162), 11);
@@ -121,8 +140,13 @@ public partial class RemotePlayerView : Node2D
         }
 
         // 커서 장식: 화살표 끝 아래로 바나나, 그 아래 원숭이가 매달린다 (CursorOrnament 를 CursorScale 로 줄인 것).
-        var cursor = new Rect2(CursorAt + new Vector2(-30, -6), new Vector2(56, 82));
-        Rect2 top = _tree.GetBounds().Merge(_monkey.GetBounds()).Merge(cursor);
+        // 숨겼으면(옵션 0) 빼서 그 자리가 바탕화면으로 클릭이 통과하게 한다.
+        Rect2 top = _tree.GetBounds().Merge(_monkey.GetBounds());
+        if (_cursorScale > 0f)
+        {
+            float k = _cursorScale;
+            top = top.Merge(new Rect2(CursorAt + new Vector2(-CursorLeft, -6) * k, new Vector2(CursorLeft + CursorRight, 82) * k));
+        }
 
         float left = Mathf.Clamp(top.Position.X, 0, CellWidth);
         float right = Mathf.Clamp(top.End.X, 0, CellWidth);
@@ -139,6 +163,33 @@ public partial class RemotePlayerView : Node2D
             new Vector2(0, LabelsTop),
             new Vector2(left, LabelsTop),
         };
+    }
+
+    /// <summary>
+    /// 옵션 "친구 커서 크기" (2026-09-30). 1 이 원래 크기, 0 이면 화살표·장식을 숨긴다. 칸 모양이 바뀌므로 부른 쪽이
+    /// <see cref="GetShape"/> 를 다시 창에 걸어야 한다 (<see cref="FriendWindows"/>).
+    /// </summary>
+    public void SetCursorScale(float scale)
+    {
+        _cursorScale = Math.Max(0f, scale);
+        ApplyCursorScale();
+    }
+
+    private void ApplyCursorScale()
+    {
+        // 목 셸의 가짜 창은 _Ready 가 안 돈다 (SetMember 주석).
+        if (_ornament == null)
+        {
+            return;
+        }
+
+        bool shown = _cursorScale > 0f;
+        _ornament.Visible = shown;
+        _arrow.Visible = shown;
+        _ornament.Position = CursorAt;
+        _ornament.Scale = Vector2.One * CursorScale * _cursorScale;
+        _arrow.Position = CursorAt;
+        _arrow.Scale = Vector2.One * CursorScale * 1.4f * _cursorScale;
     }
 
     /// <summary>로비 정보(이름·로비 타수). 로비 멤버 목록이 바뀌거나 1초마다 온다.</summary>
@@ -330,14 +381,15 @@ public partial class RemotePlayerView : Node2D
     /// 흔한 화살표 커서. 커서 에셋이 따로 없고, 친구 "커서" 라는 것만 알아보면 된다.
     /// 끝점이 (0,0) 이라 장식 오프셋이 CursorLayer 와 같은 뜻이 된다.
     /// </summary>
-    private static Node2D MakeArrow(Vector2 at)
+    private static Node2D MakeArrow()
     {
         Vector2[] points =
         {
             new(0, 0), new(0, 17), new(4, 13), new(7, 20), new(9, 19), new(6, 12), new(12, 12),
         };
 
-        var arrow = new Polygon2D { Polygon = points, Color = Colors.White, Position = at, Scale = Vector2.One * CursorScale * 1.4f };
+        // 자리·크기는 ApplyCursorScale 이 정한다.
+        var arrow = new Polygon2D { Polygon = points, Color = Colors.White };
         var outline = new Line2D { Width = 1.5f, DefaultColor = Colors.Black, Closed = true, Points = points };
         arrow.AddChild(outline);
         return arrow;

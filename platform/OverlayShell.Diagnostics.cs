@@ -167,6 +167,7 @@ public partial class OverlayShell
             "",
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
                 + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
+            $"scale friend {_settings.FriendScale:F2}  cursor {_settings.CursorScale:F2}  friendCursor {_settings.FriendCursorScale:F2}",
             $"opts  cursor {OnOff(_settings.CursorEnabled)}  indep {OnOff(_settings.CursorIndependent)}"
                 + $"  hideFs {OnOff(_settings.HideOnFullscreen)}"
                 + $"  autostart {OnOff(_settings.Autostart)}",
@@ -447,6 +448,8 @@ public partial class OverlayShell
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y},"
                 + $" uiscale {_settings.Scale:F2}, opacity {_settings.Opacity:F2}, save {OnOff(SaveIO.Exists())}",
+            $"scales         friend {_settings.FriendScale:F2}, cursor {_settings.CursorScale:F2},"
+                + $" friendCursor {_settings.FriendCursorScale:F2}",
             // winVisible 은 _win.Visible 이면 안 된다 - Godot 은 메인 창의 Visible 을
             // 못 바꾸므로 그 값은 항상 true 다. 숨김이 안 먹던 A6 버그가 리포트에서
             // 안 보였던 이유가 정확히 이것이고, HUD(BuildStats)는 이미 고쳐져 있었다.

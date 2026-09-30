@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 11;
+    public const int CurrentVersion = 12;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -94,6 +94,11 @@ public static class SaveSchema
                 case 10:
                     MigrateV10ToV11(root);
                     version = 11;
+                    break;
+
+                case 11:
+                    MigrateV11ToV12(root);
+                    version = 12;
                     break;
 
                 default:
@@ -242,6 +247,22 @@ public static class SaveSchema
     }
 
     /// <summary>
+    /// v11 -> v12 (2026-09-30): 옵션 "크기" 를 넷으로 나눴다 - <c>scale</c>(내 창), <c>friendScale</c>(친구 칸),
+    /// <c>cursorScale</c>(내 커서), <c>friendCursorScale</c>(친구 칸 안의 커서, 0 이면 숨김). 예전엔 <c>scale</c> 하나가
+    /// 내 창과 친구 칸을 같이 키웠으므로, 친구 칸이 보이던 크기를 유지하려고 <c>friendScale</c> 에 그 값을 옮긴다.
+    /// 커서 두 값은 기본값(1.0)이 예전 모습 그대로라 채우지 않는다.
+    /// </summary>
+    private static void MigrateV11ToV12(JsonNode root)
+    {
+        if (root["settings"] is JsonObject settings && settings["friendScale"] == null && settings["scale"] != null)
+        {
+            settings["friendScale"] = settings["scale"].GetValue<float>();
+        }
+
+        root["version"] = 12;
+    }
+
+    /// <summary>
     /// 스키마가 기획서 §7-5 의 JSON 과 실제로 맞는지 확인한다.
     ///
     /// 계약 문서와 코드가 갈라지는 것은 눈으로는 안 잡힌다. 필드 하나가
@@ -270,6 +291,7 @@ public static class SaveSchema
             "settings", "scale", "opacity", "pos", "autostart",
             "cursorEnabled", "hideOnFullscreen",
             "cursorIndependent",
+            "friendScale", "cursorScale", "friendCursorScale",
             "multi", "friendPositions", "lastLobby",
             "onboardingSeen",
             "lastQuitUtc",
@@ -308,6 +330,14 @@ public static class SaveSchema
             || moved["deco"]?.GetValue<string>() != "spark_01" || moved["hang"] != null)
         {
             return $"v8 -> v9 장착 이동이 틀렸다: {moved.ToJsonString()}";
+        }
+
+        // v11 -> v12 도 값을 옮긴다. 예전 "크기" 1.3 이 친구 칸 크기로도 이어지는지.
+        JsonNode v11 = JsonNode.Parse("{\"version\":11,\"settings\":{\"scale\":1.3}}");
+        Migrate(v11);
+        if (v11["settings"]["friendScale"]?.GetValue<float>() is not 1.3f)
+        {
+            return $"v11 -> v12 친구 칸 크기 이동이 틀렸다: {v11.ToJsonString()}";
         }
 
         return null;

@@ -188,6 +188,9 @@ public partial class OverlayShell
     private void WireOptionsEvents()
     {
         _options.ScaleChanged += v => { SetScale(v); PersistSettings(); };
+        _options.FriendScaleChanged += v => { SetFriendScale(v); PersistSettings(); };
+        _options.CursorScaleChanged += v => { SetCursorScale(v); PersistSettings(); };
+        _options.FriendCursorScaleChanged += v => { SetFriendCursorScale(v); PersistSettings(); };
         _options.OpacityChanged += v => { SetOpacity(v); PersistSettings(); };
         _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
         _options.CursorIndependentChanged += v => { _settings.CursorIndependent = v; ApplyVisibility(); PersistSettings(); };

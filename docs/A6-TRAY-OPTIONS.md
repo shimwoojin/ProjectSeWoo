@@ -56,6 +56,21 @@ Autostart에 실제로 적용하는 것은 전부 `OverlayShell.WireOptionsEvent
 슬라이더 2개(크기/투명도) + 체크박스 8개(위치 잠금/사운드/알림/커서 장식/
 숨겨도 커서 장식은 유지/전체화면 숨김/타건 카운트/자동 시작) + 닫기 버튼.
 
+> **2026-09-30 — "크기" 를 넷으로 나눴다 (세이브 v12).** 예전엔 "크기" 하나(`scale`)가 내 창과 친구 칸을 같이 키웠고
+> 내 커서 장식은 크기를 못 바꿨다. 이제 슬라이더는 다섯 개다:
+>
+> | 줄 | 범위 | 세이브 | 적용 |
+> |---|---|---|---|
+> | 내 창 크기 | 0.5~2.0 | `scale` | `OverlayShell.SetScale` - 메인 창만 |
+> | 친구 칸 크기 | 0.5~2.0 | `friendScale` | `SetFriendScale` → 친구 칸 창 전부 (친구마다 따로는 아니다) |
+> | 내 커서 크기 | 0.5~2.0 | `cursorScale` | `SetCursorScale` → `CursorLayer.SetScale` (창·장식·커서 끝 자리를 같이 키운다) |
+> | 친구 커서 크기 | 0~1.25, 0 = 숨김 | `friendCursorScale` | `IShell.FriendCursorScaleChanged` → `FriendWindows` → `RemotePlayerView.SetCursorScale` |
+> | 투명도 | 0.1~1.0 | `opacity` | 그대로 |
+>
+> v11 → v12 는 `scale` 을 `friendScale` 에 옮긴다 - 친구 칸이 보이던 크기가 그대로 남는다. 친구 커서는 칸(140x200) 안에
+> 들어가야 해서 상한이 1.25 다 - 1.5 에서는 매달린 원숭이 발끝이 이름표 띠 윗줄에 닿았다. `--store-shot` / `--trailer` 는
+> 유저 설정과 상관없이 예전 모습(내 창·친구 칸 1.5, 커서 둘 다 1)으로 고정한다.
+
 > **2026-09-28 — "위치 잠금" 체크박스와 `positionLocked` 필드도 없앴다 (세이브 v11).** 클릭 영역이 늘 보이는 모양이다
 > (`IInteractiveArea.GetClickableRects`). `F2` 는 디버그에서 창 전체가 클릭을 받게 하는 비교용으로만 남았다. 이유는 기획서 §7-4 의 메모.
 >
