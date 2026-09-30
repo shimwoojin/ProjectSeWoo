@@ -262,6 +262,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 조건부 Go 인 상태라(docs/A7-PERF.md §4) "스팀이 얼마를 더 먹는가"를
         // 같은 조건에서 비교할 수 있어야 한다.
         _steamSelftest = Array.IndexOf(OS.GetCmdlineUserArgs(), "--steam-selftest") >= 0;
+        _toastTest = Array.IndexOf(OS.GetCmdlineUserArgs(), "--toast-test") >= 0;
         bool forceSteam = Array.IndexOf(OS.GetCmdlineUserArgs(), "--steam") >= 0;
         if (!_unattended || _steamSelftest || forceSteam)
         {

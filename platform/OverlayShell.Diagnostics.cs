@@ -60,6 +60,54 @@ public partial class OverlayShell
         {
             TickAutoReport(delta);
         }
+
+        if (_toastTest)
+        {
+            TickToastTest(delta);
+        }
+    }
+
+    // --- 스팀 알림 시험 (--toast-test, 2026-09-30) ---
+
+    /// <summary>알림을 몇 번 띄울지, 첫 알림까지·알림 사이 간격(초). 스팀 알림은 5초쯤 떠 있다.</summary>
+    private const int ToastTestCount = 3;
+    private const double ToastTestFirstSec = 5.0, ToastTestGapSec = 10.0;
+
+    private bool _toastTest;
+    private int _toastTestShown;
+    private double _toastTestTimer;
+
+    /// <summary>
+    /// <c>--toast-test</c>: 스팀 업적 알림이 우리 창에서 잘리지 않고 보이는지 보는 시험. 등록돼 있고 아직 안 딴 업적 하나의
+    /// <b>진행도 알림</b>(<see cref="SteamService.IndicateProgress"/>)을 <see cref="ToastTestCount"/> 번 띄운다 - 해금 알림과 같은
+    /// 크기·같은 자리에 뜨지만 <b>아무것도 해금하지 않는다.</b> 알림은 스팀 오버레이가 그리므로 <b>스팀으로 실행해야</b> 보인다
+    /// (에디터·VS 실행은 오버레이가 안 붙는다). 릴리스 빌드는 스팀 게임 속성의 시작 옵션에 <c>-- --toast-test</c>.
+    /// </summary>
+    private void TickToastTest(double delta)
+    {
+        if (_toastTestShown >= ToastTestCount || _steam == null || !_steam.IsAvailable)
+        {
+            return;
+        }
+
+        _toastTestTimer += delta;
+        if (_toastTestTimer < (_toastTestShown == 0 ? ToastTestFirstSec : ToastTestGapSec))
+        {
+            return;
+        }
+
+        _toastTestTimer = 0.0;
+        string id = Array.Find(AchievementIds.All, a => _steam.IsRegistered(a) == true && !_steam.IsUnlocked(a));
+        if (id == null)
+        {
+            GD.PushWarning("[toast-test] 등록돼 있고 아직 안 딴 업적이 없다 - 알림을 띄울 수 없다");
+            _toastTestShown = ToastTestCount;
+            return;
+        }
+
+        _toastTestShown++;
+        _steam.IndicateProgress(id, _toastTestShown, ToastTestCount + 1);
+        GD.Print($"[toast-test] {id} 진행도 알림 {_toastTestShown}/{ToastTestCount + 1} ({_toastTestShown}번째)");
     }
 
     /// <summary>0.5초 틱. HUD 는 이 주기로만 다시 그린다 - 매 프레임 문자열을 짓지 않는다.</summary>
