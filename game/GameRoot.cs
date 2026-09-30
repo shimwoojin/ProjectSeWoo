@@ -556,6 +556,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         // 누적 기부는 서버 동기화(Sync)로도 바뀐다 - 다른 PC 에서 기부했거나 켜자마자 서버 값이 온 경우. 칭호는 여기서 맞춘다.
         _hud.SetTitle(DonationTable.TitleFor(_platform.Economy.DonatedTotal));
+
+        // 메뉴를 연 채로 수확하면 창의 "바나나 N" 과 구매·강화·기부 버튼 잠금이 연 순간 값에 멈춰 있었다.
+        // 잔액이 바뀌는 길은 전부 여기로 오므로 열린 창도 여기서 같이 맞춘다.
+        RefreshOpenWindows();
     }
 
     /// <summary>강화 레벨 합으로 정하는 나무 겉모습 단계 (B18, <see cref="UpgradeTable.TreeStageAt"/>). 서버 레벨을 그대로 읽는다.</summary>
