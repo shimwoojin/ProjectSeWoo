@@ -56,20 +56,7 @@ public sealed class CursorLayer : ICursorLayer
     // §2). A2에서 세 가지(TRANSPARENT 단독 / TRANSPARENT+LAYERED / WM_NCHITTEST 후킹)를
     // 실사용으로 비교했고 TRANSPARENT+LAYERED만 다른 프로세스의 클릭을 통과시켰다.
     // 나머지 둘은 지웠다 — 고를 수 있게 남겨두면 언젠가 실수로 고른다.
-
-    private const int GwlExStyle = -20;
-    private const long WsExTransparent = 0x00000020L;
-    private const long WsExLayered = 0x00080000L;
-    private const uint LwaAlpha = 0x00000002;
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
+    // Win32 호출은 ClickThrough 에 있다 - 메인 창·친구 칸도 같은 스타일을 켜고 끈다 (2026-09-30).
 
     // --- 맨 위 유지 ---------------------------------------------------------
     //
@@ -285,36 +272,23 @@ public sealed class CursorLayer : ICursorLayer
             return;
         }
 
-        long handle = DisplayServer.WindowGetNativeHandle(
-            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
-
-        if (handle == 0)
+        IntPtr hwnd = ClickThrough.Hwnd(_win.GetWindowId());
+        if (hwnd == IntPtr.Zero)
         {
             ClickThroughState = "HWND 없음";
             GD.PrintErr("[cursor] HWND 를 못 얻었다. 클릭 통과를 걸 수 없다");
             return;
         }
 
-        var hwnd = new IntPtr(handle);
         _hwnd = hwnd;
-
-        long before = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent | WsExLayered));
+        long before = ClickThrough.Style(hwnd);
+        ClickThrough.Prepare(hwnd);
+        ClickThrough.SetPassThrough(hwnd, true);
 
         // 반드시 되읽어서 확인한다. "걸었다"와 "걸렸다"는 다르다 - A2의 1차 실패가 그것이었다.
-        long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        bool ok = (after & (WsExTransparent | WsExLayered)) == (WsExTransparent | WsExLayered);
+        bool ok = ClickThrough.IsPassThrough(hwnd);
         ClickThroughState = ok ? "TRANSPARENT|LAYERED" : "적용 실패";
-
-        // LAYERED 를 붙이면 알파를 정해주기 전까지 창이 아예 안 보인다.
-        // 255 = 완전 불투명이지만, Godot 이 DWM 합성으로 그리는 per-pixel 알파는
-        // 그대로 살아남는다(A2 실측: 장식 주변 모서리에 뒤 배경이 비쳤다).
-        if (ok && !SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha))
-        {
-            GD.PrintErr("[cursor] SetLayeredWindowAttributes 실패");
-        }
-
-        GD.Print($"[cursor] click-through {ClickThroughState} (ex 0x{before:X} -> 0x{after:X})");
+        GD.Print($"[cursor] click-through {ClickThroughState} (ex 0x{before:X} -> 0x{ClickThrough.Style(hwnd):X})");
     }
 
     // ------------------------------------------------------------------ 장착 (ICursorLayer)

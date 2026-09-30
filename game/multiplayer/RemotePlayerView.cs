@@ -133,7 +133,7 @@ public partial class RemotePlayerView : Node2D
 
     /// <summary>
     /// 칸 창의 모양 (<see cref="ISatelliteWindow.SetShape"/>) - 위는 나무·원숭이·커서 장식을
-    /// 감싸는 사각형, 아래는 이름표 띠(칸 폭 전체)를 이은 T 자. 이 안이 보이고 잡히며,
+    /// 감싸는 사각형, 아래는 이름표 띠(칸 폭 전체)를 이은 T 자. 이 안을 잡아 끌 수 있고,
     /// 나무 양옆 빈 곳은 바탕화면으로 클릭이 통과한다. 아직 트리에 안 붙었으면 null(창 전체).
     /// </summary>
     public Vector2[] GetShape()

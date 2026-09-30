@@ -175,7 +175,7 @@ public partial class OverlayShell
             // 셋이 어긋나면 숨김이 먹지 않았다는 뜻이다 - 그걸 눈으로 못 봐서 생긴 버그가 있었다.
             $"      want {OnOff(_userWantsVisible)}  autoHidden {OnOff(_autoHiddenForFullscreen)}"
                 + $"  winShown {OnOff(_shellWindowVisible)}",
-            $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}  ({_appliedRegion.Length}점)",
+            $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}  ({_hitRects.Count}칸, {(_receivingClicks ? "받음" : "통과")})",
             $"scr   #{screen} of {DisplayServer.GetScreenCount()}  {usable.Size.X}x{usable.Size.Y}"
                 + $"  dpi {DisplayServer.ScreenGetDpi(screen)}  scale {DisplayServer.ScreenGetScale(screen):F2}"
                 + $"  {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
@@ -440,7 +440,7 @@ public partial class OverlayShell
             $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
             $"passthrough    {OnOff(!_debugWholeWindow)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
                 + $" writes {_regionWrites}",
-            $"hit region     {RegionBounds().Position.X:F0},{RegionBounds().Position.Y:F0} .. {RegionBounds().End.X:F0},{RegionBounds().End.Y:F0} (창 px), {_appliedRegion.Length}점",
+            $"hit region     {RegionBounds().Position.X:F0},{RegionBounds().Position.Y:F0} .. {RegionBounds().End.X:F0},{RegionBounds().End.Y:F0} (창 px), {_hitRects.Count}칸, 클릭 통과 {(_mainHwnd != IntPtr.Zero ? "토글" : "없음")}",
             $"always on top  {OnOff(_win.AlwaysOnTop)}",
             $"screen         #{screen} of {DisplayServer.GetScreenCount()},"
                 + $" dpi {DisplayServer.ScreenGetDpi(screen)},"

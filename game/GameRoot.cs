@@ -15,12 +15,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>수확한 바나나가 떨어져 착지하는 높이. 원숭이 발치다.</summary>
     private const float GroundY = 404f;
 
-    /// <summary>떨어지는 바나나 길의 반폭 - 바나나 그림(황금 1.15배, 착지 찌그러짐 1.25배 포함)보다 넉넉하게.</summary>
-    private const float BananaLaneHalfWidth = 34f;
-
-    /// <summary>지금 떨어지는 중인 바나나들의 길 (<see cref="GetClickableRects"/>).</summary>
-    private readonly List<Rect2> _bananaLanes = new();
-
     /// <summary><see cref="GetClickableRects"/> 가 매 프레임 다시 채우는 목록. 새로 만들지 않는다.</summary>
     private readonly List<Rect2> _clickRects = new();
 
@@ -696,6 +690,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _slotTip.Visible = false;
     }
 
+    /// <inheritdoc cref="IInteractiveArea.PointerLeft"/>
+    public void PointerLeft() => HideSlotTip();
+
     /// <summary>
     /// 메뉴가 열려 있으면 Esc 는 메뉴를 닫는다(로비는 팝업부터).
     ///
@@ -966,13 +963,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         }
 
         AddChild(banana);
-
-        // 떨어지는 길을 클릭 영역에 넣는다 - 영역 밖은 안 그려져서 잎과 땅 사이 빈 공간에서 바나나가 사라진다.
-        // 길 하나를 통째로 넣고 사라질 때 뺀다 - 매 프레임 위치를 따라가면 영역 쓰기가 매 프레임 일어난다.
-        var lane = new Rect2(from.X - BananaLaneHalfWidth, from.Y - BananaLaneHalfWidth,
-            BananaLaneHalfWidth * 2f, GroundY - from.Y + BananaLaneHalfWidth * 2f);
-        _bananaLanes.Add(lane);
-        banana.TreeExiting += () => _bananaLanes.Remove(lane);
 
         // 팔이 닿기 전에 떨어지면 원인과 결과가 뒤집혀 보인다.
         GetTree().CreateTimer(delay).Timeout += () => banana.Drop(GroundY);
@@ -1425,17 +1415,16 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     };
 
     /// <summary>
-    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>) - 보이는 것들의 사각형 여럿. 셸이 하나의 다각형으로 합친다.
+    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>) - 사각형 여럿. 커서가 이 중 어디든 있으면 셸이 창에 클릭을 받게 하고,
+    /// 아니면 뒤 창으로 통과시킨다. 서로 떨어져 있어도 된다.
     ///
-    /// <b>메뉴가 열린 동안은 메뉴 칸과 게임 화면 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 셸은 옵션 창을 열 때
-    /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임 레이어는 이 계약으로만 말할 수 있다 -
-    /// 그래서 창 좌표의 메뉴 칸을 이 좌표계로 옮겨서 돌려준다. 예전엔 창 전체였는데, 메뉴 칸 높이를 고정한 뒤로
+    /// <b>메뉴가 열린 동안은 메뉴 칸과 게임 화면 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 게임 레이어는 이 계약으로만
+    /// 말할 수 있어서 창 좌표의 메뉴 칸을 이 좌표계로 옮겨서 돌려준다. 예전엔 창 전체였는데, 메뉴 칸 높이를 고정한 뒤로
     /// (2026-09-30) "내 창 크기" 를 키우면 칸 아래가 비어서 거기까지 잡으면 뒤 창 클릭을 막는다.
     ///
-    /// <b>보이는 모양만 (2026-09-28).</b> 예전엔 나무·원숭이·버튼을 감싸는 사각형 하나였고, 옵션 "위치 잠금" 을 끄면
-    /// 창 전체였다 - 나무 옆 빈 공간까지 끌리고 뒤 창 클릭을 막았다. 이제 나무·원숭이는 알파 띠(<see cref="Shapes.Silhouette"/>),
-    /// 거기에 [메뉴] 버튼 · HUD 글자 · 떠 있는 송이 말풍선 · 떨어지는 바나나의 길. <b>이 밖은 바탕화면에 그려지지 않는다</b>
-    /// (SetWindowRgn) - 보여야 하는 것은 전부 여기 넣는다. 나무 잎 파티클은 넣지 않았다 - 잎 밖으로 나가면 잘린다.
+    /// <b>잡을 것만 (2026-09-30).</b> 나무·원숭이(알파 띠, <see cref="Shapes.Silhouette"/>) · [메뉴] 버튼 · HUD 글자(끌기 손잡이) ·
+    /// 떠 있는 송이 말풍선. 예전엔 클릭 통과가 창 모양(SetWindowRgn)이라 이 밖은 그려지지도 않아서 떨어지는 바나나의 길까지
+    /// 넣었다 - 이제 창을 자르지 않으므로 보이기만 할 것은 넣지 않는다.
     /// </summary>
     public IReadOnlyList<Rect2> GetClickableRects()
     {
@@ -1454,9 +1443,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        // 이름 줄 오른쪽, 나무 오른쪽 덤불 바로 아래에 둔다 (2026-09-30) - 덤불과 여백(셸 8px 씩, 합쳐 16) 안으로 붙어 있어야
-        // 한다. 떨어지면 셸이 감싸는 사각형으로 물러난다. 덤불이 가장 짧은 0단계 나무(tree_empty)도 버튼 위 x 256~273 에서
-        // 아래 끝이 y 401 이라 버튼 윗변(412)까지 11. HUD 칸(x 30~250) 밖이라 긴 이름이 버튼을 덮지 않는다.
+        // 자리는 이름 줄 오른쪽, 나무 오른쪽 덤불 바로 아래 (2026-09-30). HUD 칸(x 30~250) 밖이라 긴 이름이 버튼을 덮지 않는다.
         _clickRects.Add(ButtonRect(_menuButton));
 
         _hud.AddTextRects(_clickRects);
@@ -1465,8 +1452,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             _clickRects.Add(new Rect2(_slotTip.Position, _slotTip.Size));
         }
-
-        _clickRects.AddRange(_bananaLanes);
 
         for (int i = 0; i < _clickRects.Count; i++)
         {

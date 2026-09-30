@@ -96,7 +96,7 @@ public partial class OverlayShell
             case Key.F8:
                 _showOutline = !_showOutline;
                 _outline.Visible = _showOutline;
-                RefreshOutline(_appliedRegion);
+                RefreshOutline();
                 break;
 
             case Key.F9:

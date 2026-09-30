@@ -208,8 +208,12 @@ public partial class OverlayShell
 
         // 옵션 창이 열린 동안은 창 전체가 클릭을 받아야 한다 - 안 그러면 패널이
         // 마스코트 클릭 영역 밖으로 나가는 순간 슬라이더/체크박스를 못 누른다.
-        // 닫히면 위치 잠금 값대로 되돌린다.
-        _options.Closed += () => ApplyPassthrough(force: true);
+        // 닫히면 신고된 모양대로 되돌린다.
+        _options.Closed += () =>
+        {
+            _optionsWholeWindow = false;
+            ApplyPassthrough(force: true);
+        };
     }
 
     /// <param name="topInset">위쪽에 비워 둘 높이 - 게임 메뉴의 탭 줄 자리 (<see cref="IShell.OpenOptions"/>). 트레이·O 키는 0.</param>
@@ -220,7 +224,10 @@ public partial class OverlayShell
         _options.SetArea(topInset, width, width > 0f ? _baseWindowSize.Y : 0f);
         _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
         _options.Open();
-        DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());
+
+        // 트레이·O 키로 열면 패널이 창 전체에 뜬다 - 그동안 창 전체가 클릭을 받는다 (ApplyPassthrough).
+        _optionsWholeWindow = width <= 0f;
+        ApplyPassthrough(force: true);
     }
 
     private void ToggleOptionsWindow()

@@ -75,6 +75,26 @@ Modulate = new Color(1f, 1f, 1f, _opacity);
 그대로 노출한 것뿐이다. 개발 PC는 모니터 3대 중 하나가 X 좌표 음수인데,
 `ScreenGetUsableRect`가 절대 데스크톱 좌표를 그대로 돌려주므로 별도 처리 없이 맞는다.
 
+### 2026-09-30 — 클릭 통과를 창 자르기에서 "커서 위치로 켜고 끄기"로
+
+메인 창·친구 칸은 보이는 모양만 클릭을 받게 하려고 `WindowSetMousePassthrough(다각형)` 을 썼다. 이 함수는
+Windows 에서 `SetWindowRgn` 이라 **그리기까지 그 모양으로 잘라낸다** (A2 §2). 그래서 HUD 글자·떨어지는 바나나를
+보이려고 클릭 영역에 일부러 넣었고, 스팀 오버레이가 우리 창에 그리는 업적 알림은 모양 밖이 잘려 조각만 보였다.
+
+이제 창을 자르지 않는다. 커서 장식 창처럼 `WS_EX_TRANSPARENT | WS_EX_LAYERED`(A2 가 다른 프로세스 클릭 통과를 실사용
+확인한 조합)를 쓰되, **매 프레임 커서가 신고된 사각형(`IInteractiveArea.GetClickableRects`) 안이면 TRANSPARENT 를 빼서
+클릭을 받고, 밖이면 다시 넣어 통과시킨다** (`platform/ClickThrough.cs`, `OverlayShell.ApplyPassthrough`,
+`SatelliteWindow.Tick`). Electron 데스크톱 위젯의 `setIgnoreMouseEvents` 토글과 같은 방식이다.
+
+- 사각형을 다각형 하나로 합칠 필요가 없어졌다 - 판정은 "어느 사각형에든 들면". 떨어진 조각 경고·감싸는 사각형 폴백도 지웠다
+- 끄는 중·트레이에서 연 설정 창·신고 없음·디버그 F2 는 창 전체가 받는다
+- 받다가 통과로 바뀌면 Godot 에 마우스 이동이 더 안 오므로 `IInteractiveArea.PointerLeft()` 로 알린다(송이 말풍선을 걷는다)
+- 게임 레이어는 이제 **잡을 것만** 신고한다 - 떨어지는 바나나의 길은 뺐다
+- 커서 좌표는 이 판정에만 쓰고 저장·전송하지 않는다 (커서 장식이 따라다니려고 읽는 것과 같다)
+- 알려진 틈: 커서가 모양에 막 들어온 프레임에는 아직 통과 상태라, 그 순간의 클릭은 뒤 창으로 갈 수 있다(한 프레임)
+- 확인: 메인 창에 LAYERED 를 붙여도 픽셀 단위 투명·그리기가 멀쩡한 것, HUD 글자·떨어지는 바나나·친구 칸 이름표가 화면에서
+  잘리지 않는 것을 실제 화면(`BitBlt` + `CAPTUREBLT`)으로 봤다. 다른 앱 클릭 통과와 깜빡임은 사람이 봐야 한다(A2 가 자동 흉내로 오판했다)
+
 ---
 
 ## 2. 세이브 파일 I/O — `platform/SaveIO.cs`
