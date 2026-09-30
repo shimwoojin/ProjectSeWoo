@@ -12,15 +12,17 @@ public partial class CursorOrnament : Node2D
     /// <summary>바나나 그림(banana.png) 안의 꼭지 윗점과 원숭이가 잡는 점, 픽셀. 모든 변형이 같은 실루엣이다.</summary>
     private static readonly Vector2 BananaStem = new(102, 6), BananaGrip = new(95, 190);
 
-    /// <summary>
-    /// 바나나 높이(px)와, 꼭지를 커서 끝에서 얼마나 떨어뜨려 붙이는가. 화살표 아래로 뺀다 - 예전 (6, 8) 은 150% 배율
-    /// 모니터의 화살표(약 28px)가 바나나를 덮었다 (2026-09-26 스크린샷 확대에서 발견). 200% 화살표(약 38px)는 여전히
-    /// 꼭지 끝에 조금 걸친다.
-    /// </summary>
+    /// <summary>바나나 높이(px).</summary>
     private const float BananaHeight = 36f;
-    private static readonly Vector2 StemFromTip = new(10, 24);
+
+    /// <summary>
+    /// 흔한 화살표 커서의 <b>꼬리 끝</b> - 끝점(0,0) 기준, 100% 배율(32px 커서) px. 꼬리 아래 모서리 (7,20)·(9,19) 의 가운데다.
+    /// 친구 칸이 그리는 화살표(<c>RemotePlayerView.MakeArrow</c>)도 이 모양이다.
+    /// </summary>
+    public static readonly Vector2 ArrowTail = new(8, 19.5f);
 
     private DecoView _deco;
+    private Vector2 _stemFromTip = new(10, 24);
     private Sprite2D _banana;
     private MonkeyRig _rig;
     private readonly string[] _equipped = new string[3];
@@ -34,6 +36,24 @@ public partial class CursorOrnament : Node2D
 
     public string EquippedIn(CursorSlot slot) => _equipped[(int)slot];
 
+    /// <summary>
+    /// 바나나 꼭지 윗점의 자리 - 이 노드 좌표(원점 = 커서 끝). <b>화살표 꼬리 끝에 닿게 둔다</b> (2026-09-30): 내 커서는
+    /// 화면에 보이는 시스템 화살표 크기에서 잰다(<c>platform/CursorLayer</c>), 친구 칸은 그린 화살표에서 잰다.
+    ///
+    /// 예전엔 모든 곳이 고정 (10, 24) 였다 (2026-09-26, 150% 모니터 화살표를 비키려고). 그 값은 "내 커서 크기" 를 키우면 틈도
+    /// 같이 커져서 바나나가 커서에서 멀어졌다 - 시스템 화살표는 그 옵션으로 안 커진다. 캡슐 아트 원숭이(부르는 곳 없음)만
+    /// 그 기본값을 그대로 쓴다.
+    /// </summary>
+    public Vector2 StemFromTip
+    {
+        get => _stemFromTip;
+        set
+        {
+            _stemFromTip = value;
+            Layout();
+        }
+    }
+
     public override void _Ready()
     {
         _deco = new DecoView { Name = "Deco" };
@@ -43,16 +63,27 @@ public partial class CursorOrnament : Node2D
         _rig = new MonkeyRig { Name = "Monkey", Visible = false, Still = Still };
         AddChild(_rig);
 
-        float k = BananaHeight / (BananaGrip.Y - BananaStem.Y + 20f);
-        _banana.Scale = Vector2.One * k;
-        _banana.Position = StemFromTip - BananaStem * k;
-        _rig.Position = _banana.Position + BananaGrip * k;
+        Layout();
 
         // 트리에 들어오기 전에 끼운 것 (친구 창은 만들자마자 끼운다)
         for (int i = 0; i < _equipped.Length; i++)
         {
             Apply((CursorSlot)i);
         }
+    }
+
+    /// <summary>바나나를 꼭지가 <see cref="StemFromTip"/> 에 오게, 원숭이를 바나나 잡는 점에 둔다.</summary>
+    private void Layout()
+    {
+        if (_banana == null)
+        {
+            return;
+        }
+
+        float k = BananaHeight / (BananaGrip.Y - BananaStem.Y + 20f);
+        _banana.Scale = Vector2.One * k;
+        _banana.Position = _stemFromTip - BananaStem * k;
+        _rig.Position = _banana.Position + BananaGrip * k;
     }
 
     /// <summary>

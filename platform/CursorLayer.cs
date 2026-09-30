@@ -222,6 +222,9 @@ public sealed class CursorLayer : ICursorLayer
         _win.AddChild(_ornament);
         ApplyScale();
 
+        // 커서 창은 아직 OS 창이 아니다 (VerifyWindow 주석) - 처음엔 메인 창의 모니터로 잰다.
+        UpdateArrowScale(DisplayServer.WindowGetCurrentScreen());
+
         _pos = DisplayServer.MouseGetPosition();
 
         Rect2I usable = DisplayServer.ScreenGetUsableRect(DisplayServer.WindowGetCurrentScreen());
@@ -365,11 +368,66 @@ public sealed class CursorLayer : ICursorLayer
 
     private void ApplyScale()
     {
+        // 바나나 꼭지는 시스템 화살표의 꼬리 끝에 닿는다 (CursorOrnament.StemFromTip). 화살표는 모니터 배율·포인터 크기를
+        // 따르고 "내 커서 크기" 로는 안 커지므로, 화면 px 로 잰 틈을 장식 배율로 나눠 로컬에 넣는다. 창은 그 틈만큼 넓힌다.
+        Vector2 tail = CursorOrnament.ArrowTail * _arrowScale;
         _tip = new Vector2I(Mathf.RoundToInt(TipInWindow.X * _scale), Mathf.RoundToInt(TipInWindow.Y * _scale));
         int side = Mathf.RoundToInt(WindowSize * _scale);
-        _win.Size = new Vector2I(side, side);
+        _win.Size = new Vector2I(side + Mathf.CeilToInt(tail.X), side + Mathf.CeilToInt(tail.Y));
         _ornament.Position = _tip;
         _ornament.Scale = Vector2.One * _scale;
+        _ornament.StemFromTip = tail / _scale;
+    }
+
+    // --- 시스템 화살표 크기 ----------------------------------------------------
+    //
+    // Windows 는 화살표를 커서가 있는 모니터의 배율(DPI)로, 그리고 접근성 "마우스 포인터 크기"(CursorBaseSize, 기본 32)로
+    // 키운다. 모니터마다 배율이 다를 수 있어서 커서 창이 다른 모니터로 넘어가면 다시 잰다 - 매 프레임은 아니고
+    // ArrowCheckSec 마다 (모니터 번호를 찾는 호출이 모니터를 전부 훑는다).
+
+    private const double ArrowCheckSec = 0.5;
+
+    /// <summary>화살표가 100%(32px) 때의 몇 배로 그려지는가.</summary>
+    private float _arrowScale = 1f;
+    private int _arrowScreen = -1;
+    private double _sinceArrowCheck;
+
+    private void UpdateArrowScale(int screen)
+    {
+        if (screen < 0 || screen == _arrowScreen)
+        {
+            return;
+        }
+
+        _arrowScreen = screen;
+        float scale = DisplayServer.ScreenGetDpi(screen) / 96f * PointerBaseSize() / 32f;
+        if (Mathf.IsEqualApprox(scale, _arrowScale))
+        {
+            return;
+        }
+
+        _arrowScale = scale;
+        ApplyScale();
+        GD.Print($"[cursor] 화살표 배율 {_arrowScale:F2} (화면 #{screen})");
+    }
+
+    /// <summary>접근성 "마우스 포인터 크기". 없거나 못 읽으면 기본 32.</summary>
+    private static int PointerBaseSize()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return 32;
+        }
+
+        try
+        {
+            using Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Control Panel\Cursors");
+            return key?.GetValue("CursorBaseSize") is int size && size >= 32 ? size : 32;
+        }
+        catch (Exception)
+        {
+            return 32;
+        }
     }
 
     /// <summary>타건·클릭 (횟수만). 원숭이가 반응한다 - 셸이 입력 헬퍼에서 받아 넘긴다.</summary>
@@ -417,6 +475,13 @@ public sealed class CursorLayer : ICursorLayer
         // 리그·장식은 창 이동 주기와 상관없이 스스로 갱신 빈도를 정한다 (움직이면 매 프레임, 가만히 있으면 MonkeyRig.IdleHz).
         _ornament.Follow(target, _win.Position + (Vector2)_tip);
         _ornament.Tick(delta);
+
+        _sinceArrowCheck += delta;
+        if (_sinceArrowCheck >= ArrowCheckSec)
+        {
+            _sinceArrowCheck = 0;
+            UpdateArrowScale(DisplayServer.WindowGetCurrentScreen(_win.GetWindowId()));
+        }
 
         _sinceMove += delta * 1000.0;
         if (IntervalMs > 0 && _sinceMove < IntervalMs)

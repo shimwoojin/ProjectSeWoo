@@ -68,6 +68,9 @@ public partial class RemotePlayerView : Node2D
     private const float LabelsTop = 144f;
     private const float CursorY = 34f;
 
+    /// <summary>그린 화살표가 커서 장식보다 몇 배 큰가.</summary>
+    private const float ArrowToOrnament = 1.4f;
+
     /// <summary>
     /// 커서 장식이 커서 끝에서 왼쪽·오른쪽으로 퍼지는 폭 (<see cref="CursorScale"/>, 옵션 1 기준). 오른쪽은 친구가 칠 때
     /// 원숭이가 오른팔을 뻗는 몫까지다 - 26 으로 잡았더니 옵션 1.5(당시 상한)에서 뻗은 손이 칸 끝에서 잘렸다 (2026-09-30 캡처).
@@ -115,7 +118,8 @@ public partial class RemotePlayerView : Node2D
         _monkey.Scale = Vector2.One * MiniScale;
         AddChild(_monkey);
 
-        _ornament = new CursorOrnament { Still = true };
+        // 바나나 꼭지를 그린 화살표의 꼬리 끝에 닿게 - 화살표는 장식보다 ArrowToOrnament 배 크게 그린다.
+        _ornament = new CursorOrnament { Still = true, StemFromTip = CursorOrnament.ArrowTail * ArrowToOrnament };
         AddChild(_ornament);
         _arrow = MakeArrow();
         AddChild(_arrow);
@@ -189,7 +193,7 @@ public partial class RemotePlayerView : Node2D
         _ornament.Position = CursorAt;
         _ornament.Scale = Vector2.One * CursorScale * _cursorScale;
         _arrow.Position = CursorAt;
-        _arrow.Scale = Vector2.One * CursorScale * 1.4f * _cursorScale;
+        _arrow.Scale = Vector2.One * CursorScale * ArrowToOrnament * _cursorScale;
     }
 
     /// <summary>로비 정보(이름·로비 타수). 로비 멤버 목록이 바뀌거나 1초마다 온다.</summary>
