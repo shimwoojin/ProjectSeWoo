@@ -206,6 +206,9 @@ public partial class OverlayShell
             PersistSettings();
         };
 
+        // 트레이 "종료" 와 같은 길이다 - 세이브는 _ExitTree 가 FlushNow 로 쓴다.
+        _options.QuitRequested += () => GetTree().Quit();
+
         // 옵션 창이 열린 동안은 창 전체가 클릭을 받아야 한다 - 안 그러면 패널이
         // 마스코트 클릭 영역 밖으로 나가는 순간 슬라이더/체크박스를 못 누른다.
         // 닫히면 신고된 모양대로 되돌린다.

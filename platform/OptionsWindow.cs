@@ -29,6 +29,8 @@ public partial class OptionsWindow : CanvasLayer
     private MarginContainer _margin;
     private Button _closeButton;
     private HSeparator _closeRule;
+    private Control _quitRow;
+    private Control _quitConfirm;
 
     /// <summary>기본 위쪽 여백. <see cref="SetArea"/> 가 이보다 작게는 안 줄인다.</summary>
     private const int MarginTop = 12;
@@ -57,6 +59,9 @@ public partial class OptionsWindow : CanvasLayer
     /// </summary>
     public event Action Closed;
 
+    /// <summary>[게임 종료] 를 확인까지 눌렀다. 호출부가 트레이 "종료" 와 같이 끝낸다.</summary>
+    public event Action QuitRequested;
+
     public bool IsOpen => Visible;
 
     public override void _Ready()
@@ -66,7 +71,11 @@ public partial class OptionsWindow : CanvasLayer
         BuildUi();
     }
 
-    public void Open() => Visible = true;
+    public void Open()
+    {
+        ShowQuitConfirm(false);
+        Visible = true;
+    }
 
     /// <summary>
     /// 패널을 놓을 자리. 게임 메뉴(MenuHub)에서 열면 그 탭 줄이 창 위를 덮고 있어서 줄 아래로 내리고, 창 왼쪽의 메뉴 칸
@@ -109,7 +118,15 @@ public partial class OptionsWindow : CanvasLayer
     public void Close()
     {
         Visible = false;
+        ShowQuitConfirm(false);
         Closed?.Invoke();
+    }
+
+    /// <summary>[게임 종료] 줄과 "종료할까?" 줄을 바꿔 낀다.</summary>
+    private void ShowQuitConfirm(bool on)
+    {
+        _quitRow.Visible = !on;
+        _quitConfirm.Visible = on;
     }
 
     /// <summary>
@@ -203,6 +220,40 @@ public partial class OptionsWindow : CanvasLayer
 
         rows.AddChild(MakeCheckRow("Windows 시작 시 자동 실행", out _autostart));
         _autostart.Toggled += on => Relay(() => AutostartChanged?.Invoke(on));
+
+        // 게임 종료 (2026-10-01). 창을 닫으면 트레이로 숨을 뿐이라, 끄려면 트레이 메뉴를 찾아야 했다.
+        // 잘못 눌러 꺼지지 않게 "종료할까?" 를 한 번 거친다. 진행은 종료 때 저장된다(OverlayShell._ExitTree).
+        rows.AddChild(new HSeparator());
+
+        // 버튼 글자도 확인 줄과 같은 경고색이다 - 다른 설정과 달리 창이 꺼지는 버튼이라는 것이 보이게.
+        var warn = new Color(1.00f, 0.62f, 0.45f);
+        var quitRow = new HBoxContainer();
+        var quit = new Button { Text = "게임 종료" };
+        quit.AddThemeFontSizeOverride("font_size", 12);
+        foreach (string state in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color" })
+        {
+            quit.AddThemeColorOverride(state, warn);
+        }
+
+        quit.Pressed += () => ShowQuitConfirm(true);
+        quitRow.AddChild(quit);
+        rows.AddChild(_quitRow = quitRow);
+
+        var confirm = new HBoxContainer { Visible = false };
+        confirm.AddThemeConstantOverride("separation", 6);
+        var ask = new Label { Text = "게임을 종료할까요? 진행 상황은 저장됩니다.", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        ask.AddThemeFontSizeOverride("font_size", 12);
+        ask.AddThemeColorOverride("font_color", warn);
+        confirm.AddChild(ask);
+        var yes = new Button { Text = "종료" };
+        yes.AddThemeFontSizeOverride("font_size", 12);
+        yes.Pressed += () => QuitRequested?.Invoke();
+        confirm.AddChild(yes);
+        var no = new Button { Text = "취소" };
+        no.AddThemeFontSizeOverride("font_size", 12);
+        no.Pressed += () => ShowQuitConfirm(false);
+        confirm.AddChild(no);
+        rows.AddChild(_quitConfirm = confirm);
 
         _closeRule = new HSeparator();
         rows.AddChild(_closeRule);
