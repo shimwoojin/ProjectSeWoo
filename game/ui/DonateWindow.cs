@@ -12,14 +12,14 @@ namespace ProjectSeWoo.Game;
 ///
 /// <see cref="UpgradeWindow"/> 와 같은 경계다: 읽기는 <see cref="Inventory"/>, 바꾸기는 <see cref="DonateRequested"/>
 /// 로 올려보내 <see cref="GameRoot"/> 가 한다.
+///
+/// 금액 버튼은 바로 기부하지 않고 확인 칸을 먼저 띄운다 - 기부 전·후 바나나와 누적을 보여 주고 [기부] 를 한 번 더
+/// 눌러야 넣는다. 넣은 바나나는 돌려받을 수 없어서, 궁금해서 눌러 본 것으로 잃지 않게 (2026-10-01).
 /// </summary>
 public partial class DonateWindow : CanvasLayer
 {
     /// <summary>상점·강화와 같은 층. 메뉴가 한 번에 하나만 연다.</summary>
     private const int LayerIndex = 105;
-
-    /// <summary>[전부] 를 한 번 누르면 이만큼(초) 동안 "한 번 더 누르면 전부" 로 기다린다 - 실수로 전 재산을 넣지 않게.</summary>
-    private const double ConfirmSeconds = 3.0;
 
     public event Action Closed;
 
@@ -37,8 +37,16 @@ public partial class DonateWindow : CanvasLayer
     private ProgressBar _progress;
     private Button _all;
     private readonly Button[] _amountButtons = new Button[DonationTable.Amounts.Length];
+    private HBoxContainer _amountRow;
+    private VBoxContainer _confirm;
+    private Label _confirmBananas;
+    private Label _confirmTotal;
+    private Label _confirmTitle;
+    private Button _confirmYes;
     private string _message;
-    private double _confirmLeft;
+
+    /// <summary>확인 칸에 올려 둔 기부량. 0 이면 확인 칸이 닫혀 있다.</summary>
+    private long _pending;
 
     public bool IsOpen => Visible;
 
@@ -47,7 +55,6 @@ public partial class DonateWindow : CanvasLayer
         Layer = LayerIndex;
         Visible = false;
         BuildUi();
-        SetProcess(false);
     }
 
     public void Bind(Inventory inventory)
@@ -59,7 +66,7 @@ public partial class DonateWindow : CanvasLayer
     public void Open()
     {
         _message = null;
-        _confirmLeft = 0;
+        _pending = 0;
         Refresh();
         Visible = true;
         Opened?.Invoke();
@@ -68,8 +75,7 @@ public partial class DonateWindow : CanvasLayer
     public void Close()
     {
         Visible = false;
-        _confirmLeft = 0;
-        SetProcess(false);
+        _pending = 0;
         Closed?.Invoke();
     }
 
@@ -78,20 +84,6 @@ public partial class DonateWindow : CanvasLayer
     {
         _message = message;
         Refresh();
-    }
-
-    /// <summary>
-    /// [전부] 확인 대기 시간만 센다. 대기 중일 때만 켜진다 - 상주 앱이라 쉬는 창이 매 프레임 돌면 안 된다 (§7-3).
-    /// </summary>
-    public override void _Process(double delta)
-    {
-        _confirmLeft -= delta;
-        if (_confirmLeft <= 0)
-        {
-            _confirmLeft = 0;
-            SetProcess(false);
-            Refresh();
-        }
     }
 
     /// <summary>잔액·누적을 다시 반영한다. 기부 직후와 창을 열 때 부른다 - 매 프레임 부르지 않는다.</summary>
@@ -138,7 +130,56 @@ public partial class DonateWindow : CanvasLayer
 
         long all = Math.Min(bananas, DonationTable.MaxPerRequest);
         _all.Disabled = !online || all <= 0;
-        _all.Text = _confirmLeft > 0 ? $"정말 {all:N0} 전부?" : "전부";
+
+        // 확인 중에 잔액이 줄었거나(다른 곳에서 씀) 연결이 끊기면 그 확인은 더 맞지 않는다 - 닫는다.
+        if (_pending > 0 && (!online || _pending > bananas))
+        {
+            _pending = 0;
+        }
+
+        _amountRow.Visible = _pending <= 0;
+        _confirm.Visible = _pending > 0;
+        if (_pending > 0)
+        {
+            long afterTotal = total + _pending;
+            string titleNow = DonationTable.TitleFor(total);
+            string titleAfter = DonationTable.TitleFor(afterTotal);
+            _confirmBananas.Text = $"바나나 {bananas:N0} → {bananas - _pending:N0}";
+            _confirmTotal.Text = $"누적 기부 {total:N0} → {afterTotal:N0}";
+            _confirmTitle.Text = titleAfter != null && titleAfter != titleNow ? $"새 칭호 \"{titleAfter}\"" : string.Empty;
+            _confirmTitle.Visible = _confirmTitle.Text.Length > 0;
+            _confirmYes.Text = $"{_pending:N0} 기부";
+        }
+    }
+
+    /// <summary>금액 버튼·[전부]: 바로 넣지 않고 확인 칸을 띄운다.</summary>
+    private void AskConfirm(long amount)
+    {
+        if (amount <= 0 || amount > (_inventory?.Bananas ?? 0))
+        {
+            return;
+        }
+
+        _pending = amount;
+        _message = null;
+        Refresh();
+    }
+
+    private void OnConfirmPressed()
+    {
+        long amount = _pending;
+        _pending = 0;
+        Refresh();
+        if (amount > 0)
+        {
+            DonateRequested?.Invoke(amount);
+        }
+    }
+
+    private void OnCancelPressed()
+    {
+        _pending = 0;
+        Refresh();
     }
 
     /// <summary>지금 칭호의 문턱(없으면 0) - 진행 막대의 시작점.</summary>
@@ -154,27 +195,6 @@ public partial class DonateWindow : CanvasLayer
         }
 
         return previous;
-    }
-
-    private void OnAllPressed()
-    {
-        long all = Math.Min(_inventory?.Bananas ?? 0, DonationTable.MaxPerRequest);
-        if (all <= 0)
-        {
-            return;
-        }
-
-        if (_confirmLeft <= 0)
-        {
-            _confirmLeft = ConfirmSeconds;
-            SetProcess(true);
-            Refresh();
-            return;
-        }
-
-        _confirmLeft = 0;
-        SetProcess(false);
-        DonateRequested?.Invoke(all);
     }
 
     // ------------------------------------------------------------------ UI 구성
@@ -240,22 +260,58 @@ public partial class DonateWindow : CanvasLayer
         _next.AddThemeColorOverride("font_color", ShopWindow.Accent);
         rows.AddChild(_next);
 
-        var buttons = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        buttons.AddThemeConstantOverride("separation", 6);
-        rows.AddChild(buttons);
+        _amountRow = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+        _amountRow.AddThemeConstantOverride("separation", 6);
+        rows.AddChild(_amountRow);
 
         for (int i = 0; i < DonationTable.Amounts.Length; i++)
         {
             long amount = DonationTable.Amounts[i];
             var button = new Button { Text = $"{amount:N0}", CustomMinimumSize = new Vector2(64, 30) };
-            button.Pressed += () => DonateRequested?.Invoke(amount);
-            buttons.AddChild(button);
+            button.Pressed += () => AskConfirm(amount);
+            _amountRow.AddChild(button);
             _amountButtons[i] = button;
         }
 
         _all = new Button { Text = "전부", CustomMinimumSize = new Vector2(96, 30) };
-        _all.Pressed += OnAllPressed;
-        buttons.AddChild(_all);
+        _all.Pressed += () => AskConfirm(Math.Min(_inventory?.Bananas ?? 0, DonationTable.MaxPerRequest));
+        _amountRow.AddChild(_all);
+
+        // 확인 칸 - 금액 버튼 줄 자리에 대신 뜬다.
+        _confirm = new VBoxContainer { Visible = false };
+        _confirm.AddThemeConstantOverride("separation", 4);
+        rows.AddChild(_confirm);
+
+        var ask = new Label { Text = "정말 기부할까? 돌려받을 수 없다", HorizontalAlignment = HorizontalAlignment.Center };
+        ask.AddThemeFontSizeOverride("font_size", 12);
+        ask.AddThemeColorOverride("font_color", ShopWindow.Warn);
+        _confirm.AddChild(ask);
+
+        _confirmBananas = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        _confirmBananas.AddThemeFontSizeOverride("font_size", 13);
+        _confirmBananas.AddThemeColorOverride("font_color", ShopWindow.Gold);
+        _confirm.AddChild(_confirmBananas);
+
+        _confirmTotal = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        _confirmTotal.AddThemeFontSizeOverride("font_size", 12);
+        _confirm.AddChild(_confirmTotal);
+
+        _confirmTitle = new Label { HorizontalAlignment = HorizontalAlignment.Center, Visible = false };
+        _confirmTitle.AddThemeFontSizeOverride("font_size", 12);
+        _confirmTitle.AddThemeColorOverride("font_color", ShopWindow.Accent);
+        _confirm.AddChild(_confirmTitle);
+
+        var answers = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+        answers.AddThemeConstantOverride("separation", 6);
+        _confirm.AddChild(answers);
+
+        _confirmYes = new Button { CustomMinimumSize = new Vector2(96, 30) };
+        _confirmYes.Pressed += OnConfirmPressed;
+        answers.AddChild(_confirmYes);
+
+        var cancel = new Button { Text = "취소", CustomMinimumSize = new Vector2(64, 30) };
+        cancel.Pressed += OnCancelPressed;
+        answers.AddChild(cancel);
 
         rows.AddChild(new HSeparator());
 
