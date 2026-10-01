@@ -315,16 +315,31 @@ public partial class DonateWindow : CanvasLayer
 
         rows.AddChild(new HSeparator());
 
-        var titles = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        titles.AddThemeFontSizeOverride("font_size", 11);
-        titles.AddThemeColorOverride("font_color", ShopWindow.Dim);
-        var lines = new System.Text.StringBuilder("칭호\n");
+        rows.AddChild(DimLabel("칭호"));
+
+        // 글꼴이 고정폭이 아니라 공백으로는 줄이 안 맞는다 - 문턱(오른쪽 정렬)·이름(왼쪽 정렬) 두 칸 표로.
+        var indent = new MarginContainer();
+        indent.AddThemeConstantOverride("margin_left", 12);
+        rows.AddChild(indent);
+
+        var titles = new GridContainer { Columns = 2 };
+        titles.AddThemeConstantOverride("h_separation", 12);
+        titles.AddThemeConstantOverride("v_separation", 0);
+        indent.AddChild(titles);
         foreach ((long threshold, string name) in DonationTable.Titles)
         {
-            lines.Append($"  {threshold,8:N0}  {name}\n");
+            Label amount = DimLabel($"{threshold:N0}");
+            amount.HorizontalAlignment = HorizontalAlignment.Right;
+            titles.AddChild(amount);
+            titles.AddChild(DimLabel(name));
         }
+    }
 
-        titles.Text = lines.ToString().TrimEnd();
-        rows.AddChild(titles);
+    private static Label DimLabel(string text)
+    {
+        var label = new Label { Text = text };
+        label.AddThemeFontSizeOverride("font_size", 11);
+        label.AddThemeColorOverride("font_color", ShopWindow.Dim);
+        return label;
     }
 }
