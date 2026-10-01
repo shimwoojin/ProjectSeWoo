@@ -355,10 +355,14 @@ public partial class OverlayShell
         await Capture(dir, manifest, "upgrade");
 
         // 기부 (B20) - 확인용. 1,000 을 한 번 넣어 칭호가 붙는 것까지 (HUD 이름 옆에도 붙는다).
+        // 금액 버튼은 확인 칸만 띄운다(2026-10-01) - 그 칸도 찍고 [1,000 기부] 로 넣는다.
         PressGameButton("기부");
         await Seconds(0.3);
         await Capture(dir, manifest, "donate");
         PressGameButton("1,000");
+        await Seconds(0.3);
+        await Capture(dir, manifest, "donate_confirm");
+        PressGameButton("1,000 기부");
         await Seconds(0.4);
         await Capture(dir, manifest, "donate_after");
 
