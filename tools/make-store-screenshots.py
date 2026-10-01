@@ -367,9 +367,9 @@ def shot_cursor(raw):
 
 def shot_collection(raw):
     bg = wallpaper(1)
-    document(bg, (60, 30, work_right(raw, "shop_tab3", 1250), H - TASKBAR - 30))
-    game_at(bg, raw, "shop_tab3")
-    cursor(bg, raw, "shop_tab3", (1500, 330))
+    document(bg, (60, 30, work_right(raw, "shop_tab4", 1250), H - TASKBAR - 30))
+    game_at(bg, raw, "shop_tab4")
+    cursor(bg, raw, "shop_tab4", (1500, 330))
     taskbar(bg)
     return bg
 
