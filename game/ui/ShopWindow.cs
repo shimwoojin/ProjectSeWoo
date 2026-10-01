@@ -55,7 +55,7 @@ public partial class ShopWindow : CanvasLayer
     private Label _notice;
     private string _purchaseMessage;
 
-    private const string OfflineNotice = "인터넷 연결이 필요하다 - 구매는 온라인에서만 된다";
+    private const string OfflineNotice = "인터넷 연결이 필요합니다 - 구매는 온라인에서만 할 수 있습니다";
 
     // 도감 탭 (B7)
     private Label _collectionTotal;
@@ -363,7 +363,7 @@ public partial class ShopWindow : CanvasLayer
         list.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(list);
 
-        _ownedEmpty = new Label { Text = "아직 가진 장식이 없다", HorizontalAlignment = HorizontalAlignment.Center };
+        _ownedEmpty = new Label { Text = "아직 가진 장식이 없습니다", HorizontalAlignment = HorizontalAlignment.Center };
         _ownedEmpty.AddThemeFontSizeOverride("font_size", 12);
         _ownedEmpty.AddThemeColorOverride("font_color", Dim);
         list.AddChild(_ownedEmpty);

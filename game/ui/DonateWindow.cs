@@ -99,12 +99,12 @@ public partial class DonateWindow : CanvasLayer
         bool online = _inventory.Online;
 
         _bananas.Text = $"바나나 {bananas:N0}";
-        _notice.Text = !online ? "인터넷 연결이 필요하다 - 기부는 온라인에서만 된다" : _message ?? string.Empty;
+        _notice.Text = !online ? "인터넷 연결이 필요합니다 - 기부는 온라인에서만 할 수 있습니다" : _message ?? string.Empty;
         _notice.Visible = _notice.Text.Length > 0;
 
         _total.Text = $"누적 기부 {total:N0}";
         string title = DonationTable.TitleFor(total);
-        _title.Text = title ?? "아직 칭호가 없다";
+        _title.Text = title ?? "아직 칭호가 없습니다";
         _title.AddThemeColorOverride("font_color", title != null ? ShopWindow.Gold : ShopWindow.Dim);
 
         if (DonationTable.NextTitle(total) is (long threshold, string nextTitle))
@@ -114,12 +114,12 @@ public partial class DonateWindow : CanvasLayer
             _progress.MaxValue = threshold;
             _progress.Value = total;
             _progress.Visible = true;
-            _next.Text = $"다음 칭호 \"{nextTitle}\" 까지 {threshold - total:N0}";
+            _next.Text = $"다음 칭호 \"{nextTitle}\"까지 {threshold - total:N0}";
         }
         else
         {
             _progress.Visible = false;
-            _next.Text = "최고 칭호다. 고마워!";
+            _next.Text = "최고 칭호입니다. 감사합니다!";
         }
 
         for (int i = 0; i < _amountButtons.Length; i++)
@@ -236,8 +236,7 @@ public partial class DonateWindow : CanvasLayer
 
         var hint = new Label
         {
-            Text = "정글 기부함에 바나나를 넣는다. 넣은 바나나는 돌려받을 수 없다. 누적 기부량은 칭호가 되어 "
-                + "내 이름 옆과 멀티에서 친구 화면에 보인다.",
+            Text = "정글 기부함에 바나나를 넣습니다. 누적 기부량은 칭호가 되어 이름 옆에 표시됩니다.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         hint.AddThemeFontSizeOverride("font_size", 11);
@@ -282,7 +281,7 @@ public partial class DonateWindow : CanvasLayer
         _confirm.AddThemeConstantOverride("separation", 4);
         rows.AddChild(_confirm);
 
-        var ask = new Label { Text = "정말 기부할까? 돌려받을 수 없다", HorizontalAlignment = HorizontalAlignment.Center };
+        var ask = new Label { Text = "정말 기부할까요? 돌려받을 수 없습니다", HorizontalAlignment = HorizontalAlignment.Center };
         ask.AddThemeFontSizeOverride("font_size", 12);
         ask.AddThemeColorOverride("font_color", ShopWindow.Warn);
         _confirm.AddChild(ask);

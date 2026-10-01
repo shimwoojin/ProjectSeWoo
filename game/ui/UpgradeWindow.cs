@@ -87,7 +87,7 @@ public partial class UpgradeWindow : CanvasLayer
         _bananas.Text = $"바나나 {_inventory.Bananas:N0}";
 
         bool online = _inventory.Online;
-        _notice.Text = !online ? "인터넷 연결이 필요하다 - 강화는 온라인에서만 된다" : _message ?? string.Empty;
+        _notice.Text = !online ? "인터넷 연결이 필요합니다 - 강화는 온라인에서만 할 수 있습니다" : _message ?? string.Empty;
         _notice.Visible = _notice.Text.Length > 0;
 
         foreach ((UpgradeAxis axis, UpgradeRow row) in _rows)
@@ -172,7 +172,7 @@ public partial class UpgradeWindow : CanvasLayer
 
         var hint = new Label
         {
-            Text = $"나무를 키운다. 장식과 같은 바나나를 쓴다. 황금 바나나는 따면 {UpgradeTable.GoldenMultiplier}개.",
+            Text = $"나무를 키웁니다. 황금 바나나를 따면 바나나 {UpgradeTable.GoldenMultiplier}개를 얻습니다.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         hint.AddThemeFontSizeOverride("font_size", 11);

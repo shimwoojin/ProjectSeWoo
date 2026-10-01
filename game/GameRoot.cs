@@ -313,7 +313,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private void UpdateOfflineNotice()
     {
         string notice = !_loaded ? "서버에 연결하는 중..."
-            : _platform.Economy.Slots.Count == 0 ? "오프라인 - 연결되면 바나나가 열린다"
+            : _platform.Economy.Slots.Count == 0 ? "오프라인 - 연결되면 바나나가 열립니다"
             : null;
 
         if (notice != _shownNotice)
@@ -1009,10 +1009,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             // 나머지는 이유를 보여 준다 - 전에는 오프라인 구매가 아무 반응 없이 실패했다.
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
                 PurchaseOutcome.AlreadyOwned => null,
-                _ => "구매가 거절됐다. 바나나는 그대로다",
+                _ => "구매가 거절됐습니다. 바나나는 그대로입니다",
             };
 
             GD.Print($"[game] 구매 실패 {item.Id} - {outcome}");
@@ -1054,10 +1054,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
-                PurchaseOutcome.MaxLevel => "이미 최대 단계다",
-                _ => "강화가 거절됐다. 바나나는 그대로다",
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
+                PurchaseOutcome.MaxLevel => "이미 최대 단계입니다",
+                _ => "강화가 거절됐습니다. 바나나는 그대로입니다",
             };
 
             GD.Print($"[game] 강화 실패 {axis} - {outcome}");
@@ -1203,9 +1203,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
-                _ => "기부가 거절됐다. 바나나는 그대로다",
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
+                _ => "기부가 거절됐습니다. 바나나는 그대로입니다",
             };
 
             GD.Print($"[game] 기부 실패 {amount} - {outcome}");
@@ -1217,8 +1217,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         string after = DonationTable.TitleFor(total);
         GD.Print($"[game] 기부 {amount} → 누적 {total} 잔액 {_platform.Economy.Balance}");
         _donate.ShowMessage(after != null && after != before
-            ? $"고마워! 새 칭호 \"{after}\""
-            : $"고마워! 바나나 {amount:N0} 기부");
+            ? $"감사합니다! 새 칭호 \"{after}\" 획득"
+            : $"감사합니다! 바나나 {amount:N0}개를 기부했습니다.");
         _hud.SetTitle(after);
         CheckDonationAchievements();
         RefreshOpenWindows();
