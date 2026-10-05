@@ -253,6 +253,18 @@ public partial class OverlayShell
         }
     }
 
+    /// <summary>
+    /// 찍는 동안의 크기 네 가지. 유저 설정과 상관없이 늘 같은 그림이 나오게 고정한다 - 크기 옵션을 넷으로 나누기 전(2026-09-30)
+    /// 모습 그대로: 내 창·친구 칸은 <see cref="StoreShotScale"/>, 커서 두 개는 원래 크기.
+    /// </summary>
+    private void SetStoreShotScales()
+    {
+        SetScale(StoreShotScale);
+        SetFriendScale(StoreShotScale);
+        SetCursorScale(1f);
+        SetFriendCursorScale(1f);
+    }
+
     private async Task RunStoreShot(string dir)
     {
         Directory.CreateDirectory(dir);
@@ -262,7 +274,7 @@ public partial class OverlayShell
         // 창을 매 프레임 그리게 한다 - 저전력 모드에서는 바뀐 게 없으면 프레임이 안 와서 캡처가 멈춘다.
         OS.LowProcessorUsageMode = false;
         Engine.MaxFps = 60;
-        SetScale(StoreShotScale);
+        SetStoreShotScales();
         SetOpacity(1.0f);
         _hud.Visible = false;   // 디버그 빌드는 계측 HUD 가 켜진 채로 뜬다
 
@@ -343,10 +355,14 @@ public partial class OverlayShell
         await Capture(dir, manifest, "upgrade");
 
         // 기부 (B20) - 확인용. 1,000 을 한 번 넣어 칭호가 붙는 것까지 (HUD 이름 옆에도 붙는다).
+        // 금액 버튼은 확인 칸만 띄운다(2026-10-01) - 그 칸도 찍고 [1,000 기부] 로 넣는다.
         PressGameButton("기부");
         await Seconds(0.3);
         await Capture(dir, manifest, "donate");
         PressGameButton("1,000");
+        await Seconds(0.3);
+        await Capture(dir, manifest, "donate_confirm");
+        PressGameButton("1,000 기부");
         await Seconds(0.4);
         await Capture(dir, manifest, "donate_after");
 

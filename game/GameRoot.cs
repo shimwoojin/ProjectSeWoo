@@ -15,12 +15,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// <summary>수확한 바나나가 떨어져 착지하는 높이. 원숭이 발치다.</summary>
     private const float GroundY = 404f;
 
-    /// <summary>떨어지는 바나나 길의 반폭 - 바나나 그림(황금 1.15배, 착지 찌그러짐 1.25배 포함)보다 넉넉하게.</summary>
-    private const float BananaLaneHalfWidth = 34f;
-
-    /// <summary>지금 떨어지는 중인 바나나들의 길 (<see cref="GetClickableRects"/>).</summary>
-    private readonly List<Rect2> _bananaLanes = new();
-
     /// <summary><see cref="GetClickableRects"/> 가 매 프레임 다시 채우는 목록. 새로 만들지 않는다.</summary>
     private readonly List<Rect2> _clickRects = new();
 
@@ -319,7 +313,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     private void UpdateOfflineNotice()
     {
         string notice = !_loaded ? "서버에 연결하는 중..."
-            : _platform.Economy.Slots.Count == 0 ? "오프라인 - 연결되면 바나나가 열린다"
+            : _platform.Economy.Slots.Count == 0 ? "오프라인 - 연결되면 바나나가 열립니다"
             : null;
 
         if (notice != _shownNotice)
@@ -556,6 +550,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         // 누적 기부는 서버 동기화(Sync)로도 바뀐다 - 다른 PC 에서 기부했거나 켜자마자 서버 값이 온 경우. 칭호는 여기서 맞춘다.
         _hud.SetTitle(DonationTable.TitleFor(_platform.Economy.DonatedTotal));
+
+        // 메뉴를 연 채로 수확하면 창의 "바나나 N" 과 구매·강화·기부 버튼 잠금이 연 순간 값에 멈춰 있었다.
+        // 잔액이 바뀌는 길은 전부 여기로 오므로 열린 창도 여기서 같이 맞춘다.
+        RefreshOpenWindows();
     }
 
     /// <summary>강화 레벨 합으로 정하는 나무 겉모습 단계 (B18, <see cref="UpgradeTable.TreeStageAt"/>). 서버 레벨을 그대로 읽는다.</summary>
@@ -691,6 +689,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _hoverSlot = -1;
         _slotTip.Visible = false;
     }
+
+    /// <inheritdoc cref="IInteractiveArea.PointerLeft"/>
+    public void PointerLeft() => HideSlotTip();
 
     /// <summary>
     /// 메뉴가 열려 있으면 Esc 는 메뉴를 닫는다(로비는 팝업부터).
@@ -963,13 +964,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
 
         AddChild(banana);
 
-        // 떨어지는 길을 클릭 영역에 넣는다 - 영역 밖은 안 그려져서 잎과 땅 사이 빈 공간에서 바나나가 사라진다.
-        // 길 하나를 통째로 넣고 사라질 때 뺀다 - 매 프레임 위치를 따라가면 영역 쓰기가 매 프레임 일어난다.
-        var lane = new Rect2(from.X - BananaLaneHalfWidth, from.Y - BananaLaneHalfWidth,
-            BananaLaneHalfWidth * 2f, GroundY - from.Y + BananaLaneHalfWidth * 2f);
-        _bananaLanes.Add(lane);
-        banana.TreeExiting += () => _bananaLanes.Remove(lane);
-
         // 팔이 닿기 전에 떨어지면 원인과 결과가 뒤집혀 보인다.
         GetTree().CreateTimer(delay).Timeout += () => banana.Drop(GroundY);
     }
@@ -1015,10 +1009,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             // 나머지는 이유를 보여 준다 - 전에는 오프라인 구매가 아무 반응 없이 실패했다.
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
                 PurchaseOutcome.AlreadyOwned => null,
-                _ => "구매가 거절됐다. 바나나는 그대로다",
+                _ => "구매가 거절됐습니다. 바나나는 그대로입니다",
             };
 
             GD.Print($"[game] 구매 실패 {item.Id} - {outcome}");
@@ -1060,10 +1054,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
-                PurchaseOutcome.MaxLevel => "이미 최대 단계다",
-                _ => "강화가 거절됐다. 바나나는 그대로다",
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
+                PurchaseOutcome.MaxLevel => "이미 최대 단계입니다",
+                _ => "강화가 거절됐습니다. 바나나는 그대로입니다",
             };
 
             GD.Print($"[game] 강화 실패 {axis} - {outcome}");
@@ -1209,9 +1203,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했다. 잠시 뒤 다시 시도해 줘",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족하다",
-                _ => "기부가 거절됐다. 바나나는 그대로다",
+                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
+                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
+                _ => "기부가 거절됐습니다. 바나나는 그대로입니다",
             };
 
             GD.Print($"[game] 기부 실패 {amount} - {outcome}");
@@ -1223,8 +1217,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         string after = DonationTable.TitleFor(total);
         GD.Print($"[game] 기부 {amount} → 누적 {total} 잔액 {_platform.Economy.Balance}");
         _donate.ShowMessage(after != null && after != before
-            ? $"고마워! 새 칭호 \"{after}\""
-            : $"고마워! 바나나 {amount:N0} 기부");
+            ? $"감사합니다! 새 칭호 \"{after}\" 획득"
+            : $"감사합니다! 바나나 {amount:N0}개를 기부했습니다.");
         _hud.SetTitle(after);
         CheckDonationAchievements();
         RefreshOpenWindows();
@@ -1421,23 +1415,24 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     };
 
     /// <summary>
-    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>) - 보이는 것들의 사각형 여럿. 셸이 하나의 다각형으로 합친다.
+    /// 클릭을 받을 영역 (<see cref="IInteractiveArea"/>) - 사각형 여럿. 커서가 이 중 어디든 있으면 셸이 창에 클릭을 받게 하고,
+    /// 아니면 뒤 창으로 통과시킨다. 서로 떨어져 있어도 된다.
     ///
-    /// <b>메뉴가 열린 동안은 창 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 셸은 옵션 창을 열 때
-    /// passthrough 를 통째로 끄지만(platform/OverlayShell.Visibility.cs), 게임 레이어는 이 계약으로만 말할 수 있다 -
-    /// 그래서 "창 전체" 를 이 좌표계로 옮겨서 돌려준다.
+    /// <b>메뉴가 열린 동안은 메뉴 칸과 게임 화면 전체를 신고한다.</b> 메뉴 칸 어디든 눌러야 한다. 게임 레이어는 이 계약으로만
+    /// 말할 수 있어서 창 좌표의 메뉴 칸을 이 좌표계로 옮겨서 돌려준다. 예전엔 창 전체였는데, 메뉴 칸 높이를 고정한 뒤로
+    /// (2026-09-30) "내 창 크기" 를 키우면 칸 아래가 비어서 거기까지 잡으면 뒤 창 클릭을 막는다.
     ///
-    /// <b>보이는 모양만 (2026-09-28).</b> 예전엔 나무·원숭이·버튼을 감싸는 사각형 하나였고, 옵션 "위치 잠금" 을 끄면
-    /// 창 전체였다 - 나무 옆 빈 공간까지 끌리고 뒤 창 클릭을 막았다. 이제 나무·원숭이는 알파 띠(<see cref="Shapes.Silhouette"/>),
-    /// 거기에 [메뉴] 버튼 · HUD 글자 · 떠 있는 송이 말풍선 · 떨어지는 바나나의 길. <b>이 밖은 바탕화면에 그려지지 않는다</b>
-    /// (SetWindowRgn) - 보여야 하는 것은 전부 여기 넣는다. 나무 잎 파티클은 넣지 않았다 - 잎 밖으로 나가면 잘린다.
+    /// <b>잡을 것만 (2026-09-30).</b> 나무·원숭이(알파 띠, <see cref="Shapes.Silhouette"/>) · [메뉴] 버튼 · HUD 글자(끌기 손잡이) ·
+    /// 떠 있는 송이 말풍선. 예전엔 클릭 통과가 창 모양(SetWindowRgn)이라 이 밖은 그려지지도 않아서 떨어지는 바나나의 길까지
+    /// 넣었다 - 이제 창을 자르지 않으므로 보이기만 할 것은 넣지 않는다.
     /// </summary>
     public IReadOnlyList<Rect2> GetClickableRects()
     {
         _clickRects.Clear();
         if (_menu is { IsOpen: true } || _onboarding is { IsOpen: true })
         {
-            _clickRects.Add(ViewportInParentSpace());
+            _clickRects.Add(WindowRectInParentSpace(new Rect2(0, 0, MenuHub.PanelWidth, MenuHub.PanelHeight)));
+            _clickRects.Add(Transform * new Rect2(Vector2.Zero, GameAreaSize));
             return _clickRects;
         }
 
@@ -1448,7 +1443,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 버튼 자리에 점 하나만 합쳐지고, 그러면 버튼 가운데가 클릭 영역 밖으로
         // 빠져서 **눌러도 아무 일이 안 일어난다** - 실제로 그 상태를 밟았고,
         // 타이밍에 따라 되기도 하고 안 되기도 해서 원인 찾기가 고약했다.
-        // 원숭이 꼬리와 여백(셸 8px) 안으로 붙여 두었다 - 떨어지면 셸이 감싸는 사각형으로 물러난다.
+        // 자리는 이름 줄 오른쪽, 나무 오른쪽 덤불 바로 아래 (2026-09-30). HUD 칸(x 30~250) 밖이라 긴 이름이 버튼을 덮지 않는다.
         _clickRects.Add(ButtonRect(_menuButton));
 
         _hud.AddTextRects(_clickRects);
@@ -1457,8 +1452,6 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             _clickRects.Add(new Rect2(_slotTip.Position, _slotTip.Size));
         }
-
-        _clickRects.AddRange(_bananaLanes);
 
         for (int i = 0; i < _clickRects.Count; i++)
         {
@@ -1486,7 +1479,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// 닫으므로 칸이 한 번 닫혔다 열리는데, 같은 프레임 안이라 화면에는 안 보인다.
     /// </summary>
     private void UpdateSidePanel() =>
-        _platform?.Shell.SetSidePanel(_menu.IsOpen || _onboarding.IsOpen ? MenuHub.PanelWidth : 0);
+        _platform?.Shell.SetSidePanel(_menu.IsOpen || _onboarding.IsOpen ? MenuHub.PanelWidth : 0, MenuHub.PanelOverlap);
 
     /// <summary>안내를 끝까지 봤거나 건너뛰었다. 다음부터는 안 뜬다 - 이미 본 판이면 쓸 것이 없다.</summary>
     private void OnOnboardingFinished()
@@ -1523,26 +1516,33 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     }
 
     /// <summary>
-    /// 창 전체를 <see cref="IInteractiveArea"/> 가 요구하는 좌표계(부모 로컬)로 옮긴다.
+    /// 창 좌표의 사각형(예: 메뉴 칸)을 <see cref="IInteractiveArea"/> 가 요구하는 좌표계(부모 로컬)로 옮긴다.
     ///
     /// 셸 루트에 배율이 걸려 있고 플랫폼이 그 배율을 다시 곱하므로
     /// (<c>OverlayShell.CurrentHitRect</c>), 여기서는 역변환으로 되돌려야 값이
     /// 한 바퀴 돌아 제자리에 온다. 네 모서리를 각각 옮겨 감싸는 것은 회전이
     /// 걸렸을 때도 축에 정렬된 사각형을 얻기 위해서다.
     /// </summary>
-    private Rect2 ViewportInParentSpace() =>
-        GetParent() is Node2D parent ? ViewportIn(parent) : GetViewportRect();
+    private Rect2 WindowRectInParentSpace(Rect2 window) =>
+        GetParent() is Node2D parent ? WindowRectIn(parent, window) : window;
 
-    /// <summary>창 전체를 <paramref name="space"/> 의 로컬 좌표로. 네 모서리를 옮겨 감싼다.</summary>
-    private Rect2 ViewportIn(Node2D space)
+    /// <summary>게임 화면의 크기 (게임 좌표) - 배율 1 일 때의 창 크기(project.godot).</summary>
+    private static Vector2 GameAreaSize => new(
+        (int)ProjectSettings.GetSetting("display/window/size/viewport_width"),
+        (int)ProjectSettings.GetSetting("display/window/size/viewport_height"));
+
+    /// <summary>창 전체를 <paramref name="space"/> 의 로컬 좌표로.</summary>
+    private Rect2 ViewportIn(Node2D space) => WindowRectIn(space, GetViewportRect());
+
+    /// <summary>창 좌표의 사각형을 <paramref name="space"/> 의 로컬 좌표로. 네 모서리를 옮겨 감싼다.</summary>
+    private static Rect2 WindowRectIn(Node2D space, Rect2 window)
     {
-        Rect2 viewport = GetViewportRect();
         Transform2D toLocal = space.GlobalTransform.AffineInverse();
 
-        var rect = new Rect2(toLocal * viewport.Position, Vector2.Zero);
-        rect = rect.Expand(toLocal * new Vector2(viewport.End.X, viewport.Position.Y));
-        rect = rect.Expand(toLocal * new Vector2(viewport.Position.X, viewport.End.Y));
-        rect = rect.Expand(toLocal * viewport.End);
+        var rect = new Rect2(toLocal * window.Position, Vector2.Zero);
+        rect = rect.Expand(toLocal * new Vector2(window.End.X, window.Position.Y));
+        rect = rect.Expand(toLocal * new Vector2(window.Position.X, window.End.Y));
+        rect = rect.Expand(toLocal * window.End);
         return rect;
     }
 }

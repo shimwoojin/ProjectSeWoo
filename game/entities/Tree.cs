@@ -134,7 +134,7 @@ public partial class Tree : Node2D
         _body.Texture = stage == 0 || !ResourceLoader.Exists(path) ? _baseTexture : GD.Load<Texture2D>(path);
         _stage = stage;
 
-        // 덤불·꽃·반짝임이 원판 알파 밖으로 나간다. 모양은 그리기 영역이기도 해서(SetWindowRgn) 안 다시 재면 잘린다.
+        // 덤불·꽃·반짝임이 원판 알파 밖으로 나간다 - 다시 재야 새로 자란 부분도 잡힌다(클릭 영역).
         MeasureShape();
     }
 

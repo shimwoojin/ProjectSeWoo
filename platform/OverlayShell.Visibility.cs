@@ -188,6 +188,9 @@ public partial class OverlayShell
     private void WireOptionsEvents()
     {
         _options.ScaleChanged += v => { SetScale(v); PersistSettings(); };
+        _options.FriendScaleChanged += v => { SetFriendScale(v); PersistSettings(); };
+        _options.CursorScaleChanged += v => { SetCursorScale(v); PersistSettings(); };
+        _options.FriendCursorScaleChanged += v => { SetFriendCursorScale(v); PersistSettings(); };
         _options.OpacityChanged += v => { SetOpacity(v); PersistSettings(); };
         _options.CursorEnabledChanged += v => { _settings.CursorEnabled = v; ApplyVisibility(); PersistSettings(); };
         _options.CursorIndependentChanged += v => { _settings.CursorIndependent = v; ApplyVisibility(); PersistSettings(); };
@@ -203,20 +206,31 @@ public partial class OverlayShell
             PersistSettings();
         };
 
+        // 트레이 "종료" 와 같은 길이다 - 세이브는 _ExitTree 가 FlushNow 로 쓴다.
+        _options.QuitRequested += () => GetTree().Quit();
+
         // 옵션 창이 열린 동안은 창 전체가 클릭을 받아야 한다 - 안 그러면 패널이
         // 마스코트 클릭 영역 밖으로 나가는 순간 슬라이더/체크박스를 못 누른다.
-        // 닫히면 위치 잠금 값대로 되돌린다.
-        _options.Closed += () => ApplyPassthrough(force: true);
+        // 닫히면 신고된 모양대로 되돌린다.
+        _options.Closed += () =>
+        {
+            _optionsWholeWindow = false;
+            ApplyPassthrough(force: true);
+        };
     }
 
     /// <param name="topInset">위쪽에 비워 둘 높이 - 게임 메뉴의 탭 줄 자리 (<see cref="IShell.OpenOptions"/>). 트레이·O 키는 0.</param>
     /// <param name="width">창 왼쪽 몇 px 안에 둘지 - 메뉴 칸 폭. 트레이·O 키는 0 (창 전체).</param>
     private void OpenOptionsWindow(float topInset = 0f, float width = 0f)
     {
-        _options.SetArea(topInset, width);
+        // 메뉴 칸 안이면 높이는 배율 1 때 창 높이로 고정 - "내 창 크기" 를 키워도 메뉴가 아래로 늘어나지 않는다 (2026-09-30).
+        _options.SetArea(topInset, width, width > 0f ? _baseWindowSize.Y : 0f);
         _options.SetValues(_settings, _unattended ? _settings.Autostart : Autostart.IsEnabled());
         _options.Open();
-        DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());
+
+        // 트레이·O 키로 열면 패널이 창 전체에 뜬다 - 그동안 창 전체가 클릭을 받는다 (ApplyPassthrough).
+        _optionsWholeWindow = width <= 0f;
+        ApplyPassthrough(force: true);
     }
 
     private void ToggleOptionsWindow()

@@ -54,6 +54,7 @@ public partial class FriendWindows : Node
 
         _net.OnRoomChanged += Sync;
         _net.OnPeerState += OnPeerState;
+        _shell.FriendCursorScaleChanged += OnFriendCursorScaleChanged;
         Sync();
     }
 
@@ -66,6 +67,17 @@ public partial class FriendWindows : Node
 
         _net.OnRoomChanged -= Sync;
         _net.OnPeerState -= OnPeerState;
+        _shell.FriendCursorScaleChanged -= OnFriendCursorScaleChanged;
+    }
+
+    /// <summary>옵션 "친구 커서 크기" 가 바뀌었다. 칸 모양도 커서를 감싸므로 창 모양을 다시 건다.</summary>
+    private void OnFriendCursorScaleChanged()
+    {
+        foreach (Friend friend in _friends.Values)
+        {
+            friend.View.SetCursorScale(_shell.FriendCursorScale);
+            friend.Window.SetShape(friend.View.GetShape());
+        }
     }
 
     public override void _Process(double delta)
@@ -147,6 +159,7 @@ public partial class FriendWindows : Node
         var view = new RemotePlayerView();
         view.Init(peer);
         window.Content.AddChild(view);
+        view.SetCursorScale(_shell.FriendCursorScale);
         window.SetShape(view.GetShape());
         window.Moved += at => Remember(peer, at);
 

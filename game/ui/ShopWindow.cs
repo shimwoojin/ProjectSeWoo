@@ -55,7 +55,7 @@ public partial class ShopWindow : CanvasLayer
     private Label _notice;
     private string _purchaseMessage;
 
-    private const string OfflineNotice = "인터넷 연결이 필요하다 - 구매는 온라인에서만 된다";
+    private const string OfflineNotice = "인터넷 연결이 필요합니다 - 구매는 온라인에서만 할 수 있습니다";
 
     // 도감 탭 (B7)
     private Label _collectionTotal;
@@ -67,7 +67,12 @@ public partial class ShopWindow : CanvasLayer
     /// <summary>상품 id → 그 줄의 컨트롤들. <see cref="Refresh"/> 가 여기만 훑는다.</summary>
     private readonly Dictionary<string, Row> _rows = new(StringComparer.Ordinal);
 
-    private sealed record Row(Label State, Button Action);
+    // 보유 탭 (2026-10-01). 상품마다 줄을 미리 만들어 두고 가진 것만 보인다 - 살 때마다 줄을 새로 짓지 않는다.
+    private readonly Dictionary<string, Row> _ownedRows = new(StringComparer.Ordinal);
+    private readonly Dictionary<CursorSlot, Label> _ownedHeads = new();
+    private Label _ownedEmpty;
+
+    private sealed record Row(Control Root, Label State, Button Action);
 
     public bool IsOpen => Visible;
 
@@ -141,53 +146,94 @@ public partial class ShopWindow : CanvasLayer
 
         foreach (ShopCatalog.Item item in ShopCatalog.All)
         {
-            if (!_rows.TryGetValue(item.Id, out Row row))
+            if (_rows.TryGetValue(item.Id, out Row row))
             {
-                continue;
+                ApplyRow(row, item, online);
             }
 
-            bool owned = _inventory.Owns(item.Id);
-            bool equipped = _inventory.EquippedIn(item.Slot) == item.Id;
-
-            if (equipped)
+            if (_ownedRows.TryGetValue(item.Id, out Row ownedRow))
             {
-                // 비울 수 없는 칸(원숭이·바나나)은 해제가 없다 - 다른 것을 끼우면 바뀐다.
-                bool canEmpty = ShopCatalog.CanBeEmpty(item.Slot);
-                row.State.Text = "장착 중";
-                row.State.AddThemeColorOverride("font_color", Accent);
-                row.Action.Text = canEmpty ? "해제" : "사용 중";
-                row.Action.Disabled = !canEmpty;
-            }
-            else if (_inventory.IsReceiving(item.Id))
-            {
-                // 샀는데 스팀 인벤토리에 아직 안 보인다 - 다시 사지 못하게 잠근다 (Inventory.MarkReceiving)
-                row.State.Text = "받는 중...";
-                row.State.AddThemeColorOverride("font_color", Accent);
-                row.Action.Text = "받는 중";
-                row.Action.Disabled = true;
-            }
-            else if (owned)
-            {
-                row.State.Text = "보유";
-                row.State.AddThemeColorOverride("font_color", Dim);
-                row.Action.Text = "장착";
-                row.Action.Disabled = false;
-            }
-            else
-            {
-                bool affordable = _inventory.Bananas >= item.Price;
-                row.State.Text = $"{item.Price:N0}";
-                row.State.AddThemeColorOverride("font_color", affordable ? Gold : Dim);
-                row.Action.Text = "구매";
-
-                // **못 사는 것도 보여 준다.** 버튼만 잠근다 - §3-2 가 "유저가 다음
-                // 목표를 눈으로 볼 수 있어야 커브가 작동한다" 고 한 부분이다.
-                // 오프라인이면 살 수 있는 값이어도 잠근다 - 이유는 안내 줄이 말한다.
-                row.Action.Disabled = !affordable || !online;
+                ApplyRow(ownedRow, item, online);
             }
         }
 
+        RefreshOwned();
         RefreshCollection();
+    }
+
+    /// <summary>한 줄의 상태 글자와 버튼을 소유·장착에 맞춘다. 슬롯 탭과 보유 탭이 같이 쓴다.</summary>
+    private void ApplyRow(Row row, ShopCatalog.Item item, bool online)
+    {
+        bool owned = _inventory.Owns(item.Id);
+        bool equipped = _inventory.EquippedIn(item.Slot) == item.Id;
+
+        if (equipped)
+        {
+            // 비울 수 없는 칸(원숭이·바나나)은 해제가 없다 - 다른 것을 끼우면 바뀐다.
+            bool canEmpty = ShopCatalog.CanBeEmpty(item.Slot);
+            row.State.Text = "장착 중";
+            row.State.AddThemeColorOverride("font_color", Accent);
+            row.Action.Text = canEmpty ? "해제" : "사용 중";
+            row.Action.Disabled = !canEmpty;
+        }
+        else if (_inventory.IsReceiving(item.Id))
+        {
+            // 샀는데 스팀 인벤토리에 아직 안 보인다 - 다시 사지 못하게 잠근다 (Inventory.MarkReceiving)
+            row.State.Text = "받는 중...";
+            row.State.AddThemeColorOverride("font_color", Accent);
+            row.Action.Text = "받는 중";
+            row.Action.Disabled = true;
+        }
+        else if (owned)
+        {
+            row.State.Text = "보유";
+            row.State.AddThemeColorOverride("font_color", Dim);
+            row.Action.Text = "장착";
+            row.Action.Disabled = false;
+        }
+        else
+        {
+            bool affordable = _inventory.Bananas >= item.Price;
+            row.State.Text = $"{item.Price:N0}";
+            row.State.AddThemeColorOverride("font_color", affordable ? Gold : Dim);
+            row.Action.Text = "구매";
+
+            // **못 사는 것도 보여 준다.** 버튼만 잠근다 - §3-2 가 "유저가 다음
+            // 목표를 눈으로 볼 수 있어야 커브가 작동한다" 고 한 부분이다.
+            // 오프라인이면 살 수 있는 값이어도 잠근다 - 이유는 안내 줄이 말한다.
+            row.Action.Disabled = !affordable || !online;
+        }
+    }
+
+    /// <summary>보유 탭: 가진(받는 중 포함) 것만 보이고, 하나도 없는 칸은 머리 줄도 숨긴다.</summary>
+    private void RefreshOwned()
+    {
+        int shown = 0;
+        foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
+        {
+            int inSlot = 0;
+            foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
+            {
+                if (!_ownedRows.TryGetValue(item.Id, out Row row))
+                {
+                    continue;
+                }
+
+                bool has = _inventory.Owns(item.Id) || _inventory.IsReceiving(item.Id);
+                row.Root.Visible = has;
+                inSlot += has ? 1 : 0;
+            }
+
+            if (_ownedHeads.TryGetValue(slot, out Label head))
+            {
+                head.Text = $"{ShopCatalog.SlotName(slot)}  {inSlot}";
+                head.Visible = inSlot > 0;
+            }
+
+            shown += inSlot;
+        }
+
+        _ownedEmpty.Visible = shown == 0;
     }
 
     // ------------------------------------------------------------------ UI 구성
@@ -240,6 +286,7 @@ public partial class ShopWindow : CanvasLayer
         AddSlotTab(tabs, CursorSlot.Monkey);
         AddSlotTab(tabs, CursorSlot.Banana);
         AddSlotTab(tabs, CursorSlot.Deco);
+        AddOwnedTab(tabs);
         AddCollectionTab(tabs);
     }
 
@@ -293,7 +340,48 @@ public partial class ShopWindow : CanvasLayer
 
         foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
         {
-            list.AddChild(MakeItemRow(item));
+            Row row = MakeItemRow(item);
+            _rows[item.Id] = row;
+            list.AddChild(row.Root);
+        }
+    }
+
+    /// <summary>
+    /// 보유 (2026-10-01). 가진 장식만 칸별로 모아 바로 장착·해제한다 - 장식이 늘면 슬롯 탭에서 산 것을 찾기
+    /// 번거롭다. 줄 모양·버튼은 슬롯 탭과 같다(<see cref="ApplyRow"/>). 구매는 여기서 일어나지 않는다.
+    /// </summary>
+    private void AddOwnedTab(TabContainer tabs)
+    {
+        var scroll = new ScrollContainer
+        {
+            Name = "보유",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        tabs.AddChild(scroll);
+
+        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 4);
+        scroll.AddChild(list);
+
+        _ownedEmpty = new Label { Text = "아직 가진 장식이 없습니다", HorizontalAlignment = HorizontalAlignment.Center };
+        _ownedEmpty.AddThemeFontSizeOverride("font_size", 12);
+        _ownedEmpty.AddThemeColorOverride("font_color", Dim);
+        list.AddChild(_ownedEmpty);
+
+        foreach (CursorSlot slot in Enum.GetValues<CursorSlot>())
+        {
+            var head = new Label();
+            head.AddThemeFontSizeOverride("font_size", 12);
+            head.AddThemeColorOverride("font_color", Dim);
+            list.AddChild(head);
+            _ownedHeads[slot] = head;
+
+            foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
+            {
+                Row row = MakeItemRow(item);
+                _ownedRows[item.Id] = row;
+                list.AddChild(row.Root);
+            }
         }
     }
 
@@ -387,7 +475,7 @@ public partial class ShopWindow : CanvasLayer
         }
     }
 
-    private Control MakeItemRow(ShopCatalog.Item item)
+    private Row MakeItemRow(ShopCatalog.Item item)
     {
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 8);
@@ -411,8 +499,7 @@ public partial class ShopWindow : CanvasLayer
         action.Pressed += () => OnRowPressed(item);
         row.AddChild(action);
 
-        _rows[item.Id] = new Row(state, action);
-        return row;
+        return new Row(row, state, action);
     }
 
     /// <summary>

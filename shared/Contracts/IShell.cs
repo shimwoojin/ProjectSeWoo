@@ -10,8 +10,19 @@ namespace ProjectSeWoo.Shared;
 /// </summary>
 public interface IShell
 {
-    /// <summary>창 배율. 옵션의 "크기" (§7-4).</summary>
+    /// <summary>
+    /// 내 창 배율. 옵션의 "내 창 크기" (§7-4). 친구 칸·내 커서 크기는 옵션에서 따로 정하고 셸 안에서 끝난다 (2026-09-30).
+    /// </summary>
     void SetScale(float s);
+
+    /// <summary>
+    /// 친구 칸 안의 커서 장식 크기 - 옵션 "친구 커서 크기" (2026-09-30). 1 이 원래 크기, <b>0 이면 숨긴다.</b>
+    /// 친구 칸 안은 게임 레이어가 그리므로(<c>RemotePlayerView</c>) 이 값만 넘긴다.
+    /// </summary>
+    float FriendCursorScale { get; }
+
+    /// <summary><see cref="FriendCursorScale"/> 가 바뀌었다.</summary>
+    event System.Action FriendCursorScaleChanged;
 
     /// <summary>창 투명도. 옵션의 "투명도" (§7-4).</summary>
     void SetOpacity(float a);
@@ -55,12 +66,17 @@ public interface IShell
     ///
     /// 넓힌 칸은 창 좌표 x 0 ~ <paramref name="width"/> 이다 - 게임 화면(셸 루트 아래)은 그만큼 오른쪽으로 옮겨 그리고,
     /// 화면에서 보이는 자리는 그대로다. <c>CanvasLayer</c> 창(상점·강화·로비·설정·안내)은 배율·위치를 안 물려받으므로
-    /// 그 칸에 스스로 붙는다. 칸의 높이는 창 높이를 따르되 배율 1 때의 높이보다 작아지지 않는다.
+    /// 그 칸에 스스로 붙는다. 칸의 높이는 배율 1 때의 창 높이로 고정이다 (2026-09-30 - 예전엔 창 높이를 따라 "내 창 크기"
+    /// 를 키우면 메뉴가 아래로 길어졌다). 창은 칸이 열려 있는 동안 그 높이보다 작아지지 않는다.
     ///
     /// 화면 왼쪽(또는 아래)에 자리가 모자라면 창을 화면 안에 두고 게임 화면이 잠깐 비켜난다 - 닫으면 제자리로
     /// 돌아온다. 열린 동안 창을 끌어 옮겼으면 옮긴 자리에 남는다.
+    ///
+    /// <paramref name="overlap"/> 은 칸이 게임 화면 왼쪽을 덮어도 되는 폭이다 (<b>게임 좌표, 배율 전</b> - 셸이 배율을
+    /// 곱한다). 게임 화면 왼쪽 가장자리에 그릴 것이 없으면 그만큼 칸이 나무·원숭이 쪽으로 붙는다 (2026-09-30). 창은
+    /// 칸 폭에서 그 몫을 뺀 만큼만 넓어지고, 게임 화면도 그만큼만 오른쪽으로 옮겨 그린다.
     /// </summary>
-    void SetSidePanel(int width);
+    void SetSidePanel(int width, float overlap);
 
     /// <summary>
     /// 작은 창을 하나 띄운다 (B10 친구 칸, <see cref="ISatelliteWindow"/>).

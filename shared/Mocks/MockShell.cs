@@ -34,11 +34,19 @@ public sealed class MockShell : IShell
     /// <summary>메뉴 칸 폭 (<see cref="IShell.SetSidePanel"/>). 목은 기억만 한다.</summary>
     public int SidePanelWidth { get; private set; }
 
-    public void SetSidePanel(int width) => SidePanelWidth = width;
+    public void SetSidePanel(int width, float overlap) => SidePanelWidth = width;
 
     public float Scale { get; private set; } = 1.0f;
 
     public float Opacity { get; private set; } = 1.0f;
+
+    public float FriendCursorScale => 1.0f;
+
+    public event System.Action FriendCursorScaleChanged
+    {
+        add { }
+        remove { }
+    }
 
     /// <summary>
     /// 목이 돌려줄 배치 가능 영역. 기본값은 현재 화면이지만, **멀티모니터 좌표를

@@ -140,10 +140,12 @@ public partial class DecoView : Node2D
             }
 
             case "trail":
+                // 입자 자리는 화면 px 다 - 커서 크기 옵션(CursorLayer.SetScale)으로 장식이 커지면 로컬 좌표로 나눠야 커서 자취에 남는다.
+                float toLocal = GlobalScale.X > 0f ? 1f / GlobalScale.X : 1f;
                 foreach (Particle p in _particles)
                 {
                     float life = 1f - p.Age / TrailLife;
-                    Vector2 at = p.Screen - _origin + new Vector2(0, p.Age * 18f);   // 살짝 떨어진다
+                    Vector2 at = (p.Screen - _origin) * toLocal + new Vector2(0, p.Age * 18f);   // 살짝 떨어진다
                     DrawTextureCentered(at, TrailSize * p.Scale * (0.6f + 0.4f * life), p.Spin + p.Age * 2f,
                         new Color(1f, 1f, 1f, life));
                 }

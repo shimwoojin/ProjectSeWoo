@@ -17,6 +17,9 @@ namespace ProjectSeWoo.Platform;
 public partial class OptionsWindow : CanvasLayer
 {
     private HSlider _scaleSlider;
+    private HSlider _friendScaleSlider;
+    private HSlider _cursorScaleSlider;
+    private HSlider _friendCursorScaleSlider;
     private HSlider _opacitySlider;
     private CheckBox _cursorEnabled;
     private CheckBox _cursorIndependent;
@@ -26,6 +29,8 @@ public partial class OptionsWindow : CanvasLayer
     private MarginContainer _margin;
     private Button _closeButton;
     private HSeparator _closeRule;
+    private Control _quitRow;
+    private Control _quitConfirm;
 
     /// <summary>기본 위쪽 여백. <see cref="SetArea"/> 가 이보다 작게는 안 줄인다.</summary>
     private const int MarginTop = 12;
@@ -39,6 +44,9 @@ public partial class OptionsWindow : CanvasLayer
     private bool _initializing;
 
     public event Action<float> ScaleChanged;
+    public event Action<float> FriendScaleChanged;
+    public event Action<float> CursorScaleChanged;
+    public event Action<float> FriendCursorScaleChanged;
     public event Action<float> OpacityChanged;
     public event Action<bool> CursorEnabledChanged;
     public event Action<bool> CursorIndependentChanged;
@@ -51,6 +59,9 @@ public partial class OptionsWindow : CanvasLayer
     /// </summary>
     public event Action Closed;
 
+    /// <summary>[게임 종료] 를 확인까지 눌렀다. 호출부가 트레이 "종료" 와 같이 끝낸다.</summary>
+    public event Action QuitRequested;
+
     public bool IsOpen => Visible;
 
     public override void _Ready()
@@ -60,7 +71,11 @@ public partial class OptionsWindow : CanvasLayer
         BuildUi();
     }
 
-    public void Open() => Visible = true;
+    public void Open()
+    {
+        ShowQuitConfirm(false);
+        Visible = true;
+    }
 
     /// <summary>
     /// 패널을 놓을 자리. 게임 메뉴(MenuHub)에서 열면 그 탭 줄이 창 위를 덮고 있어서 줄 아래로 내리고, 창 왼쪽의 메뉴 칸
@@ -70,7 +85,8 @@ public partial class OptionsWindow : CanvasLayer
     /// <b>메뉴 안에서는 상점·강화·로비 창과 같은 모양이 된다</b> (2026-09-27): 칸 아래까지 채우고, 옆·아래 여백을
     /// 그 창들과 같은 10 으로, 자기 [닫기] 는 숨긴다 - 탭 줄에 [닫기] 가 있다. 트레이에서 열면 예전 모양 그대로다.
     /// </summary>
-    public void SetArea(float topInset, float width)
+    /// <param name="height">메뉴 칸 높이(창 px). 0 이면 창 아래 끝까지.</param>
+    public void SetArea(float topInset, float width, float height)
     {
         bool inMenu = topInset > 0f;
         int side = inMenu ? 10 : MarginTop;
@@ -79,14 +95,15 @@ public partial class OptionsWindow : CanvasLayer
         _margin.AddThemeConstantOverride("margin_right", side);
         _margin.AddThemeConstantOverride("margin_bottom", side);
 
-        // 폭이 있으면 창 왼쪽 그 폭에, 위아래는 창 끝까지. 창 크기가 바뀌어도(배율 슬라이더) 앵커가 따라간다.
+        // 폭이 있으면 창 왼쪽 위에 그 폭·높이로 (메뉴 칸, MenuHub.AnchorToPanel 과 같은 자리). 높이를 고정하는 것은 배율
+        // 슬라이더로 창이 길어져도 메뉴까지 길어지지 않게 하려는 것이다 (2026-09-30).
         if (width > 0f)
         {
-            _margin.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+            _margin.SetAnchorsPreset(height > 0f ? Control.LayoutPreset.TopLeft : Control.LayoutPreset.LeftWide);
             _margin.OffsetLeft = 0;
             _margin.OffsetTop = 0;
             _margin.OffsetRight = width;
-            _margin.OffsetBottom = 0;
+            _margin.OffsetBottom = height;
         }
         else
         {
@@ -101,7 +118,15 @@ public partial class OptionsWindow : CanvasLayer
     public void Close()
     {
         Visible = false;
+        ShowQuitConfirm(false);
         Closed?.Invoke();
+    }
+
+    /// <summary>[게임 종료] 줄과 "종료할까?" 줄을 바꿔 낀다.</summary>
+    private void ShowQuitConfirm(bool on)
+    {
+        _quitRow.Visible = !on;
+        _quitConfirm.Visible = on;
     }
 
     /// <summary>
@@ -113,6 +138,9 @@ public partial class OptionsWindow : CanvasLayer
         _initializing = true;
 
         _scaleSlider.Value = s.Scale;
+        _friendScaleSlider.Value = s.FriendScale;
+        _cursorScaleSlider.Value = s.CursorScale;
+        _friendCursorScaleSlider.Value = s.FriendCursorScale;
         _opacitySlider.Value = s.Opacity;
         _cursorEnabled.ButtonPressed = s.CursorEnabled;
         _cursorIndependent.ButtonPressed = s.CursorIndependent;
@@ -154,10 +182,23 @@ public partial class OptionsWindow : CanvasLayer
         rows.AddChild(MakeTitle("설정"));
         rows.AddChild(new HSeparator());
 
-        rows.AddChild(MakeSliderRow("크기", 0.5f, 2.0f, 0.05f, out _scaleSlider));
+        // 크기는 넷으로 나뉜다 (2026-09-30). 범위는 OverlayShell 의 Set*Scale clamp 와 같고, 0.25 칸씩 끊는다
+        // (OverlayShell.ScaleStep) - 0.05 씩이면 조금만 끌어도 크기가 바뀌어 원하는 값에 멈추기 어려웠다. 칸마다 눈금을 단다.
+        rows.AddChild(MakeScaleRow("내 창 크기", 0.5f, 2.0f, out _scaleSlider));
         _scaleSlider.ValueChanged += v => Relay(() => ScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider));
+        rows.AddChild(MakeScaleRow("친구 칸 크기", 0.5f, 2.0f, out _friendScaleSlider));
+        _friendScaleSlider.ValueChanged += v => Relay(() => FriendScaleChanged?.Invoke((float)v));
+
+        rows.AddChild(MakeScaleRow("내 커서 크기", 0.5f, 2.0f, out _cursorScaleSlider));
+        _cursorScaleSlider.ValueChanged += v => Relay(() => CursorScaleChanged?.Invoke((float)v));
+
+        rows.AddChild(MakeScaleRow("친구 커서 크기 (왼쪽 끝 숨김)", 0f, 1.25f, out _friendCursorScaleSlider));
+        _friendCursorScaleSlider.ValueChanged += v => Relay(() => FriendCursorScaleChanged?.Invoke((float)v));
+
+        HBoxContainer opacityRow = MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider);
+        AddValueLabel(opacityRow, _opacitySlider, PercentText);
+        rows.AddChild(opacityRow);
         _opacitySlider.ValueChanged += v => Relay(() => OpacityChanged?.Invoke((float)v));
 
 
@@ -179,6 +220,40 @@ public partial class OptionsWindow : CanvasLayer
 
         rows.AddChild(MakeCheckRow("Windows 시작 시 자동 실행", out _autostart));
         _autostart.Toggled += on => Relay(() => AutostartChanged?.Invoke(on));
+
+        // 게임 종료 (2026-10-01). 창을 닫으면 트레이로 숨을 뿐이라, 끄려면 트레이 메뉴를 찾아야 했다.
+        // 잘못 눌러 꺼지지 않게 "종료할까?" 를 한 번 거친다. 진행은 종료 때 저장된다(OverlayShell._ExitTree).
+        rows.AddChild(new HSeparator());
+
+        // 버튼 글자도 확인 줄과 같은 경고색이다 - 다른 설정과 달리 창이 꺼지는 버튼이라는 것이 보이게.
+        var warn = new Color(1.00f, 0.62f, 0.45f);
+        var quitRow = new HBoxContainer();
+        var quit = new Button { Text = "게임 종료" };
+        quit.AddThemeFontSizeOverride("font_size", 12);
+        foreach (string state in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color" })
+        {
+            quit.AddThemeColorOverride(state, warn);
+        }
+
+        quit.Pressed += () => ShowQuitConfirm(true);
+        quitRow.AddChild(quit);
+        rows.AddChild(_quitRow = quitRow);
+
+        var confirm = new HBoxContainer { Visible = false };
+        confirm.AddThemeConstantOverride("separation", 6);
+        var ask = new Label { Text = "게임을 종료할까요? 진행 상황은 저장됩니다.", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        ask.AddThemeFontSizeOverride("font_size", 12);
+        ask.AddThemeColorOverride("font_color", warn);
+        confirm.AddChild(ask);
+        var yes = new Button { Text = "종료" };
+        yes.AddThemeFontSizeOverride("font_size", 12);
+        yes.Pressed += () => QuitRequested?.Invoke();
+        confirm.AddChild(yes);
+        var no = new Button { Text = "취소" };
+        no.AddThemeFontSizeOverride("font_size", 12);
+        no.Pressed += () => ShowQuitConfirm(false);
+        confirm.AddChild(no);
+        rows.AddChild(_quitConfirm = confirm);
 
         _closeRule = new HSeparator();
         rows.AddChild(_closeRule);
@@ -227,6 +302,44 @@ public partial class OptionsWindow : CanvasLayer
 
         return row;
     }
+
+    /// <summary>
+    /// 크기 슬라이더 - <see cref="OverlayShell.ScaleStep"/> 칸마다 눈금, 오른쪽에 지금 배율("1.0x", "1.25x"). 0 은 숨김이다
+    /// (친구 커서).
+    /// </summary>
+    private static HBoxContainer MakeScaleRow(string label, float min, float max, out HSlider slider)
+    {
+        HBoxContainer row = MakeSliderRow(label, min, max, OverlayShell.ScaleStep, out slider);
+        slider.TickCount = Mathf.RoundToInt((max - min) / OverlayShell.ScaleStep) + 1;
+        slider.TicksOnBorders = true;
+        AddValueLabel(row, slider, ScaleText);
+        return row;
+    }
+
+    /// <summary>
+    /// 슬라이더 줄 오른쪽 끝에 지금 값을 글자로 단다. <see cref="SetValues"/> 로 값을 맞출 때도 바뀐다 - 이벤트를 막는
+    /// <see cref="Relay"/> 밖에서 단다.
+    /// </summary>
+    private static void AddValueLabel(HBoxContainer row, HSlider slider, Func<double, string> format)
+    {
+        var value = new Label
+        {
+            CustomMinimumSize = new Vector2(40, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Text = format(slider.Value),
+        };
+        value.AddThemeFontSizeOverride("font_size", 12);
+        value.AddThemeColorOverride("font_color", new Color(0.85f, 0.88f, 0.93f));
+        row.AddChild(value);
+        slider.ValueChanged += v => value.Text = format(v);
+    }
+
+    /// <summary>투명도 0.1~1.0 → "10%"~"100%". 0.05 칸이라 5% 단위로 나온다.</summary>
+    private static string PercentText(double v) => $"{Math.Round(v * 100):0}%";
+
+    /// <summary>1 → "1.0x", 1.25 → "1.25x", 0.5 → "0.5x", 0 → "숨김".</summary>
+    private static string ScaleText(double v) =>
+        v <= 0 ? "숨김" : v.ToString("0.0#", System.Globalization.CultureInfo.InvariantCulture) + "x";
 
     private static HBoxContainer MakeCheckRow(string label, out CheckBox box)
     {

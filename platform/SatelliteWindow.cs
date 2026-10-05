@@ -9,8 +9,9 @@ namespace ProjectSeWoo.Platform;
 ///
 /// 창 속성은 커서 창(<see cref="CursorLayer"/>)과 같다 - 테두리 없음, 항상 위, 투명,
 /// 포커스 안 뺏음. 다른 점은 <b>일부만 클릭을 받는다</b>는 것: 커서 창은 전부 통과시키지만
-/// 친구 칸은 원숭이·나무를 잡아 끌 수 있어야 해서, 메인 창과 같은
-/// <c>WindowSetMousePassthrough</c> 영역을 건다.
+/// 친구 칸은 원숭이·나무를 잡아 끌 수 있어야 해서, 메인 창과 같이 <b>커서가 모양 위일 때만 통과를 끈다</b>
+/// (<see cref="ClickThrough"/>, 2026-09-30). 예전엔 창 모양(<c>WindowSetMousePassthrough</c>)이라 모양 밖이 그려지지도
+/// 않아서 이름표 띠까지 모양에 넣어야 했다.
 ///
 /// 끌기는 셸의 메인 창 끌기와 같은 방식이다 - 매 틱 마우스 버튼과 화면 좌표를 보고,
 /// 끄는 동안은 창 전체가 마우스를 받게 한다(영역을 벗어나는 순간 끊기지 않게).
@@ -30,6 +31,8 @@ public sealed class SatelliteWindow : ISatelliteWindow
     private Vector2I _dragOffset;
     private Vector2I _dragStart;
     private bool _closed;
+    private IntPtr _hwnd;
+    private bool _clickThroughFailed;
 
     public SatelliteWindow(Node host, string name, Vector2I contentSize, Vector2I position, float scale, Action<SatelliteWindow> onClosed)
     {
@@ -62,11 +65,7 @@ public sealed class SatelliteWindow : ISatelliteWindow
 
     public Vector2I ScreenPosition => _win.Position;
 
-    public void SetShape(Vector2[] outline)
-    {
-        _shape = outline is { Length: >= 3 } ? outline : null;
-        ApplyPassthrough();
-    }
+    public void SetShape(Vector2[] outline) => _shape = outline is { Length: >= 3 } ? outline : null;
 
     public void Close()
     {
@@ -82,7 +81,7 @@ public sealed class SatelliteWindow : ISatelliteWindow
 
     // ------------------------------------------------------------------ 셸이 부른다
 
-    /// <summary>옵션 배율 (메인 창과 같은 값). 창 크기와 내용을 같이 키운다.</summary>
+    /// <summary>옵션 "친구 칸 크기" (메인 창과 따로, 2026-09-30). 창 크기와 내용을 같이 키운다.</summary>
     public void SetScale(float scale)
     {
         _scale = scale;
@@ -90,7 +89,6 @@ public sealed class SatelliteWindow : ISatelliteWindow
         _win.Size = new Vector2I(
             Mathf.RoundToInt(_contentSize.X * scale),
             Mathf.RoundToInt(_contentSize.Y * scale));
-        ApplyPassthrough();
     }
 
     /// <summary>옵션 투명도 (메인 창과 같은 값).</summary>
@@ -108,15 +106,9 @@ public sealed class SatelliteWindow : ISatelliteWindow
         }
 
         _win.Visible = visible;
-
-        // OS 창은 처음 보일 때 생긴다 - 그 전에 건 클릭 통과 영역은 갈 데가 없었다.
-        if (visible)
-        {
-            ApplyPassthrough();
-        }
     }
 
-    /// <summary>매 프레임. 끌기만 한다.</summary>
+    /// <summary>매 프레임. 끌기와, 커서가 모양 위인지에 따라 클릭 통과를 켜고 끈다.</summary>
     public void Tick()
     {
         if (_closed || !_win.Visible)
@@ -126,6 +118,7 @@ public sealed class SatelliteWindow : ISatelliteWindow
 
         bool pressed = Input.IsMouseButtonPressed(MouseButton.Left);
         Vector2I mouse = DisplayServer.MouseGetPosition();
+        bool onShape = IsOnShape(mouse);
 
         if (_dragging)
         {
@@ -138,27 +131,59 @@ public sealed class SatelliteWindow : ISatelliteWindow
                 EndDrag();
             }
         }
-        else if (pressed && !_wasPressed && IsOnShape(mouse))
+        else if (pressed && !_wasPressed && onShape)
         {
             // 누른 순간이 잡는 영역 안일 때만 - 다른 데서 누른 채 들어온 것은 끌기가 아니다.
             _dragging = true;
             _dragOffset = mouse - _win.Position;
             _dragStart = _win.Position;
-            SetPassthrough(Array.Empty<Vector2>());
         }
 
         _wasPressed = pressed;
+
+        // 끄는 동안은 창 전체가 받는다 - 커서가 모양을 벗어나도 끌기가 안 끊기게.
+        if (EnsureHwnd())
+        {
+            ClickThrough.SetPassThrough(_hwnd, !(_dragging || onShape));
+        }
     }
 
     private void EndDrag()
     {
         _dragging = false;
-        ApplyPassthrough();
 
         if (_win.Position != _dragStart)
         {
             Moved?.Invoke(_win.Position);
         }
+    }
+
+    /// <summary>
+    /// HWND 를 잡고 LAYERED 를 붙인다. OS 창은 처음 보일 때 생기므로 틱에서 늦게 잡는다. 못 잡으면 창 전체가 클릭을 받는
+    /// 채로 둔다(경고 한 번).
+    /// </summary>
+    private bool EnsureHwnd()
+    {
+        if (_hwnd != IntPtr.Zero)
+        {
+            return true;
+        }
+
+        if (_clickThroughFailed || _win.GetWindowId() == DisplayServer.InvalidWindowId)
+        {
+            return false;
+        }
+
+        IntPtr hwnd = ClickThrough.Hwnd(_win.GetWindowId());
+        if (hwnd == IntPtr.Zero || !ClickThrough.Prepare(hwnd))
+        {
+            _clickThroughFailed = true;
+            GD.PushWarning($"[satellite] {_win.Name} 에 클릭 통과를 걸 수 없다 - 창 전체가 클릭을 받는다");
+            return false;
+        }
+
+        _hwnd = hwnd;
+        return true;
     }
 
     /// <summary>화면 좌표의 점이 창 모양 안인가. 모양이 없으면 창 전체.</summary>
@@ -168,42 +193,5 @@ public sealed class SatelliteWindow : ISatelliteWindow
         return _shape == null
             ? new Rect2(Vector2.Zero, _contentSize).HasPoint(local)
             : Geometry2D.IsPointInPolygon(local, _shape);
-    }
-
-    /// <summary>
-    /// 창 모양 안만 클릭을 받게 한다 - 그리고 그 밖은 그려지지도 않는다(<see cref="ISatelliteWindow.SetShape"/>).
-    /// 모양이 없으면 빈 배열 = 창 전체.
-    /// </summary>
-    private void ApplyPassthrough()
-    {
-        if (_dragging)
-        {
-            return;
-        }
-
-        if (_shape == null)
-        {
-            SetPassthrough(Array.Empty<Vector2>());
-            return;
-        }
-
-        var scaled = new Vector2[_shape.Length];
-        for (int i = 0; i < _shape.Length; i++)
-        {
-            scaled[i] = _shape[i] * _scale;
-        }
-
-        SetPassthrough(scaled);
-    }
-
-    private void SetPassthrough(Vector2[] region)
-    {
-        int id = _win.GetWindowId();
-        if (id == DisplayServer.InvalidWindowId)
-        {
-            return;
-        }
-
-        DisplayServer.WindowSetMousePassthrough(region, id);
     }
 }

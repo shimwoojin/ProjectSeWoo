@@ -43,7 +43,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <summary>
     /// 클릭 영역의 출처. <c>game/GameRoot</c> 가 신고한다 -
     /// shared/Contracts/IInteractiveArea.cs. 씬이 깨져서 못 찾은 경우에만 null 이고,
-    /// 그때는 <see cref="BuildRegion"/> 이 빈 값(창 전체)으로 답한다.
+    /// 그때는 <see cref="BuildHitRects"/> 가 창 전체로 답한다.
     /// </summary>
     private IInteractiveArea _content;
 
@@ -51,10 +51,19 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     private Vector2I _baseWindowSize;
 
     /// <summary>
-    /// 메뉴 칸 폭 (창 px, <see cref="IShell.SetSidePanel"/>). 0 이면 닫힘. 열려 있으면 창이 왼쪽으로 이만큼 넓고,
-    /// 게임 화면은 셸 루트의 <see cref="Node2D.Position"/> 으로 그만큼 오른쪽에 그린다.
+    /// 메뉴 칸 폭 (창 px, <see cref="IShell.SetSidePanel"/>). 0 이면 닫힘. 열려 있으면 창이 왼쪽으로 <see cref="PanelShift"/>
+    /// 만큼 넓고, 게임 화면은 셸 루트의 <see cref="Node2D.Position"/> 으로 그만큼 오른쪽에 그린다.
     /// </summary>
     private int _panelWidth;
+
+    /// <summary>메뉴 칸이 게임 화면 왼쪽을 덮어도 되는 폭 (게임 좌표, 배율 전). <see cref="IShell.SetSidePanel"/>.</summary>
+    private float _panelOverlap;
+
+    /// <summary>
+    /// 게임 화면이 창 왼쪽 끝에서 떨어진 폭 (창 px) - 메뉴 칸 폭에서 겹치는 몫을 뺀 것. 겹치는 몫은 배율을 따르므로
+    /// 메뉴가 열린 채 "내 창 크기" 를 바꾸면 이 값도 바뀐다 (<see cref="SetScale"/> 가 게임 화면을 제자리에 둔다).
+    /// </summary>
+    private int PanelShift => _panelWidth == 0 ? 0 : Math.Max(0, _panelWidth - Mathf.RoundToInt(_panelOverlap * _settings.Scale));
 
     /// <summary>
     /// 메뉴 칸을 열기 직전 게임 화면의 화면 좌표. 닫을 때 여기로 돌아온다 - 화면 끝이라 칸을 열면서 게임 화면이
@@ -150,20 +159,22 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     private Vector2I _dragOffset;
     private Vector2I _dragStart;
 
-    // --- 클릭 통과 ---
+    // --- 클릭 통과 (ClickThrough, 2026-09-30) ---
 
-    /// <summary>마지막으로 실제 적용한 passthrough 폴리곤. "바뀔 때만 쓰기"의 비교 대상이다.</summary>
-    private Vector2[] _appliedRegion = Array.Empty<Vector2>();
-
-    /// <summary>이번 프레임에 신고된 사각형 (창 px, 여백 포함). <see cref="BuildRegion"/> 이 매 프레임 채운다.</summary>
+    /// <summary>이번 프레임에 신고된 사각형 (창 px, 여백 포함). <see cref="BuildHitRects"/> 가 매 프레임 채운다.</summary>
     private readonly List<Rect2> _hitRects = new();
 
-    /// <summary><see cref="_mergedRegion"/> 을 만든 사각형들. 그대로면 다시 합치지 않는다.</summary>
-    private Rect2[] _mergedFrom = Array.Empty<Rect2>();
+    /// <summary>메인 창 HWND. OS 창이 생긴 뒤 처음 <see cref="ApplyPassthrough"/> 에서 잡는다.</summary>
+    private IntPtr _mainHwnd;
 
-    private Vector2[] _mergedRegion = Array.Empty<Vector2>();
+    /// <summary>HWND 를 못 얻었거나 LAYERED 가 안 붙었다 - 클릭 통과 없이 창 전체가 받는다. 경고는 한 번.</summary>
+    private bool _clickThroughFailed;
 
-    private static bool _warnedDisjointRegion;
+    /// <summary>지금 창이 클릭을 받고 있는가 (통과 아님). 받다가 통과로 바뀌면 게임 레이어에 알린다.</summary>
+    private bool _receivingClicks = true;
+
+    /// <summary>트레이·O 키로 연 설정 창 - 창 전체에 뜨므로 창 전체가 클릭을 받는다. 메뉴 안에서 열면 게임 레이어가 칸을 신고한다.</summary>
+    private bool _optionsWholeWindow;
 
     /// <summary>F2 (디버그) - 창 전체가 클릭을 받게. 예전 옵션 "위치 잠금" 끔과 같은 상태로 비교할 때만 쓴다. 저장 안 함.</summary>
     private bool _debugWholeWindow;
@@ -251,6 +262,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 조건부 Go 인 상태라(docs/A7-PERF.md §4) "스팀이 얼마를 더 먹는가"를
         // 같은 조건에서 비교할 수 있어야 한다.
         _steamSelftest = Array.IndexOf(OS.GetCmdlineUserArgs(), "--steam-selftest") >= 0;
+        _toastTest = Array.IndexOf(OS.GetCmdlineUserArgs(), "--toast-test") >= 0;
         bool forceSteam = Array.IndexOf(OS.GetCmdlineUserArgs(), "--steam") >= 0;
         if (!_unattended || _steamSelftest || forceSteam)
         {
@@ -463,7 +475,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         {
             // B1 이 끝나서 자리표시자 마스코트(PlaceholderMascot)는 없앴다 -
             // Shell.tscn 이 game/GameRoot.tscn 을 자식으로 물고 있으므로 여기 오면
-            // 씬이 깨진 것이다. 크래시 대신 창 전체가 클릭을 받게 두고(BuildRegion)
+            // 씬이 깨진 것이다. 크래시 대신 창 전체가 클릭을 받게 두고(BuildHitRects)
             // 시끄럽게 남긴다 - 조용히 클릭이 전부 통과하면 원인을 엉뚱한 데서 찾는다.
             GD.PrintErr("[shell] game/GameRoot 를 못 찾았다. Shell.tscn 의 자식 구성을 확인할 것"
                 + " - 클릭 영역 없이 뜬다");
@@ -560,7 +572,8 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     }
 
     /// <summary>
-    /// 창 배율. 옵션 창(A6) "크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
+    /// 내 창 배율. 옵션 창(A6) "내 창 크기" 슬라이더, debug 키 <c>[</c>/<c>]</c>로 시험한다.
+    /// 친구 칸은 <see cref="SetFriendScale"/>, 내 커서는 <see cref="SetCursorScale"/> 로 따로 정한다 (2026-09-30).
     ///
     /// 루트 <see cref="Node2D.Scale"/>을 바꿔서 게임 콘텐츠/외곽선을 같이 키운다.
     /// <see cref="DebugHud"/>/<see cref="OptionsWindow"/>는 <c>CanvasLayer</c>라 이
@@ -573,17 +586,58 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     {
         // 상한/하한은 실제 체감으로 잡은 자리 표시자다 - "창이 사라지거나 화면을
         // 뒤덮는" 극단만 막는다. A6 옵션 슬라이더도 이 범위로 맞췄다(OptionsWindow).
-        _settings.Scale = Mathf.Clamp(s, 0.5f, 2.0f);
+        _settings.Scale = SnapScale(s, 0.5f, 2.0f);
         Scale = Vector2.One * _settings.Scale;
-        foreach (SatelliteWindow satellite in _satellites)
-        {
-            satellite.SetScale(_settings.Scale);
-        }
 
+        // 메뉴가 열려 있으면(설정 탭에서 이 슬라이더를 끄는 중) 메뉴 칸이 덮는 폭이 배율을 따라 바뀐다. **창은 그대로 두고
+        // 게임 화면이 조금 움직인다.** 반대로 게임 화면을 제자리에 두려고 창을 옮겼더니, 끄는 슬라이더가 마우스 밑에서
+        // 같이 움직여 값이 또 바뀌고 창이 또 움직여서 창이 덜덜 떨었다 (2026-09-30). 메뉴를 닫으면 게임 화면은 연 자리로.
+        Position = new Vector2(PanelShift, 0);
         ApplyWindowSize();
 
         // 마스코트 크기가 바뀌었으니 클릭 영역도 다시 계산해야 한다.
         ApplyPassthrough(force: true);
+    }
+
+    /// <summary>
+    /// 크기 옵션 넷의 단위 (2026-09-30). 슬라이더가 0.05 씩 움직여서 조금만 끌어도 크기가 바뀌고 원하는 값에 멈추기
+    /// 어려웠다 - 0.25 씩 끊는다. 예전 세이브의 어중간한 값(1.15 등)도 읽을 때 가장 가까운 칸으로 붙는다.
+    /// </summary>
+    public const float ScaleStep = 0.25f;
+
+    private static float SnapScale(float s, float min, float max) => Mathf.Clamp(Mathf.Snapped(s, ScaleStep), min, max);
+
+    /// <summary>친구 칸 창 배율 - 옵션 "친구 칸 크기", 모든 친구 공통. 범위는 내 창과 같다.</summary>
+    public void SetFriendScale(float s)
+    {
+        _settings.FriendScale = SnapScale(s, 0.5f, 2.0f);
+        foreach (SatelliteWindow satellite in _satellites)
+        {
+            satellite.SetScale(_settings.FriendScale);
+        }
+    }
+
+    /// <summary>내 커서 장식 배율 - 옵션 "내 커서 크기". 범위는 내 창과 같다.</summary>
+    public void SetCursorScale(float s)
+    {
+        _settings.CursorScale = SnapScale(s, 0.5f, 2.0f);
+        _cursor.SetScale(_settings.CursorScale);
+    }
+
+    /// <inheritdoc cref="IShell.FriendCursorScale"/>
+    public float FriendCursorScale => _settings?.FriendCursorScale ?? 1f;
+
+    public event Action FriendCursorScaleChanged;
+
+    /// <summary>
+    /// 친구 칸 안의 커서 장식 배율 - 옵션 "친구 커서 크기". 0 이면 숨긴다. 상한이 다른 셋보다 낮은 이유는
+    /// 칸(140x200) 안에 커서가 들어가야 해서다 - 1.5 에서는 매달린 원숭이 발끝이 이름표 띠에 닿아서 1.25 로 잡았다
+    /// (2026-09-30, RemotePlayerView.SetCursorScale).
+    /// </summary>
+    public void SetFriendCursorScale(float s)
+    {
+        _settings.FriendCursorScale = SnapScale(s, 0f, 1.25f);
+        FriendCursorScaleChanged?.Invoke();
     }
 
     /// <summary>게임 화면(배율 적용) + 메뉴 칸. 칸이 열려 있으면 높이는 배율 1 때보다 작아지지 않는다 - 상점이 너무 납작해진다.</summary>
@@ -595,17 +649,18 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
             height = Math.Max(height, _baseWindowSize.Y);
         }
 
-        _win.Size = new Vector2I(Mathf.RoundToInt(_baseWindowSize.X * _settings.Scale) + _panelWidth, height);
+        _win.Size = new Vector2I(Mathf.RoundToInt(_baseWindowSize.X * _settings.Scale) + PanelShift, height);
     }
 
-    /// <summary>게임 화면의 왼쪽 위 (화면 좌표). 메뉴 칸이 열려 있으면 창 왼쪽 끝이 아니라 칸 오른쪽이다.</summary>
-    private Vector2I ContentOrigin => _win.Position + new Vector2I(_panelWidth, 0);
+    /// <summary>게임 화면의 왼쪽 위 (화면 좌표). 메뉴 칸이 열려 있으면 창 왼쪽 끝이 아니라 <see cref="PanelShift"/> 오른쪽이다.</summary>
+    private Vector2I ContentOrigin => _win.Position + new Vector2I(PanelShift, 0);
 
     /// <inheritdoc cref="IShell.SetSidePanel"/>
-    public void SetSidePanel(int width)
+    public void SetSidePanel(int width, float overlap)
     {
         width = Math.Max(0, width);
-        if (width == _panelWidth)
+        overlap = Math.Max(0f, overlap);
+        if (width == _panelWidth && Mathf.IsEqualApprox(overlap, _panelOverlap))
         {
             return;
         }
@@ -622,10 +677,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         }
 
         _panelWidth = width;
-        Position = new Vector2(width, 0);
+        _panelOverlap = overlap;
+        Position = new Vector2(PanelShift, 0);
         ApplyWindowSize();
 
-        var position = new Vector2I(content.X - width, content.Y);
+        var position = new Vector2I(content.X - PanelShift, content.Y);
         if (width > 0)
         {
             // 화면 왼쪽·아래로 칸이 잘리지 않게 창을 화면 안으로 민다. 게임 화면이 그만큼 비켜난다 - 닫으면 _panelHome 으로.
@@ -672,11 +728,11 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         string name, Vector2I contentSize, Vector2I? savedPosition, params Vector2[] preferredOffsets)
     {
         var size = new Vector2I(
-            Mathf.RoundToInt(contentSize.X * _settings.Scale),
-            Mathf.RoundToInt(contentSize.Y * _settings.Scale));
+            Mathf.RoundToInt(contentSize.X * _settings.FriendScale),
+            Mathf.RoundToInt(contentSize.Y * _settings.FriendScale));
 
         var satellite = new SatelliteWindow(
-            this, name, contentSize, PlaceSatellite(size, savedPosition, preferredOffsets), _settings.Scale,
+            this, name, contentSize, PlaceSatellite(size, savedPosition, preferredOffsets), _settings.FriendScale,
             closed => _satellites.Remove(closed));
         satellite.SetOpacity(_settings.Opacity);
         _satellites.Add(satellite);
@@ -734,6 +790,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         _settings = _save.Data.Settings;
 
         SetScale(_settings.Scale);
+        SetFriendScale(_settings.FriendScale);
+        SetCursorScale(_settings.CursorScale);
+        SetFriendCursorScale(_settings.FriendCursorScale);
         SetOpacity(_settings.Opacity);
         ApplyPassthrough(force: true);
         ApplyVisibility();
@@ -791,121 +850,31 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     // ------------------------------------------------------------------ 클릭 통과
 
     /// <summary>
-    /// 창 픽셀 좌표 기준의 클릭 수신 폴리곤 - 게임 레이어가 신고한 사각형들(<see cref="IInteractiveArea.GetClickableRects"/>)을
-    /// 배율·여백을 붙여 <b>다각형 하나로 합친 것</b>이다 (2026-09-28). 예전엔 전부를 감싸는 사각형 하나였고, 옵션
-    /// "위치 잠금" 을 끄면 창 전체였다 - 나무 옆 빈 공간까지 클릭을 막고 끌렸다.
+    /// 클릭을 받을 사각형들 (창 px) - 게임 레이어가 신고한 것(<see cref="IInteractiveArea.GetClickableRects"/>)에 배율·여백
+    /// (<see cref="HitPadding"/>)을 붙인다. 서로 떨어져 있어도 된다 - 판정은 "어느 사각형에든 들면" 이다.
     ///
-    /// <b>다각형 하나여야 한다.</b> <c>WindowSetMousePassthrough</c> 는 하나만 받는다. 그래서 떨어진 조각은 여백
-    /// (<see cref="HitPadding"/>)으로 이어져야 하고, 끝내 안 이어지면 전부를 감싸는 사각형으로 물러난다(경고 한 번).
-    /// 이 영역 밖은 그려지지도 않는다(SetWindowRgn) - 보여야 하는 것은 게임 레이어가 전부 신고한다.
-    ///
-    /// 빈 배열을 넘기면 passthrough 가 꺼지고 창 전체가 마우스를 가로챈다(Godot 기본 동작).
-    /// 매 프레임 불린다 - 사각형이 그대로면 지난 결과를 돌려준다.
+    /// <b>창을 자르지 않는다 (2026-09-30).</b> 예전엔 이것을 다각형 하나로 합쳐 <c>WindowSetMousePassthrough</c> 에 넘겼는데,
+    /// 그 함수가 Windows 에서 창 모양(<c>SetWindowRgn</c>)이라 그 밖은 그려지지도 않았다 - HUD 글자·떨어지는 바나나를 보이려고
+    /// 클릭 영역에 넣어야 했고, 스팀 업적 알림은 조각만 보였다. 이제는 커서가 이 안일 때만 통과를 끈다(<see cref="ClickThrough"/>).
     /// </summary>
-    private Vector2[] BuildRegion()
+    /// <returns>창 전체가 클릭을 받아야 하면 true (신고가 없거나, 디버그 F2).</returns>
+    private bool BuildHitRects()
     {
+        _hitRects.Clear();
+
         // _content 가 없으면 신고된 클릭 영역도 없다 - BuildScene 이 이미 에러를 찍었다.
         if (_debugWholeWindow || _content == null)
         {
-            return Array.Empty<Vector2>();
+            return true;
         }
 
         IReadOnlyList<Rect2> local = _content.GetClickableRects();
-        if (local.Count == 0)
-        {
-            // 신고가 비면 창 전체 - 반대로 빈 모양을 주면 창이 통째로 잘려 안 보인다(CursorLayer 주석).
-            return Array.Empty<Vector2>();
-        }
-
-        _hitRects.Clear();
         foreach (Rect2 r in local)
         {
             _hitRects.Add(new Rect2(r.Position * _settings.Scale + Position, r.Size * _settings.Scale).Grow(HitPadding));
         }
 
-        if (!SameRects(_hitRects, _mergedFrom))
-        {
-            _mergedFrom = _hitRects.ToArray();
-            _mergedRegion = MergeRects(_mergedFrom);
-        }
-
-        return _mergedRegion;
-    }
-
-    /// <summary>
-    /// 사각형들을 다각형 하나로. 맞닿는 것끼리 되는 만큼 합치고, 합친 결과의 구멍은 메운다(구멍 자리도 클릭을 받는다 -
-    /// 모양이 둘로 갈라지지 않게). 조각이 둘 이상 남으면 전부를 감싸는 사각형.
-    /// </summary>
-    private static Vector2[] MergeRects(Rect2[] rects)
-    {
-        var pieces = new List<Vector2[]>(rects.Length);
-        foreach (Rect2 r in rects)
-        {
-            pieces.Add(Corners(r));
-        }
-
-        bool merged = true;
-        while (pieces.Count > 1 && merged)
-        {
-            merged = false;
-            for (int i = 0; i < pieces.Count && !merged; i++)
-            {
-                for (int j = i + 1; j < pieces.Count; j++)
-                {
-                    List<Vector2[]> outer = Outlines(Geometry2D.MergePolygons(pieces[i], pieces[j]));
-                    if (outer.Count == 1)
-                    {
-                        pieces[i] = outer[0];
-                        pieces.RemoveAt(j);
-                        merged = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (pieces.Count == 1)
-        {
-            return pieces[0];
-        }
-
-        if (!_warnedDisjointRegion)
-        {
-            _warnedDisjointRegion = true;
-            GD.PushWarning($"[shell] 클릭 영역이 {pieces.Count} 조각으로 떨어져 있다 - 감싸는 사각형으로 대신한다. "
-                + "게임 레이어가 신고한 사각형이 서로 닿게 할 것");
-        }
-
-        Rect2 all = rects[0];
-        foreach (Rect2 r in rects)
-        {
-            all = all.Merge(r);
-        }
-
-        return Corners(all);
-    }
-
-    /// <summary>합친 결과에서 구멍을 뺀 바깥 윤곽들. 구멍은 다른 윤곽 안에 들어 있는 것이다.</summary>
-    private static List<Vector2[]> Outlines(Godot.Collections.Array<Vector2[]> polygons)
-    {
-        // 번호로 돈다 - Godot 배열은 꺼낼 때마다 새 C# 배열을 주므로 참조 비교로는 "자기 자신" 을 못 가린다.
-        var all = new List<Vector2[]>(polygons);
-        var outer = new List<Vector2[]>(all.Count);
-        for (int i = 0; i < all.Count; i++)
-        {
-            bool hole = false;
-            for (int j = 0; j < all.Count && !hole; j++)
-            {
-                hole = i != j && Geometry2D.IsPointInPolygon(all[i][0], all[j]);
-            }
-
-            if (!hole)
-            {
-                outer.Add(all[i]);
-            }
-        }
-
-        return outer;
+        return local.Count == 0;
     }
 
     private static Vector2[] Corners(Rect2 r) => new[]
@@ -916,95 +885,112 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         new Vector2(r.Position.X, r.End.Y),
     };
 
-    private static bool SameRects(List<Rect2> a, Rect2[] b)
-    {
-        if (a.Count != b.Length)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < b.Length; i++)
-        {
-            if (!a[i].IsEqualApprox(b[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>지금 클릭 영역을 감싸는 사각형 (창 px). 계측 표시용.</summary>
     private Rect2 RegionBounds()
     {
-        if (_appliedRegion.Length == 0)
+        if (_hitRects.Count == 0)
         {
             return new Rect2(Vector2.Zero, _win.Size);
         }
 
-        var rect = new Rect2(_appliedRegion[0], Vector2.Zero);
-        foreach (Vector2 p in _appliedRegion)
+        Rect2 rect = _hitRects[0];
+        foreach (Rect2 r in _hitRects)
         {
-            rect = rect.Expand(p);
+            rect = rect.Merge(r);
         }
 
         return rect;
     }
 
     /// <summary>
-    /// force=false 면 폴리곤이 실제로 바뀐 경우에만 DisplayServer 를 건드린다.
-    /// 이 "바뀔 때만 쓰기"가 godot#80098 플리커 회피 가설이고, F3로 끄면 매 프레임 쓰기가 된다.
-    /// _regionWrites 카운터로 두 모드의 실제 호출 횟수 차이를 확인할 수 있다.
+    /// 창이 지금 클릭을 받을지 정한다 - 매 프레임. 커서(화면 좌표)가 <see cref="_hitRects"/> 어딘가에 있거나, 끄는 중이거나,
+    /// 창 전체가 받아야 하면(트레이에서 연 설정 창, 신고 없음, 디버그 F2) 받고, 아니면 뒤 창으로 통과시킨다.
+    ///
+    /// 스타일은 바뀔 때만 쓴다(<see cref="ClickThrough.SetPassThrough"/> 가 실제 값을 읽어 비교). <paramref name="force"/> 는
+    /// 예전 "영역 매 프레임 쓰기"(F3, godot#80098 플리커 재현)의 자리 - 이제는 게임 레이어에 알림을 한 번 더 보내는 것뿐이다.
+    /// 커서 좌표는 이 판정에만 쓴다 - 저장·전송하지 않는다(커서 장식이 따라다니려고 읽는 것과 같다).
     /// </summary>
     private void ApplyPassthrough(bool force)
     {
-        Vector2[] region = BuildRegion();
+        bool whole = BuildHitRects() || (_options != null && _options.IsOpen && _optionsWholeWindow);
+        if (_showOutline)
+        {
+            RefreshOutline();
+        }
 
-        if (!force && SameRegion(region, _appliedRegion))
+        if (!EnsureMainHwnd())
         {
             return;
         }
 
-        DisplayServer.WindowSetMousePassthrough(region);
-        _appliedRegion = region;
-        _regionWrites++;
-
-        if (_showOutline)
+        bool receive = whole || _dragging || CursorOnHitRects();
+        if (ClickThrough.SetPassThrough(_mainHwnd, !receive) || force)
         {
-            RefreshOutline(region);
+            _regionWrites++;
         }
+
+        // 받다가 통과로 바뀌면 Godot 에 마우스 이동이 더는 안 온다 - 게임 레이어가 말풍선 같은 호버 상태를 걷게 알린다.
+        if (_receivingClicks && !receive)
+        {
+            _content?.PointerLeft();
+        }
+
+        _receivingClicks = receive;
     }
 
-    private static bool SameRegion(Vector2[] a, Vector2[] b)
+    /// <summary>메인 창 HWND 를 잡고 LAYERED 를 붙인다. 못 하면 창 전체가 클릭을 받는 채로 두고 경고 한 번.</summary>
+    private bool EnsureMainHwnd()
     {
-        if (a.Length != b.Length)
+        if (_mainHwnd != IntPtr.Zero)
+        {
+            return true;
+        }
+
+        if (_clickThroughFailed)
         {
             return false;
         }
 
-        for (int i = 0; i < a.Length; i++)
+        IntPtr hwnd = ClickThrough.Hwnd(_win.GetWindowId());
+        if (hwnd == IntPtr.Zero || !ClickThrough.Prepare(hwnd))
         {
-            if (!a[i].IsEqualApprox(b[i]))
-            {
-                return false;
-            }
+            _clickThroughFailed = true;
+            GD.PushWarning("[shell] 메인 창에 클릭 통과를 걸 수 없다 - 창 전체가 클릭을 받는다");
+            return false;
         }
 
+        // 창 모양으로 자르던 예전 영역이 남아 있지 않게 한 번 푼다 (빈 배열 = 창 전체, 자르지 않음).
+        DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());
+        _mainHwnd = hwnd;
+        GD.Print($"[shell] click-through toggle ready (ex 0x{ClickThrough.Style(hwnd):X})");
         return true;
     }
 
-    private void RefreshOutline(Vector2[] region)
+    private bool CursorOnHitRects()
     {
-        if (region.Length == 0)
+        Vector2 local = DisplayServer.MouseGetPosition() - _win.Position;
+        foreach (Rect2 r in _hitRects)
         {
-            _outline.Points = Array.Empty<Vector2>();
-            return;
+            if (r.HasPoint(local))
+            {
+                return true;
+            }
         }
 
-        var loop = new Vector2[region.Length + 1];
-        region.CopyTo(loop, 0);
-        loop[^1] = region[0];
-        _outline.Points = loop;
+        return false;
+    }
+
+    /// <summary>디버그 윤곽선 - 사각형마다 테두리. 한 줄(Line2D)이라 사각형 사이를 잇는 선도 그려진다(보기용이라 둔다).</summary>
+    private void RefreshOutline()
+    {
+        var points = new List<Vector2>(_hitRects.Count * 5);
+        foreach (Rect2 r in _hitRects)
+        {
+            points.AddRange(Corners(r));
+            points.Add(r.Position);
+        }
+
+        _outline.Points = points.ToArray();
     }
 
     // ------------------------------------------------------------------ 프레임 루프
@@ -1136,10 +1122,9 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         _dragOffset = DisplayServer.MouseGetPosition() - _win.Position;
         _dragStart = _win.Position;
 
-        // 드래그 중에는 창 전체가 마우스를 받게 한다.
+        // 드래그 중에는 창 전체가 마우스를 받는다(ApplyPassthrough 가 _dragging 을 본다).
         // 그러지 않으면 커서가 히트 영역을 벗어나는 순간 드래그가 끊긴다.
-        DisplayServer.WindowSetMousePassthrough(Array.Empty<Vector2>());
-        _appliedRegion = Array.Empty<Vector2>();
+        ApplyPassthrough(force: false);
     }
 
     private void EndDrag()

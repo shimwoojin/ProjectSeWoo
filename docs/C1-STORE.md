@@ -101,7 +101,7 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 |---|---|
 | `idle`, `punch_0~5` | 가만히 / 익은 송이를 치는 순간 연속 |
 | `harvest_0~5` | 10번째 타격 — 황금 송이가 떨어지는 연속 |
-| `shop_tab0~3` | 상점 탭 4개 (원숭이 · 바나나 · 장식 · 도감) |
+| `shop_tab0~4` | 상점 탭 5개 (원숭이 · 바나나 · 장식 · 보유 · 도감). 보유 탭은 10/1 부터 - 도감이 `shop_tab3` → `shop_tab4` |
 | `upgrade` | 메뉴의 강화 탭 (9/27 부터 상점과 따로) |
 | `settings` | 메뉴의 설정 탭 — 합성은 안 한다. 확인용 (9/28) |
 | `lobby_0~3`, `lobby_window` | 가짜 친구 3명(바나나킹 · 타자왕 · 고릴라)이 치고 따는 로비 / 로비 창 |

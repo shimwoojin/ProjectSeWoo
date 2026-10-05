@@ -34,6 +34,11 @@ public sealed class CursorLayer : ICursorLayer
     /// <summary>창 안에서 커서 끝의 자리. 장식은 커서 아래·양옆으로 퍼지므로 위쪽 가운데에 둔다.</summary>
     private static readonly Vector2I TipInWindow = new(104, 40);
 
+    /// <summary>옵션 "내 커서 크기" (2026-09-30). 창·장식·커서 끝 자리를 같이 키운다.</summary>
+    private float _scale = 1f;
+
+    /// <summary>배율을 건 창 안의 커서 끝 자리. 창을 옮기고 장식을 맞추는 곳은 전부 이걸 쓴다.</summary>
+    private Vector2I _tip = TipInWindow;
 
 
     /// <summary>이동 주기 후보(ms). 0 = 매 프레임.</summary>
@@ -51,20 +56,7 @@ public sealed class CursorLayer : ICursorLayer
     // §2). A2에서 세 가지(TRANSPARENT 단독 / TRANSPARENT+LAYERED / WM_NCHITTEST 후킹)를
     // 실사용으로 비교했고 TRANSPARENT+LAYERED만 다른 프로세스의 클릭을 통과시켰다.
     // 나머지 둘은 지웠다 — 고를 수 있게 남겨두면 언젠가 실수로 고른다.
-
-    private const int GwlExStyle = -20;
-    private const long WsExTransparent = 0x00000020L;
-    private const long WsExLayered = 0x00080000L;
-    private const uint LwaAlpha = 0x00000002;
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint key, byte alpha, uint flags);
+    // Win32 호출은 ClickThrough 에 있다 - 메인 창·친구 칸도 같은 스타일을 켜고 끈다 (2026-09-30).
 
     // --- 맨 위 유지 ---------------------------------------------------------
     //
@@ -215,6 +207,10 @@ public sealed class CursorLayer : ICursorLayer
         // 장식 → 바나나 → 원숭이. 원점이 창 안의 커서 끝이다.
         _ornament = new CursorOrnament { Name = "Ornament", Position = TipInWindow };
         _win.AddChild(_ornament);
+        ApplyScale();
+
+        // 커서 창은 아직 OS 창이 아니다 (VerifyWindow 주석) - 처음엔 메인 창의 모니터로 잰다.
+        UpdateArrowTail(DisplayServer.WindowGetCurrentScreen());
 
         _pos = DisplayServer.MouseGetPosition();
 
@@ -253,7 +249,7 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         IsSupported = true;
-        GD.Print($"[cursor] window id={id} size={WindowSize}x{WindowSize} -> OS window OK"
+        GD.Print($"[cursor] window id={id} size={_win.Size.X}x{_win.Size.Y} -> OS window OK"
             + $" (transparent {_win.Transparent}, bg {_win.TransparentBg})");
     }
 
@@ -276,36 +272,23 @@ public sealed class CursorLayer : ICursorLayer
             return;
         }
 
-        long handle = DisplayServer.WindowGetNativeHandle(
-            DisplayServer.HandleType.WindowHandle, _win.GetWindowId());
-
-        if (handle == 0)
+        IntPtr hwnd = ClickThrough.Hwnd(_win.GetWindowId());
+        if (hwnd == IntPtr.Zero)
         {
             ClickThroughState = "HWND 없음";
             GD.PrintErr("[cursor] HWND 를 못 얻었다. 클릭 통과를 걸 수 없다");
             return;
         }
 
-        var hwnd = new IntPtr(handle);
         _hwnd = hwnd;
-
-        long before = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(before | WsExTransparent | WsExLayered));
+        long before = ClickThrough.Style(hwnd);
+        ClickThrough.Prepare(hwnd);
+        ClickThrough.SetPassThrough(hwnd, true);
 
         // 반드시 되읽어서 확인한다. "걸었다"와 "걸렸다"는 다르다 - A2의 1차 실패가 그것이었다.
-        long after = GetWindowLongPtr(hwnd, GwlExStyle).ToInt64();
-        bool ok = (after & (WsExTransparent | WsExLayered)) == (WsExTransparent | WsExLayered);
+        bool ok = ClickThrough.IsPassThrough(hwnd);
         ClickThroughState = ok ? "TRANSPARENT|LAYERED" : "적용 실패";
-
-        // LAYERED 를 붙이면 알파를 정해주기 전까지 창이 아예 안 보인다.
-        // 255 = 완전 불투명이지만, Godot 이 DWM 합성으로 그리는 per-pixel 알파는
-        // 그대로 살아남는다(A2 실측: 장식 주변 모서리에 뒤 배경이 비쳤다).
-        if (ok && !SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha))
-        {
-            GD.PrintErr("[cursor] SetLayeredWindowAttributes 실패");
-        }
-
-        GD.Print($"[cursor] click-through {ClickThroughState} (ex 0x{before:X} -> 0x{after:X})");
+        GD.Print($"[cursor] click-through {ClickThroughState} (ex 0x{before:X} -> 0x{ClickThrough.Style(hwnd):X})");
     }
 
     // ------------------------------------------------------------------ 장착 (ICursorLayer)
@@ -338,6 +321,77 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         SetWindowPos(_hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate | SwpNoOwnerZOrder);
+    }
+
+    /// <summary>
+    /// 옵션 "내 커서 크기". 창을 같이 키운다 - 장식만 키우면 진자로 흔들리는 원숭이가 창 밖으로 잘린다.
+    /// <see cref="Build"/> 전에 오면 값만 기억해 두고 Build 가 건다.
+    /// </summary>
+    public void SetScale(float scale)
+    {
+        _scale = scale;
+        if (_built)
+        {
+            ApplyScale();
+            if (Enabled)
+            {
+                MoveWindow();
+            }
+        }
+    }
+
+    private void ApplyScale()
+    {
+        // 바나나 꼭지는 시스템 화살표의 꼬리 끝에 닿는다 (CursorOrnament.StemFromTip). 화살표는 모니터 배율·포인터 크기를
+        // 따르고 "내 커서 크기" 로는 안 커지므로, 화면 px 로 잰 틈을 장식 배율로 나눠 로컬에 넣는다. 창은 그 틈만큼 넓힌다.
+        Vector2 tail = _arrowTail;
+        _tip = new Vector2I(Mathf.RoundToInt(TipInWindow.X * _scale), Mathf.RoundToInt(TipInWindow.Y * _scale));
+        int side = Mathf.RoundToInt(WindowSize * _scale);
+        _win.Size = new Vector2I(side + Mathf.CeilToInt(tail.X), side + Mathf.CeilToInt(tail.Y));
+        _ornament.Position = _tip;
+        _ornament.Scale = Vector2.One * _scale;
+        _ornament.StemFromTip = tail / _scale;
+    }
+
+    // --- 시스템 화살표의 꼬리 끝 -----------------------------------------------
+    //
+    // Windows 는 화살표를 접근성 "마우스 포인터 크기"(CursorBaseSize, 기본 32)와 커서가 있는 모니터의 배율(DPI)로 그린다.
+    // 꼬리 끝은 지금 쓰는 화살표 커서 파일을 재서 구한다(SystemArrow) - 크기를 최대로 두면 모양이 흔한 화살표와 달라서
+    // 비례로는 10~15px 어긋났다 (2026-09-30). ArrowCheckSec 마다 모니터와 설정(크기·파일·파일 시각)을 보고, 바뀌었으면
+    // 다시 잰다 - 실행 중에 Windows 설정에서 크기를 바꿔도 따라간다. 매 프레임은 아니다: 모니터 번호를 찾는 호출이
+    // 모니터를 전부 훑는다.
+
+    private const double ArrowCheckSec = 0.5;
+
+    /// <summary>화살표 꼬리 끝 - 커서 끝에서 화면 px. 처음엔 100% 흔한 화살표.</summary>
+    private Vector2 _arrowTail = CursorOrnament.ArrowTail;
+    private int _arrowScreen = -1;
+    private string _arrowSignature;
+    private double _sinceArrowCheck;
+
+    private void UpdateArrowTail(int screen)
+    {
+        string signature = SystemArrow.Signature();
+        if (screen < 0 || (screen == _arrowScreen && signature == _arrowSignature))
+        {
+            return;
+        }
+
+        _arrowScreen = screen;
+        _arrowSignature = signature;
+
+        int drawn = Mathf.RoundToInt(SystemArrow.BaseSize() * DisplayServer.ScreenGetDpi(screen) / 96f);
+        Vector2? measured = SystemArrow.MeasureTail(drawn);
+        Vector2 tail = measured ?? CursorOrnament.ArrowTail * (drawn / 32f);
+        if (tail.IsEqualApprox(_arrowTail))
+        {
+            return;
+        }
+
+        _arrowTail = tail;
+        ApplyScale();
+        GD.Print($"[cursor] 화살표 꼬리 끝 ({tail.X:F1}, {tail.Y:F1}) - {drawn}px, 화면 #{screen},"
+            + (measured != null ? " 커서 파일에서 잼" : " 파일을 못 읽어 흔한 화살표로 셈"));
     }
 
     /// <summary>타건·클릭 (횟수만). 원숭이가 반응한다 - 셸이 입력 헬퍼에서 받아 넘긴다.</summary>
@@ -383,8 +437,15 @@ public sealed class CursorLayer : ICursorLayer
         }
 
         // 리그·장식은 창 이동 주기와 상관없이 스스로 갱신 빈도를 정한다 (움직이면 매 프레임, 가만히 있으면 MonkeyRig.IdleHz).
-        _ornament.Follow(target, _win.Position + (Vector2)TipInWindow);
+        _ornament.Follow(target, _win.Position + (Vector2)_tip);
         _ornament.Tick(delta);
+
+        _sinceArrowCheck += delta;
+        if (_sinceArrowCheck >= ArrowCheckSec)
+        {
+            _sinceArrowCheck = 0;
+            UpdateArrowTail(DisplayServer.WindowGetCurrentScreen(_win.GetWindowId()));
+        }
 
         _sinceMove += delta * 1000.0;
         if (IntervalMs > 0 && _sinceMove < IntervalMs)
@@ -415,7 +476,7 @@ public sealed class CursorLayer : ICursorLayer
     /// </summary>
     private void MoveWindow()
     {
-        var next = new Vector2I(Mathf.RoundToInt(_pos.X), Mathf.RoundToInt(_pos.Y)) - TipInWindow;
+        var next = new Vector2I(Mathf.RoundToInt(_pos.X), Mathf.RoundToInt(_pos.Y)) - _tip;
 
         if (_win.Position == next)
         {
@@ -494,7 +555,7 @@ public sealed class CursorLayer : ICursorLayer
 
         Vector2I mouse = DisplayServer.MouseGetPosition();
         Vector2I win = _win.Position;
-        Vector2I center = win + TipInWindow;
+        Vector2I center = win + _tip;
         Vector2I off = center - mouse;
 
         return $"cursor pos: mouse {mouse.X},{mouse.Y}  deco-center {center.X},{center.Y}"

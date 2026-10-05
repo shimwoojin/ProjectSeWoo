@@ -60,6 +60,54 @@ public partial class OverlayShell
         {
             TickAutoReport(delta);
         }
+
+        if (_toastTest)
+        {
+            TickToastTest(delta);
+        }
+    }
+
+    // --- 스팀 알림 시험 (--toast-test, 2026-09-30) ---
+
+    /// <summary>알림을 몇 번 띄울지, 첫 알림까지·알림 사이 간격(초). 스팀 알림은 5초쯤 떠 있다.</summary>
+    private const int ToastTestCount = 3;
+    private const double ToastTestFirstSec = 5.0, ToastTestGapSec = 10.0;
+
+    private bool _toastTest;
+    private int _toastTestShown;
+    private double _toastTestTimer;
+
+    /// <summary>
+    /// <c>--toast-test</c>: 스팀 업적 알림이 우리 창에서 잘리지 않고 보이는지 보는 시험. 등록돼 있고 아직 안 딴 업적 하나의
+    /// <b>진행도 알림</b>(<see cref="SteamService.IndicateProgress"/>)을 <see cref="ToastTestCount"/> 번 띄운다 - 해금 알림과 같은
+    /// 크기·같은 자리에 뜨지만 <b>아무것도 해금하지 않는다.</b> 알림은 스팀 오버레이가 그리므로 <b>스팀으로 실행해야</b> 보인다
+    /// (에디터·VS 실행은 오버레이가 안 붙는다). 릴리스 빌드는 스팀 게임 속성의 시작 옵션에 <c>-- --toast-test</c>.
+    /// </summary>
+    private void TickToastTest(double delta)
+    {
+        if (_toastTestShown >= ToastTestCount || _steam == null || !_steam.IsAvailable)
+        {
+            return;
+        }
+
+        _toastTestTimer += delta;
+        if (_toastTestTimer < (_toastTestShown == 0 ? ToastTestFirstSec : ToastTestGapSec))
+        {
+            return;
+        }
+
+        _toastTestTimer = 0.0;
+        string id = Array.Find(AchievementIds.All, a => _steam.IsRegistered(a) == true && !_steam.IsUnlocked(a));
+        if (id == null)
+        {
+            GD.PushWarning("[toast-test] 등록돼 있고 아직 안 딴 업적이 없다 - 알림을 띄울 수 없다");
+            _toastTestShown = ToastTestCount;
+            return;
+        }
+
+        _toastTestShown++;
+        _steam.IndicateProgress(id, _toastTestShown, ToastTestCount + 1);
+        GD.Print($"[toast-test] {id} 진행도 알림 {_toastTestShown}/{ToastTestCount + 1} ({_toastTestShown}번째)");
     }
 
     /// <summary>0.5초 틱. HUD 는 이 주기로만 다시 그린다 - 매 프레임 문자열을 짓지 않는다.</summary>
@@ -167,6 +215,7 @@ public partial class OverlayShell
             "",
             $"win   pos {_win.Position.X},{_win.Position.Y}  size {_win.Size.X}x{_win.Size.Y}"
                 + $"  uiscale {_settings.Scale:F2}  opacity {_settings.Opacity:F2}  save {OnOff(SaveIO.Exists())}",
+            $"scale friend {_settings.FriendScale:F2}  cursor {_settings.CursorScale:F2}  friendCursor {_settings.FriendCursorScale:F2}",
             $"opts  cursor {OnOff(_settings.CursorEnabled)}  indep {OnOff(_settings.CursorIndependent)}"
                 + $"  hideFs {OnOff(_settings.HideOnFullscreen)}"
                 + $"  autostart {OnOff(_settings.Autostart)}",
@@ -174,7 +223,7 @@ public partial class OverlayShell
             // 셋이 어긋나면 숨김이 먹지 않았다는 뜻이다 - 그걸 눈으로 못 봐서 생긴 버그가 있었다.
             $"      want {OnOff(_userWantsVisible)}  autoHidden {OnOff(_autoHiddenForFullscreen)}"
                 + $"  winShown {OnOff(_shellWindowVisible)}",
-            $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}  ({_appliedRegion.Length}점)",
+            $"hit   {hit.Position.X:F0},{hit.Position.Y:F0} .. {hit.End.X:F0},{hit.End.Y:F0}  ({_hitRects.Count}칸, {(_receivingClicks ? "받음" : "통과")})",
             $"scr   #{screen} of {DisplayServer.GetScreenCount()}  {usable.Size.X}x{usable.Size.Y}"
                 + $"  dpi {DisplayServer.ScreenGetDpi(screen)}  scale {DisplayServer.ScreenGetScale(screen):F2}"
                 + $"  {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
@@ -439,7 +488,7 @@ public partial class OverlayShell
             $"fps cap        {(Engine.MaxFps == 0 ? "none" : Engine.MaxFps.ToString())}, low power {OnOff(_lowPower)}",
             $"passthrough    {OnOff(!_debugWholeWindow)}, update {(_updateEveryFrame ? "every-frame" : "on-change")},"
                 + $" writes {_regionWrites}",
-            $"hit region     {RegionBounds().Position.X:F0},{RegionBounds().Position.Y:F0} .. {RegionBounds().End.X:F0},{RegionBounds().End.Y:F0} (창 px), {_appliedRegion.Length}점",
+            $"hit region     {RegionBounds().Position.X:F0},{RegionBounds().Position.Y:F0} .. {RegionBounds().End.X:F0},{RegionBounds().End.Y:F0} (창 px), {_hitRects.Count}칸, 클릭 통과 {(_mainHwnd != IntPtr.Zero ? "토글" : "없음")}",
             $"always on top  {OnOff(_win.AlwaysOnTop)}",
             $"screen         #{screen} of {DisplayServer.GetScreenCount()},"
                 + $" dpi {DisplayServer.ScreenGetDpi(screen)},"
@@ -447,6 +496,8 @@ public partial class OverlayShell
                 + $" {DisplayServer.ScreenGetRefreshRate(screen):F0}Hz",
             $"window         {_win.Position.X},{_win.Position.Y} {_win.Size.X}x{_win.Size.Y},"
                 + $" uiscale {_settings.Scale:F2}, opacity {_settings.Opacity:F2}, save {OnOff(SaveIO.Exists())}",
+            $"scales         friend {_settings.FriendScale:F2}, cursor {_settings.CursorScale:F2},"
+                + $" friendCursor {_settings.FriendCursorScale:F2}",
             // winVisible 은 _win.Visible 이면 안 된다 - Godot 은 메인 창의 Visible 을
             // 못 바꾸므로 그 값은 항상 true 다. 숨김이 안 먹던 A6 버그가 리포트에서
             // 안 보였던 이유가 정확히 이것이고, HUD(BuildStats)는 이미 고쳐져 있었다.

@@ -50,16 +50,29 @@ public partial class MenuHub : CanvasLayer
     public const int PanelWidth = 420;
 
     /// <summary>
-    /// <paramref name="control"/> 을 메뉴 칸 - 창 왼쪽 <see cref="PanelWidth"/>, 위아래는 창 끝까지 - 에 붙인다.
-    /// 앵커로 붙이므로 창 높이가 바뀌어도(배율) 따라간다. 메뉴 칸이 닫혀 있으면 게임 화면 위에 겹친다.
+    /// 메뉴 칸 높이 (창 px). <b>고정이다</b> (2026-09-30) - 예전엔 창 끝까지 붙어서 "내 창 크기" 를 키우면 메뉴가 아래로 쭉
+    /// 길어졌다. 배율 1 일 때의 창 높이(project.godot 560)와 같다. 셸은 칸이 열려 있으면 창을 이보다 작게 안 줄인다.
+    /// </summary>
+    public const int PanelHeight = 560;
+
+    /// <summary>
+    /// 메뉴 칸이 게임 화면 왼쪽을 덮어도 되는 폭 (게임 좌표, 배율 전 - <see cref="IShell.SetSidePanel"/>). [메뉴] 버튼이 나무
+    /// 아래로 옮겨가서(2026-09-30) 게임 화면 왼쪽 가장자리는 비었다 - 그만큼 칸을 나무·원숭이 쪽으로 붙인다. 가장 왼쪽에
+    /// 그리는 것이 나무 잎(x 약 85)이라 20 쯤 남긴다. 이름은 가운데(x 140) 정렬이라 폭 150 이 넘는 이름만 조금 덮인다.
+    /// </summary>
+    public const float PanelOverlap = 64f;
+
+    /// <summary>
+    /// <paramref name="control"/> 을 메뉴 칸 - 창 왼쪽 위 <see cref="PanelWidth"/> x <see cref="PanelHeight"/> - 에 붙인다.
+    /// 메뉴 칸이 닫혀 있으면 게임 화면 위에 겹친다.
     /// </summary>
     public static void AnchorToPanel(Control control)
     {
-        control.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+        control.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
         control.OffsetLeft = 0;
         control.OffsetTop = 0;
         control.OffsetRight = PanelWidth;
-        control.OffsetBottom = 0;
+        control.OffsetBottom = PanelHeight;
     }
 
     /// <summary>[안내] - 처음 안내는 세이브에 본 판을 남겨야 해서 게임 레이어가 연다.</summary>

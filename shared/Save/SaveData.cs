@@ -115,8 +115,21 @@ public sealed class SaveData
     /// </summary>
     public sealed class SettingsState
     {
+        /// <summary>내 창 크기 (옵션 "내 창 크기"). v11 까지는 친구 칸도 이 값을 따랐다.</summary>
         [JsonPropertyName("scale")]
         public float Scale { get; set; } = 1.0f;
+
+        /// <summary>친구 칸 창 크기, 모든 친구 공통 (v12). 옛 세이브는 <see cref="Scale"/> 값을 옮겨 받는다.</summary>
+        [JsonPropertyName("friendScale")]
+        public float FriendScale { get; set; } = 1.0f;
+
+        /// <summary>내 커서 장식 크기 (v12).</summary>
+        [JsonPropertyName("cursorScale")]
+        public float CursorScale { get; set; } = 1.0f;
+
+        /// <summary>친구 칸 안의 커서 장식 크기 (v12). 0 이면 숨긴다.</summary>
+        [JsonPropertyName("friendCursorScale")]
+        public float FriendCursorScale { get; set; } = 1.0f;
 
         [JsonPropertyName("opacity")]
         public float Opacity { get; set; } = 1.0f;

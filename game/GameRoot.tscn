@@ -31,10 +31,10 @@ offset_right = 250.0
 offset_bottom = 490.0
 
 [node name="MenuButton" type="Button" parent="."]
-offset_left = 12.0
-offset_top = 340.0
-offset_right = 84.0
-offset_bottom = 366.0
+offset_left = 256.0
+offset_top = 412.0
+offset_right = 336.0
+offset_bottom = 438.0
 custom_minimum_size = Vector2(80, 26)
 tooltip_text = "상점 · 강화 · 기부 · 멀티 · 설정"
 text = "메뉴"
