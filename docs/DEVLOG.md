@@ -3453,3 +3453,9 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 - 파트너 사이트 Release Progress: Store Presence **APPROVED FOR RELEASE**(검수 통과) 확인 → **"Post as Coming Soon" 공개** (갑이 직접 누름).
   "Your application is now visible on the Steam Store" 확인. 10/26 PDT 출시의 2주 노출 조건(10/12 까지)을 맞췄다
 - Game Build 는 아직 review queue (9/27 제출, 8일째). 출시 전 승인이 필요하다 - 계속 지켜볼 것
+
+### 도전과제 설명 높임말
+
+- 파트너 사이트 도전과제 14개 설명을 합니다체로 고치고 **게시**(Publish to Steam, stats 섹션만). 이름은 그대로
+- 사이트 문구가 A15 표와 달랐다 - 반말 8개, 명사형("첫 구매", "룸 첫 참가", "누적 1만 타"), 메모가 남은 "누적 1,000타 (새로 추가)". A15 표 문구 기준으로 통일
+- 함정: 한국어 문구가 `english` 칸에 있다(언어 선택에 English 뿐). 고칠 때 그 칸을 고친다. A15 §1

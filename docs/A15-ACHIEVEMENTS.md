@@ -21,27 +21,29 @@
 
 | API Name | 영어 이름 / 설명 | 한국어 이름 / 설명 | 조건 |
 |---|---|---|---|
-| `ACH_KEYSTROKES_1K` | First Thousand / Reach 1,000 total keystrokes. | 첫 천 타 / 누적 1,000타를 친다. | 누적 1,000타 (Lv.8, 첫날) |
-| `ACH_KEYSTROKES_10K` | Warmed Up / Reach 10,000 total keystrokes. | 손이 풀렸다 / 누적 10,000타를 친다. | 누적 10,000타 (Lv.16) |
-| `ACH_KEYSTROKES_100K` | Keyboard Warrior / Reach 100,000 total keystrokes. | 키보드 전사 / 누적 100,000타를 친다. | 누적 100,000타 (Lv.24) |
-| `ACH_KEYSTROKES_1M` | Million Punches / Reach 1,000,000 total keystrokes. | 백만 펀치 / 누적 1,000,000타를 친다. | 누적 1,000,000타 (Lv.31) |
-| `ACH_FIRST_PURCHASE` | First Decoration / Buy your first cursor decoration. | 첫 장식 / 상점에서 커서 장식을 처음 산다. | 기본 지급품 말고 장식이 하나라도 생김 |
-| `ACH_SLOT_HANG` | Monkey Collector / Collect every monkey. | 원숭이 수집가 / 원숭이를 모두 모은다. | 원숭이 전부 (기본 지급품 포함). 2026-09-26 전엔 "매달림 수집가" — B17 §3-4 |
-| `ACH_SLOT_TRAIL` | Decorator / Collect every decoration. | 장식 수집가 / 장식을 모두 모은다. | 장식 칸 전부. 2026-09-26 전엔 "잔상 수집가" — B17 §3-4 |
-| `ACH_SLOT_BASE` | Banana Collector / Collect every banana. | 바나나 수집가 / 바나나를 모두 모은다. | 바나나 전부 (기본 지급품 포함). 2026-09-26 전엔 "바닥 수집가" — B17 §3-4 |
-| `ACH_COLLECTION_100` | Complete Collection / Collect every cursor decoration. | 도감 완성 / 커서 장식을 모두 모은다. | 도감 100% (§3-3) — 장식이 늘면 조건도 같이 는다. 이미 딴 사람은 그대로(스팀은 해금을 되돌리지 않는다) |
-| `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어간다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
-| `ACH_DONATE_FIRST` | Kind Heart / Donate bananas for the first time. | 따뜻한 마음 / 처음으로 바나나를 기부한다. | 누적 기부 1 이상 (B20, 2026-09-28 추가 - **파트너 사이트 등록 필요**) |
-| `ACH_DONATE_1K` | Banana Donor / Donate 1,000 bananas in total. | 바나나 후원자 / 바나나를 누적 1,000개 기부한다. | 누적 기부 1,000 - 칭호 "바나나 후원자" (B20) |
-| `ACH_DONATE_10K` | Jungle Donor / Donate 10,000 bananas in total. | 정글 후원자 / 바나나를 누적 10,000개 기부한다. | 누적 기부 10,000 - 칭호 "정글 후원자" (B20) |
-| `ACH_DONATE_100K` | Jungle Benefactor / Donate 100,000 bananas in total. | 정글의 은인 / 바나나를 누적 100,000개 기부한다. | 누적 기부 100,000 - 칭호 "정글의 은인" (B20) |
+| `ACH_KEYSTROKES_1K` | First Thousand / Reach 1,000 total keystrokes. | 첫 천 타 / 누적 1,000타를 칩니다. | 누적 1,000타 (Lv.8, 첫날) |
+| `ACH_KEYSTROKES_10K` | Warmed Up / Reach 10,000 total keystrokes. | 손이 풀렸다 / 누적 10,000타를 칩니다. | 누적 10,000타 (Lv.16) |
+| `ACH_KEYSTROKES_100K` | Keyboard Warrior / Reach 100,000 total keystrokes. | 키보드 전사 / 누적 100,000타를 칩니다. | 누적 100,000타 (Lv.24) |
+| `ACH_KEYSTROKES_1M` | Million Punches / Reach 1,000,000 total keystrokes. | 백만 펀치 / 누적 1,000,000타를 칩니다. | 누적 1,000,000타 (Lv.31) |
+| `ACH_FIRST_PURCHASE` | First Decoration / Buy your first cursor decoration. | 첫 장식 / 상점에서 커서 장식을 처음 삽니다. | 기본 지급품 말고 장식이 하나라도 생김 |
+| `ACH_SLOT_HANG` | Monkey Collector / Collect every monkey. | 원숭이 수집가 / 원숭이를 모두 모읍니다. | 원숭이 전부 (기본 지급품 포함). 2026-09-26 전엔 "매달림 수집가" — B17 §3-4 |
+| `ACH_SLOT_TRAIL` | Decorator / Collect every decoration. | 장식 수집가 / 장식을 모두 모읍니다. | 장식 칸 전부. 2026-09-26 전엔 "잔상 수집가" — B17 §3-4 |
+| `ACH_SLOT_BASE` | Banana Collector / Collect every banana. | 바나나 수집가 / 바나나를 모두 모읍니다. | 바나나 전부 (기본 지급품 포함). 2026-09-26 전엔 "바닥 수집가" — B17 §3-4 |
+| `ACH_COLLECTION_100` | Complete Collection / Collect every cursor decoration. | 성실한 수집가 / 커서 장식을 모두 모읍니다. | 도감 100% (§3-3) — 장식이 늘면 조건도 같이 는다. 이미 딴 사람은 그대로(스팀은 해금을 되돌리지 않는다) |
+| `ACH_ROOM_FIRST_JOIN` | Better Together / Create or join a room with friends. | 같이 치자 / 친구와 룸을 처음 만들거나 들어갑니다. | 실물 스팀 로비(`SteamNetSession`, A9)에 들어감 |
+| `ACH_DONATE_FIRST` | Kind Heart / Donate bananas for the first time. | 따뜻한 마음 / 처음으로 바나나를 기부합니다. | 누적 기부 1 이상 (B20, 2026-09-28 추가) |
+| `ACH_DONATE_1K` | Banana Donor / Donate 1,000 bananas in total. | 바나나 후원자 / 바나나를 누적 1,000개 기부합니다. | 누적 기부 1,000 - 칭호 "바나나 후원자" (B20) |
+| `ACH_DONATE_10K` | Jungle Donor / Donate 10,000 bananas in total. | 정글 후원자 / 바나나를 누적 10,000개 기부합니다. | 누적 기부 10,000 - 칭호 "정글 후원자" (B20) |
+| `ACH_DONATE_100K` | Jungle Benefactor / Donate 100,000 bananas in total. | 정글의 은인 / 바나나를 누적 100,000개 기부합니다. | 누적 기부 100,000 - 칭호 "정글의 은인" (B20) |
 
 - 누적 타수의 "Lv." 은 `KeystrokeLevel` 곡선 기준이었다(2026-09-27 에 레벨 표시를 없애며 코드도 지웠다 - 도전과제는 타수 문턱을 직접 본다). 체감 기간(첫날 / 하루 이틀 / 1~2주 /
   수개월)은 하루 타건 수를 짐작한 것이라 실측이 아니다
 - `ACH_ROOM_FIRST_JOIN` — A9(실물 스팀 로비)가 9/24 에 들어와서 실제로 딸 수 있다. 목 룸으로는
   안 풀린다(§3-2). 멀티를 출시에서 빼게 되면 이 과제는 파트너 사이트에서 숨기거나 지운다 —
   딸 수 없는 과제가 목록에 있으면 도감 100% 성향의 유저에게 나쁜 신호다
-- 문구는 초안이다. 스토어 페이지 톤이 정해지면 같이 다듬는다
+- 한국어 설명은 **합니다체** (2026-10-05, 게임 안 문구를 높임말로 바꾼 것에 맞춤). 이름은 칭호라 그대로 둔다
+- **파트너 사이트에서 한국어 문구는 `english` 칸에 들어 있다.** 이 화면의 언어 선택에 English 밖에 없다(앱 지원 언어가 한국어뿐인데도).
+  영어 열은 계획일 뿐 실제로 올라가 있지 않다. 10/5 전 사이트 문구는 이 표와 달랐다("첫 구매", "룸 첫 참가", "누적 1,000타 (새로 추가)" 등) - 이제 이 표가 사이트와 같다
 
 ## 2. 파트너 사이트에 넣는 순서
 
