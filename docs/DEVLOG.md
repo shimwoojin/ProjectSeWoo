@@ -3447,3 +3447,9 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 4. 설정 [게임 종료] - 확인 줄 · 실제 종료 · 저장
 5. 기부 확인 칸 · 칭호 두 칸 표를 실제 화면으로
 - 남은 일: 스팀 도전과제 한국어 설명(파트너 사이트) 높임말로
+
+### 스토어 "출시 예정" 공개
+
+- 파트너 사이트 Release Progress: Store Presence **APPROVED FOR RELEASE**(검수 통과) 확인 → **"Post as Coming Soon" 공개** (갑이 직접 누름).
+  "Your application is now visible on the Steam Store" 확인. 10/26 PDT 출시의 2주 노출 조건(10/12 까지)을 맞췄다
+- Game Build 는 아직 review queue (9/27 제출, 8일째). 출시 전 승인이 필요하다 - 계속 지켜볼 것
