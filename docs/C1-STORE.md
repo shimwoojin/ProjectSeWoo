@@ -192,7 +192,7 @@ C:\Tools\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.e
 데나 두세요. 누가 제일 많이 쳤는지 로비 랭킹으로 겨룹니다.
 
 **방해하지 않습니다**
-- 항상 위에 떠 있지만 원숭이·나무 말고 빈 곳 클릭은 뒤 창으로 그대로 갑니다
+- 다른 창들 위에 항상 떠 있습니다. 클릭은 원숭이와 나무만 받고, 그 밖의 빈 곳을 클릭하면 아래에 있는 창이 그대로 받습니다
 - 전체화면 게임·영상 중에는 숨길 수 있습니다 (옵션)
 - 트레이로 숨기기, Windows 시작 시 실행, 크기·투명도 조절
 - 가볍게 돌도록 만들었습니다
@@ -231,7 +231,7 @@ Gather in a lobby with Steam friends and their monkeys and trees appear on your 
 Drag them anywhere. See who punched the most on the lobby leaderboard.
 
 **Stays out of your way**
-- Always on top, but clicks anywhere except the monkey and tree go straight to the window behind
+- Stays on top of your other windows. Only the monkey and tree catch your clicks — click anywhere else and the click goes through to the window underneath
 - Can hide while fullscreen games or videos are running (option)
 - Hide to tray, launch with Windows, adjust size and opacity
 - Built to run light
