@@ -3459,3 +3459,33 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 - 파트너 사이트 도전과제 14개 설명을 합니다체로 고치고 **게시**(Publish to Steam, stats 섹션만). 이름은 그대로
 - 사이트 문구가 A15 표와 달랐다 - 반말 8개, 명사형("첫 구매", "룸 첫 참가", "누적 1만 타"), 메모가 남은 "누적 1,000타 (새로 추가)". A15 표 문구 기준으로 통일
 - 함정: 한국어 문구가 `english` 칸에 있다(언어 선택에 English 뿐). 고칠 때 그 칸을 고친다. A15 §1
+
+## 2026-10-10 — 갑: 빌드 검수 반려 4건 대응, 릴리스 빌드 25849592 업로드
+
+### 확인
+
+- 스토어 페이지는 10/5 부터 출시 예정으로 공개 중. 출시일 **2026-10-27 02:00 (GMT+9)**, 고객에게는 "October 2026". 가장 빠른 출시 가능일 10/19
+- 출시 14일 전(10/13)부터는 표시 출시일을 못 바꾼다
+- **Game Build 25727026 은 검수 반려** (랜딩 페이지 Release Progress 가운데 칸 "Game Build"). 반려 사유 4건:
+  1. 멀티플레이 모드(Online/LAN/Local PvP·Co-op) 미지정
+  2. 소개 문구와 실제가 다르다 - "Always on top, but clicks ... go straight to the window behind", "Gather in a lobby ... their monkeys and trees appear" (방장 화면에 친구 나무가 안 떴다)
+  3. Steam Input 기본 템플릿이 "Keyboard and Mouse Emulation (WASD)" - 컨트롤러 미지원 앱이면 None
+  4. 콘텐츠 설문에 "게임 내 구매"(현금) - 유료 바나나는 안 만들었다(B20 §2)
+
+### 한 일
+
+- 스토어: 게시 안 된 변경(개발자 "ShimWoojin, ParkSeyoung" → "TeamSeWoo") 게시
+- 1번: Basic Info Players 에 **Co-op → Online** (게시). ⚠ C1 §5 메모("관전·랭킹이지 협동이 아니다 - Online Co-Op 태그는 안 붙인다")와 어긋난다 - PvP Online 이 더 맞는지 다시 볼 것
+- 3번: Steam Input 기본 템플릿 → None Selected (Steamworks 게시)
+- 4번: 콘텐츠 설문 새 초안에서 "게임 내 구매" 해제 → 등급 게시. 브라질 등급 14 → 6
+- 2번 문구: 클릭 통과 줄을 한/영 모두 "다른 창 위에 항상 떠 있고, 클릭은 원숭이·나무만 받고 빈 곳 클릭은 아래 창이 받는다" 로 풀어 씀 (C1 §4 같이 고침, `40e9c59`). 스토어 저장 - 게시 여부 확인할 것
+- 2번 멀티: 문구는 두고 코드로 (`bb01c74`). `FriendWindows` 는 친구 칸이 없으면 `OnRoomChanged` 한 번만 기다려서, 그것을 놓치면 방장 화면에 칸이 끝내 안 떴다 → 로비 안이면 칸이 없어도 1초마다 멤버와 맞춘다.
+  진단 로그 `[friends] 친구 칸 열음/닫음`, `[net] 멤버 입장 - 지금 N명` (스팀 ID·이름 없음)
+- `build-release.ps1` (커밋 `40e9c59`, 212.9MB, 검증 PASS) → steamcmd **BuildID 25849592** (바뀐 청크 2.3MB). **default 지정 안 함** - 2계정 확인 뒤
+
+### 이슈 / 남은 것
+
+- 멀티 수정은 **추정**이다 - 코드로는 방장만 이벤트를 놓치는 자리를 확정 못 했고, 이 PC 로그엔 멀티 기록이 없다. 2계정 전체 시나리오는 9/24 이후 계속 "다음" 에만 있었다
+- 다음: 2계정으로 25849592 확인(양쪽 친구 칸 · 빈 곳 클릭 통과) → default 지정 → 랜딩 페이지 "Mark as ready for review..." (10/27 출시 - 이번 주 안에)
+- 안 뜨면 방장 PC `%APPDATA%\PunchMonkey\logs\godot.log` 의 `[net] 멤버 입장` · `[friends]` · 예외 줄
+- Steamworks "Publish to Steam" 은 에이전트 권한 확인에서 막혔다 - 사람이 눌렀다
