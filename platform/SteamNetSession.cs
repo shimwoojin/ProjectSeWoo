@@ -859,6 +859,7 @@ public sealed class SteamNetSession : INetSession, IDisposable
         if ((change & EChatMemberStateChange.k_EChatMemberStateChangeEntered) != 0)
         {
             RememberKeystrokes(who);
+            GD.Print($"[net] 멤버 입장 - 지금 {SteamMatchmaking.GetNumLobbyMembers(_lobby)}명");
             OnPeerJoin?.Invoke(new PeerId(who.m_SteamID));
         }
         else

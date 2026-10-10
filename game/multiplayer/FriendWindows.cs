@@ -82,7 +82,9 @@ public partial class FriendWindows : Node
 
     public override void _Process(double delta)
     {
-        if (_friends.Count == 0)
+        // 친구 칸이 없어도 로비 안이면 1초마다 맞춘다. 예전엔 칸이 없으면 OnRoomChanged 만 기다렸는데,
+        // 그 한 번을 놓치면(앞 구독자의 예외 등) 방장 화면에 친구 칸이 끝내 안 떴다 (2026-10 빌드 검수).
+        if (_friends.Count == 0 && _net?.Current == null)
         {
             return;
         }
@@ -127,6 +129,7 @@ public partial class FriendWindows : Node
             {
                 _friends[gone].Window.Close();
                 _friends.Remove(gone);
+                GD.Print($"[friends] 친구 칸 닫음 - 남은 칸 {_friends.Count}개");
             }
         }
 
@@ -137,6 +140,9 @@ public partial class FriendWindows : Node
             {
                 friend = Open(m.Id, slot);
                 _friends[m.Id] = friend;
+
+                // 누구인지(스팀 ID·이름)는 남기지 않는다 (docs/C2-PRIVACY.md 2-2). 2계정 시험에서 칸이 떴는지·어디에 떴는지만 본다.
+                GD.Print($"[friends] 친구 칸 열음 - 자리 {friend.Window.ScreenPosition}, 칸 {_friends.Count}개");
             }
 
             friend.View.SetMember(m.Name, m.RoomKeystrokes);
