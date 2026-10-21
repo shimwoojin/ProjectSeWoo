@@ -221,6 +221,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 스팀이 붙은 뒤 스팀 언어로 다시 고른다(ApplyLanguage).
         Loc.Apply(LanguageOverride() ?? Loc.Resolve(_save.Data.Settings.Language, null));
 
+        // 목 친구 목록은 만들 때 이름을 정한다 - 필드 초기화 때(언어를 고르기 전) 만든 것을 버리고 다시 만든다.
+        // 아직 아무도 구독하지 않았다(BuildScene 전).
+        _net = new MockNetSession();
+
         BuildScene();
 
         _options = new OptionsWindow { Name = "Options" };

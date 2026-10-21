@@ -14,6 +14,11 @@
 끝점은 CURSOR_TIP 이다(platform/CursorLayer.cs TipInWindow - B17 전에는 창 가운데였다).
 
 출력: assets/_store/screenshots/NN_이름.png / .jpg (1920x1080).
+
+영어 (2026-10-21, docs/I18N.md): 원판을 --lang=en 으로 찍고 합성에도 --lang=en 을 준다 - 가짜 바탕화면의 시계·창 제목·
+문서 글자도 영어가 되고, 출력은 screenshots/en/, description/en/ 이다.
+       Godot.exe --path . -- --store-shot=<원판 폴더> --lang=en
+       python tools\\make-store-screenshots.py <원판 폴더> --lang=en
 """
 
 import csv
@@ -22,7 +27,8 @@ import sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "assets", "_store", "screenshots")
+LANG = "en" if "--lang=en" in sys.argv else "ko"
+OUT = os.path.join(ROOT, "assets", "_store", "screenshots", *(["en"] if LANG == "en" else []))
 W, H = 1920, 1080
 TASKBAR = 72
 
@@ -90,7 +96,7 @@ def taskbar(bg):
             d.rounded_rectangle((x + 14, TASKBAR - 8, x + size - 14, TASKBAR - 4), 2, fill=(200, 210, 230, 255))
         x += size + gap
     f = font(UI, 20)
-    d.text((W - 40, 22), "오후 3:42", font=f, fill=(235, 238, 245, 255), anchor="ra")
+    d.text((W - 40, 22), "오후 3:42" if LANG == "ko" else "3:42 PM", font=f, fill=(235, 238, 245, 255), anchor="ra")
     d.text((W - 40, 46), "2026-10-16", font=font(UI, 16), fill=(180, 186, 200, 255), anchor="ra")
     bg.alpha_composite(bar, (0, H - TASKBAR))
 
@@ -153,7 +159,7 @@ CODE = [
 
 
 def code_editor(bg, box):
-    inner = app_window(bg, box, "OrderQueue.cs - 편집기")
+    inner = app_window(bg, box, "OrderQueue.cs - 편집기" if LANG == "ko" else "OrderQueue.cs - Editor")
     x0, y0, x1, y1 = inner
     d = ImageDraw.Draw(bg)
     d.rectangle((x0, y0, x0 + 250, y1 - 12), fill=(37, 38, 44, 255))
@@ -214,9 +220,22 @@ DOC = [
     ("p", "알림은 기본값을 끄고, 필요한 사람만 켜게 한다. 첫 실행 안내에 알림 설정 위치를 적는다."),
 ]
 
+DOC_EN = [
+    ("h", "Q3 Product Meeting Notes"),
+    ("m", "October 16, 2026 · 5 attendees"),
+    ("s", "1. Looking back at last quarter"),
+    ("p", "Sign-ups beat the target, but first-week churn was higher than expected. Cutting onboarding to three screens helped a little, and we'll track the same metric next quarter."),
+    ("s", "2. Goals for this quarter"),
+    ("p", "· Raise first-week retention by 5 points"),
+    ("p", "· Clean up the settings screen — common items on top"),
+    ("p", "· Answer customer questions within a day"),
+    ("s", "3. Decisions"),
+    ("p", "Notifications are off by default; people who want them turn them on. The first-run guide shows where the setting is."),
+]
+
 
 def document(bg, box):
-    inner = app_window(bg, box, "회의록.docx - 문서", dark=False)
+    inner = app_window(bg, box, "회의록.docx - 문서" if LANG == "ko" else "Meeting notes.docx - Docs", dark=False)
     x0, y0, x1, y1 = inner
     d = ImageDraw.Draw(bg)
     d.rectangle((x0, y0, x1, y1 - 12), fill=(214, 218, 226, 255))
@@ -228,7 +247,7 @@ def document(bg, box):
     d = ImageDraw.Draw(layer)
     styles = {"h": (UI_BOLD, 38, (30, 32, 40), 64), "m": (UI, 20, (120, 124, 134), 56),
               "s": (UI_BOLD, 26, (40, 44, 56), 48), "p": (UI, 21, (60, 64, 74), 38)}
-    for kind, text in DOC:
+    for kind, text in (DOC if LANG == "ko" else DOC_EN):
         path, size, color, step = styles[kind]
         if kind == "s":
             y += 14
@@ -418,7 +437,7 @@ SHOTS = [
 
 # ---------- 긴 설명(About This Game) 섹션 이미지 ----------
 
-DESC_OUT = os.path.join(ROOT, "assets", "_store", "description")
+DESC_OUT = os.path.join(ROOT, "assets", "_store", "description", *(["en"] if LANG == "en" else []))
 DESC_W = 616   # 스팀 설명란 너비. 더 크게 올려도 이 너비로 줄여 보여 준다
 
 # 스크린샷에서 잘라 쓸 영역 (x0, y0, x1, y1) - 섹션 제목 아래 한 장씩 (docs/C1-STORE.md §4-2)
