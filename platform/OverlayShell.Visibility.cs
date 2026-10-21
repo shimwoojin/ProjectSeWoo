@@ -154,8 +154,8 @@ public partial class OverlayShell
         _tray.OnOpenSettings += () => OpenOptionsWindow();
         _tray.OnQuit += () => GetTree().Quit();
 
-        var icon = GD.Load<Texture2D>("res://icon.svg");
-        _tray.Build(icon, "ProjectSeWoo");
+        var icon = GD.Load<Texture2D>("res://icon.png");
+        _tray.Build(icon, "PunchMonkey");
 
         if (!_tray.IsSupported)
         {

@@ -16,7 +16,11 @@ config/use_custom_user_dir=true
 config/custom_user_dir_name="PunchMonkey"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 run/low_processor_mode=true
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
+config/windows_native_icon="res://icon.ico"
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0, 0, 0, 0)
+boot_splash/minimum_display_time=0
 
 [display]
 
