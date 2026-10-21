@@ -3545,6 +3545,7 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 
 ### 이슈 / 남은 것
 
-- 빌드 → default → 스토어 English 인터페이스 체크, 영어 스크린샷 (I18N §0)
+- ~~빌드 → default~~ `build-release.ps1` (커밋 `14fcb36`, 217.8MB, 검증 PASS) → steamcmd **BuildID 26108387** → default (업데이트 5.6MB, 확인창은 갑이 누름)
+- 스토어 English 인터페이스 체크, 영어 스크린샷 (I18N §0)
 - 실물 스팀 언어 자동 선택은 아직 실제 스팀 English 로 켜 보지 않았다 - 목/`--lang` 로만 봤다
 - 작업 전 `game/GameRoot.cs` 의 탭 들여쓰기 변경(미커밋)은 스크래치에 보관하고 HEAD 로 되돌린 뒤 작업했다
