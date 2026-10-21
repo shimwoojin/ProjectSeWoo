@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using ProjectSeWoo.Shared;
 
 namespace ProjectSeWoo.Platform;
 
@@ -47,10 +48,24 @@ public sealed class TrayIcon : IDisposable
     private void BuildMenu()
     {
         _menuRid = NativeMenu.CreateMenu();
-        NativeMenu.AddItem(_menuRid, "보이기/숨기기", Callable.From(() => OnToggleVisibility?.Invoke()));
-        NativeMenu.AddItem(_menuRid, "설정...", Callable.From(() => OnOpenSettings?.Invoke()));
+        NativeMenu.AddItem(_menuRid, Loc.T("TRAY_TOGGLE"), Callable.From(() => OnToggleVisibility?.Invoke()));
+        NativeMenu.AddItem(_menuRid, Loc.T("TRAY_SETTINGS"), Callable.From(() => OnOpenSettings?.Invoke()));
         NativeMenu.AddSeparator(_menuRid);
-        NativeMenu.AddItem(_menuRid, "종료", Callable.From(() => OnQuit?.Invoke()));
+        NativeMenu.AddItem(_menuRid, Loc.T("BTN_QUIT"), Callable.From(() => OnQuit?.Invoke()));
+        Loc.Changed += RelabelMenu;
+    }
+
+    /// <summary>OS 메뉴라 Godot 의 자동 번역이 안 닿는다 - 언어가 바뀌면 글자를 직접 바꾼다. 순서는 <see cref="BuildMenu"/> 그대로(2 는 구분선).</summary>
+    private void RelabelMenu()
+    {
+        if (!_menuRid.IsValid)
+        {
+            return;
+        }
+
+        NativeMenu.SetItemText(_menuRid, 0, Loc.T("TRAY_TOGGLE"));
+        NativeMenu.SetItemText(_menuRid, 1, Loc.T("TRAY_SETTINGS"));
+        NativeMenu.SetItemText(_menuRid, 3, Loc.T("BTN_QUIT"));
     }
 
     /// <summary>
@@ -67,6 +82,8 @@ public sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
+        Loc.Changed -= RelabelMenu;
+
         if (_indicatorId >= 0)
         {
             DisplayServer.DeleteStatusIndicator(_indicatorId);

@@ -95,7 +95,10 @@ public sealed class MockNetSession : INetSession
     public bool IsAvailable { get; set; } = true;
 
     /// <summary>룸 안의 내 자리 이름과 같다(<c>SelfSeat</c>).</summary>
-    public string SelfName => "플레이어";
+    public string SelfName => N("플레이어", "Player");
+
+    /// <summary>가짜 이름도 화면 언어로 - 영어 스토어 스크린샷(<c>--store-shot --lang=en</c>)에 한글 이름이 섞이지 않게.</summary>
+    private static string N(string ko, string en) => Loc.Language == Loc.Korean ? ko : en;
 
     /// <summary>
     /// 가짜 친구들이 200ms 마다 상태를 보내는가 (A10). 사람처럼 몰아서 치다 쉬고, 가끔 딴다.
@@ -400,18 +403,18 @@ public sealed class MockNetSession : INetSession
     {
         // 들어갈 수 있는 친구 룸 (2/4)
         Room open = SeedRoom(0x0B7A2F31u, TimeSpan.FromMinutes(42),
-            (new PeerId(101), "바나나킹", 3_120), (new PeerId(102), "고릴라", 1_870));
+            (new PeerId(101), N("바나나킹", "BananaKing"), 3_120), (new PeerId(102), N("고릴라", "Gorilla"), 1_870));
 
         // 가득 찬 친구 룸 (4/4)
         Room full = SeedRoom(0x19C4E07Du, TimeSpan.FromHours(3),
-            (new PeerId(103), "망고", 9_410), (new PeerId(201), "망고친구1", 7_002),
-            (new PeerId(202), "망고친구2", 6_540), (new PeerId(203), "망고친구3", 880));
+            (new PeerId(103), N("망고", "Mango"), 9_410), (new PeerId(201), N("망고친구1", "MangoPal1"), 7_002),
+            (new PeerId(202), N("망고친구2", "MangoPal2"), 6_540), (new PeerId(203), N("망고친구3", "MangoPal3"), 880));
 
-        _friends.Add(new FriendInfo(new PeerId(101), "바나나킹", FriendStatus.InRoom, RoomCode.Format(open.Code)));
-        _friends.Add(new FriendInfo(new PeerId(103), "망고", FriendStatus.InRoom, RoomCode.Format(full.Code)));
-        _friends.Add(new FriendInfo(new PeerId(104), "키보드장인", FriendStatus.InGame, null));
-        _friends.Add(new FriendInfo(new PeerId(105), "오랑우탄", FriendStatus.Online, null));
-        _friends.Add(new FriendInfo(new PeerId(106), "나무늘보", FriendStatus.Offline, null));
+        _friends.Add(new FriendInfo(new PeerId(101), N("바나나킹", "BananaKing"), FriendStatus.InRoom, RoomCode.Format(open.Code)));
+        _friends.Add(new FriendInfo(new PeerId(103), N("망고", "Mango"), FriendStatus.InRoom, RoomCode.Format(full.Code)));
+        _friends.Add(new FriendInfo(new PeerId(104), N("키보드장인", "KeyboardPro"), FriendStatus.InGame, null));
+        _friends.Add(new FriendInfo(new PeerId(105), N("오랑우탄", "Orangutan"), FriendStatus.Online, null));
+        _friends.Add(new FriendInfo(new PeerId(106), N("나무늘보", "Sloth"), FriendStatus.Offline, null));
     }
 
     private Room SeedRoom(uint code, TimeSpan age, params (PeerId Id, string Name, long Keystrokes)[] seats)
@@ -429,7 +432,7 @@ public sealed class MockNetSession : INetSession
     private void Enter(Room room)
     {
         room.Saved.Remove(SelfId, out long resumed);
-        room.Seats.Add(new Seat { Id = SelfId, Name = "플레이어", Keystrokes = resumed });
+        room.Seats.Add(new Seat { Id = SelfId, Name = SelfName, Keystrokes = resumed });
         _current = room;
         OnRoomChanged?.Invoke();
     }

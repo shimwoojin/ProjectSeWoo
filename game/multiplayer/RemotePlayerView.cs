@@ -126,6 +126,7 @@ public partial class RemotePlayerView : Node2D
         ApplyCursorScale();
 
         _name = MakeLabel(new Vector2(0, LabelsTop), 13);
+        _name.AutoTranslateMode = AutoTranslateModeEnum.Disabled;   // 친구 닉네임 - 키와 같아도 번역하지 않는다
         _stats = MakeLabel(new Vector2(0, 162), 11);
         _collection = MakeLabel(new Vector2(0, 178), 10);
         _collection.AddThemeColorOverride("font_color", new Color(0.80f, 0.84f, 0.90f));
@@ -289,7 +290,10 @@ public partial class RemotePlayerView : Node2D
 
     private void RefreshStats()
     {
-        string stats = _donationTitle == null ? $"{_roomKeystrokes:N0}타" : $"{_roomKeystrokes:N0}타 · {_donationTitle}";
+        // 칭호가 붙으면 영어는 단위를 뺀다 - 칸이 좁아 "1,853 punches · Banana D..." 로 잘렸다 (REMOTE_STATS_TITLE).
+        string stats = _donationTitle == null
+            ? Loc.F("PUNCHES_N", _roomKeystrokes)
+            : Loc.F("REMOTE_STATS_TITLE", _roomKeystrokes, Loc.T(_donationTitle));
         if (_stats.Text != stats)
         {
             _stats.Text = stats;
@@ -309,17 +313,17 @@ public partial class RemotePlayerView : Node2D
             double sinceTyped = (Time.GetTicksMsec() - _lastTypedMs) / 1000.0;
             if (sinceState >= StaleSec)
             {
-                status = "연결 확인 중…";
+                status = Loc.T("REMOTE_CONNECTING");
                 alpha = 0.5f;
             }
             else if (sinceTyped >= IdleSec)
             {
-                status = $"쉬는 중 · {(int)(sinceTyped / 60)}분";
+                status = Loc.F("REMOTE_RESTING", (int)(sinceTyped / 60));
                 alpha = 0.8f;
             }
             else
             {
-                status = $"도감 {_collectionPercent}%";
+                status = Loc.F("REMOTE_COLLECTION", _collectionPercent);
             }
         }
 
@@ -349,7 +353,7 @@ public partial class RemotePlayerView : Node2D
 
         var pop = new Label
         {
-            Text = $"+{count} 바나나",
+            Text = Loc.F("REMOTE_BANANAS", count),
             // 창 모양(GetShape) 안에서만 그려진다 - 칸 맨 위는 나무 윗부분보다 높아서 잘린다.
             // 그래서 나무 잎 한가운데에서 떠오른다.
             Position = new Vector2(0, 48),

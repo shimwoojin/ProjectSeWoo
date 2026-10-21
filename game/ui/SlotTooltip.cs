@@ -67,15 +67,15 @@ public partial class SlotTooltip : PanelContainer
 
         if (slot.Ready)
         {
-            title = slot.Golden ? "황금 바나나 · 다 익음" : "다 익음";
+            title = Loc.T(slot.Golden ? "TIP_RIPE_GOLDEN" : "TIP_RIPE");
             titleColor = ShopWindow.Gold;
-            body = $"{Tree.HitsToDrop - hits}번 더 치면 떨어짐";
+            body = Loc.F("TIP_HITS_LEFT", Tree.HitsToDrop - hits);
         }
         else
         {
-            title = "익는 중";
+            title = Loc.T("TIP_GROWING");
             titleColor = ShopWindow.Accent;
-            body = $"{FormatRemaining(slot.GrowthMs - slot.ElapsedMs)} 뒤 열림";
+            body = Loc.F("TIP_READY_IN", FormatRemaining(slot.GrowthMs - slot.ElapsedMs));
         }
 
         if (_title.Text != title)
@@ -98,14 +98,14 @@ public partial class SlotTooltip : PanelContainer
         long seconds = Math.Max(1, (ms + 999) / 1000);
         if (seconds >= 3600)
         {
-            return $"{seconds / 3600}시간 {seconds % 3600 / 60}분";
+            return Loc.F("TIME_HM", seconds / 3600, seconds % 3600 / 60);
         }
 
         if (seconds >= 60)
         {
-            return $"{seconds / 60}분 {seconds % 60}초";
+            return Loc.F("TIME_MS", seconds / 60, seconds % 60);
         }
 
-        return $"{seconds}초";
+        return Loc.F("TIME_S", seconds);
     }
 }

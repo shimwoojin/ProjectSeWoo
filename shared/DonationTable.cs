@@ -15,13 +15,17 @@ namespace ProjectSeWoo.Shared;
 /// </summary>
 public static class DonationTable
 {
-    /// <summary>칭호 (문턱, 이름). 작은 것부터. 문턱 미만이면 칭호 없음.</summary>
+    /// <summary>
+    /// 칭호 (문턱, 이름의 번역 키 - <see cref="Loc"/>, game/i18n/strings.csv). 작은 것부터. 문턱 미만이면 칭호 없음.
+    /// 영어 이름은 같은 문턱의 도전과제 이름과 맞췄다(Banana Donor · Jungle Donor · Jungle Benefactor, A15).
+    /// 친구 칸에는 누적 기부량만 가고 칭호는 받는 쪽이 이 표로 고른다 - 서로 다른 언어여도 각자 자기 언어로 보인다.
+    /// </summary>
     public static readonly (long Threshold, string Title)[] Titles =
     {
-        (100, "새싹 후원자"),
-        (1_000, "바나나 후원자"),
-        (10_000, "정글 후원자"),
-        (100_000, "정글의 은인"),
+        (100, "TITLE_SPROUT"),
+        (1_000, "TITLE_BANANA"),
+        (10_000, "TITLE_JUNGLE"),
+        (100_000, "TITLE_BENEFACTOR"),
     };
 
     /// <summary>기부 창의 버튼 금액. "전부" 는 창이 따로 둔다.</summary>

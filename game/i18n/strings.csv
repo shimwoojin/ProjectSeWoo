@@ -1,0 +1,146 @@
+keys,ko,en
+BANANAS_N,바나나 {0:N0},Bananas {0:N0}
+BANANAS_ARROW,바나나 {0:N0} → {1:N0},Bananas {0:N0} → {1:N0}
+PUNCHES_N,{0:N0}타,{0:N0} punches
+BTN_OK,확인,OK
+BTN_CANCEL,취소,Cancel
+BTN_CLOSE,닫기,Close
+BTN_QUIT,종료,Quit
+BTN_COPY,복사,Copy
+OPT_HIDDEN,숨김,Off
+ERR_SERVER,서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요,Couldn't reach the server. Please try again in a moment
+ERR_NO_BANANAS,바나나가 부족합니다,Not enough bananas
+HUD_CONNECTING,서버에 연결하는 중...,Connecting to the server...
+HUD_OFFLINE,오프라인 - 연결되면 바나나가 열립니다,Offline - bananas grow once you're connected
+HUD_ROOM,로비 {0}/{1} · {2}위 · {3:N0}타,Lobby {0}/{1} · #{2} · {3:N0} punches
+MENU_OPEN,메뉴,Menu
+MENU_TOOLTIP,상점 · 강화 · 기부 · 멀티 · 설정,Shop · Upgrades · Donate · Lobby · Settings
+MENU_SHOP,상점,Shop
+MENU_UPGRADE,강화,Upgrades
+MENU_DONATE,기부,Donate
+MENU_MULTI,멀티,Lobby
+MENU_SETTINGS,설정,Settings
+MENU_HELP,안내,Help
+MENU_CLOSE_TOOLTIP,메뉴 닫기 (Esc),Close menu (Esc)
+ONBOARD_TITLE,PunchMonkey 에 오신 걸 환영합니다,Welcome to PunchMonkey
+ONBOARD_1,바탕화면에 켜 두고 평소처럼 일하는 게임입니다.,Keep it on your desktop and work as usual.
+ONBOARD_2,시간이 지나면 나무에 바나나가 열립니다.,Bananas grow on the tree over time.
+ONBOARD_3,키보드를 치면 원숭이가 나무를 쳐서 익은 바나나를 떨어뜨립니다.,Every key you type makes the monkey punch the tree and knock down ripe bananas.
+ONBOARD_4,모은 바나나로 마우스 커서를 꾸며 보세요.,Spend your bananas to decorate your mouse cursor.
+ONBOARD_START,시작하기,Let's go
+SHOP_OFFLINE,인터넷 연결이 필요합니다 - 구매는 온라인에서만 할 수 있습니다,Internet connection required - purchases only work online
+SHOP_COLLECTED,수집 {0}/{1},Collected {0}/{1}
+SHOP_EQUIPPED,장착 중,Equipped
+SHOP_UNEQUIP,해제,Remove
+SHOP_IN_USE,사용 중,In use
+SHOP_RECEIVING_STATE,받는 중...,Receiving...
+SHOP_RECEIVING,받는 중,Receiving
+SHOP_OWNED,보유,Owned
+SHOP_EQUIP,장착,Equip
+SHOP_BUY,구매,Buy
+SHOP_CLEAR_DECO,장식 빼기,Remove decoration
+SHOP_NONE_OWNED,아직 가진 장식이 없습니다,You don't own any decorations yet
+SHOP_TAB_COLLECTION,도감,Collection
+SHOP_BUY_REJECTED,구매가 거절됐습니다. 바나나는 그대로입니다,Purchase declined. Your bananas are untouched
+SLOT_MONKEY,원숭이,Monkey
+SLOT_BANANA,바나나,Banana
+SLOT_DECO,장식,Deco
+UPGRADE_OFFLINE,인터넷 연결이 필요합니다 - 강화는 온라인에서만 할 수 있습니다,Internet connection required - upgrades only work online
+UPGRADE_DESC,나무를 키웁니다. 황금 바나나를 따면 바나나 {0}개를 얻습니다.,Grow your tree. Each golden banana is worth {0} bananas.
+UPGRADE_LEVEL,{0}  {1}/{2}단계,{0}  Lv {1}/{2}
+UPGRADE_MAXED,{0} (최대),{0} (max)
+UPGRADE_MAX,최대,Max
+UPGRADE_BUTTON,강화,Upgrade
+UPGRADE_MAX_LEVEL,이미 최대 단계입니다,Already at max level
+UPGRADE_REJECTED,강화가 거절됐습니다. 바나나는 그대로입니다,Upgrade declined. Your bananas are untouched
+AXIS_SLOTS,가지 늘리기,More Branches
+AXIS_CYCLE,빨리 익기,Faster Ripening
+AXIS_GOLDEN,황금 바나나,Golden Bananas
+EFFECT_SLOTS,송이 {0}개,{0} bunches
+EFFECT_CYCLE,{0}분마다 익음,Ripens every {0} min
+EFFECT_GOLDEN,황금 확률 {0}%,Golden chance {0}%
+DONATE_OFFLINE,인터넷 연결이 필요합니다 - 기부는 온라인에서만 할 수 있습니다,Internet connection required - donations only work online
+DONATE_DESC,정글 기부함에 바나나를 넣습니다. 누적 기부량은 칭호가 되어 이름 옆에 표시됩니다.,Drop bananas into the jungle donation box. Your total becomes a title shown next to your name.
+DONATE_TOTAL,누적 기부 {0:N0},Total donated {0:N0}
+DONATE_TOTAL_ARROW,누적 기부 {0:N0} → {1:N0},Total donated {0:N0} → {1:N0}
+DONATE_NO_TITLE,아직 칭호가 없습니다,No title yet
+DONATE_NEXT,"다음 칭호 ""{0}""까지 {1:N0}","{1:N0} more to ""{0}"""
+DONATE_TOP,최고 칭호입니다. 감사합니다!,You've reached the highest title. Thank you!
+DONATE_NEW_TITLE,"새 칭호 ""{0}""","New title ""{0}"""
+DONATE_CONFIRM,{0:N0} 기부,Donate {0:N0}
+DONATE_ALL,전부,All
+DONATE_ASK,정말 기부할까요? 돌려받을 수 없습니다,Donate them? You can't get them back
+DONATE_TITLE_LABEL,칭호,Title
+DONATE_REJECTED,기부가 거절됐습니다. 바나나는 그대로입니다,Donation declined. Your bananas are untouched
+DONATE_THANKS_TITLE,"감사합니다! 새 칭호 ""{0}"" 획득","Thank you! New title: ""{0}"""
+DONATE_THANKS,감사합니다! 바나나 {0:N0}개를 기부했습니다.,Thank you! You donated {0:N0} bananas.
+TITLE_SPROUT,새싹 후원자,Sprout Donor
+TITLE_BANANA,바나나 후원자,Banana Donor
+TITLE_JUNGLE,정글 후원자,Jungle Donor
+TITLE_BENEFACTOR,정글의 은인,Jungle Benefactor
+TIP_RIPE_GOLDEN,황금 바나나 · 다 익음,Golden banana · Ripe
+TIP_RIPE,다 익음,Ripe
+TIP_HITS_LEFT,{0}번 더 치면 떨어짐,Drops after {0} more hits
+TIP_GROWING,익는 중,Ripening
+TIP_READY_IN,{0} 뒤 열림,Ready in {0}
+TIME_HM,{0}시간 {1}분,{0}h {1}m
+TIME_MS,{0}분 {1}초,{0}m {1}s
+TIME_S,{0}초,{0}s
+ROOM_TITLE,멀티 로비,Multiplayer Lobby
+ROOM_NEED_STEAM,스팀이 켜져 있어야 멀티를 쓸 수 있어요,Steam must be running to play with friends
+ROOM_CREATE,로비 만들기,Create Lobby
+ROOM_CODE_PLACEHOLDER,로비 코드 (예: K7Q-2XMD),Lobby code (e.g. K7Q-2XMD)
+ROOM_ENTER,입장,Join
+ROOM_PASTE_JOIN,복사한 로비 코드로 입장,Join with copied code
+ROOM_STEAM_FRIENDS,스팀 친구,Steam Friends
+ROOM_CODE,로비 코드,Lobby Code
+ROOM_RANKING,로비 랭킹,Lobby Ranking
+ROOM_INVITE_OVERLAY,스팀으로 초대,Invite via Steam
+ROOM_LEAVE,로비 나가기,Leave Lobby
+ROOM_INFO,경과 {0}  ·  {1}/{2}명,Time {0}  ·  {1}/{2} players
+ROOM_INFO_HOST,  ·  내가 방장,  ·  You're the host
+ROOM_RANK,{0}위,#{0}
+ROOM_ME, (나), (you)
+ROOM_HOST,  · 방장,  · Host
+ROOM_IN_LOBBY,로비에 있음,In a lobby
+ROOM_NO_FRIENDS,스팀 친구가 없어요,No Steam friends yet
+ROOM_FRIENDS_LATER,스팀에 연결되면 친구가 보여요,Friends show up once Steam is connected
+ROOM_JOIN,참가,Join
+ROOM_INVITE,초대,Invite
+ROOM_SENT,보냄,Sent
+ROOM_NO_INVITABLE,초대할 수 있는 친구가 없어요. 로비 코드를 복사해 보내 주세요,No friends to invite. Copy the lobby code and send it to them
+ROOM_COPIED,로비 코드 {0} 를 복사했어요. 친구에게 보내 주세요,Copied lobby code {0}. Send it to your friends
+ROOM_CREATED,로비를 만들었어요. 로비 코드 {0} 를 친구에게 보내 주세요,Lobby created. Send the lobby code {0} to your friends
+ROOM_JOINED,로비 {0} 에 들어왔어요,Joined lobby {0}
+ROOM_REJOINED,지난번 로비 {0} 에 다시 들어왔어요,Rejoined your last lobby {0}
+ROOM_INVITE_SENT,초대를 보냈어요. 친구가 스팀에서 수락하면 들어와요,Invite sent. Your friend joins once they accept on Steam
+ROOM_LEFT,로비에서 나왔어요. 다시 들어가면 타수가 이어져요,You left the lobby. Your punches carry on if you rejoin
+ROOM_WAIT,잠시만요...,One moment...
+ROOM_ERR_CODE,잘못된 로비 코드입니다,Invalid lobby code
+ROOM_ERR_FULL,로비가 가득 찼어요 (최대 {0}명),The lobby is full (max {0} players)
+ROOM_ERR_FAILED,들어가지 못했어요. 잠시 뒤 다시 해 주세요,Couldn't join. Please try again in a moment
+ROOM_NOW_HOST,방장이 나가서 내가 방장이 됐어요,The host left - you're the host now
+ROOM_HOST_CHANGED,방장이 {0} 님으로 바뀌었어요,{0} is now the host
+FRIEND_IN_GAME,게임 중,In game
+FRIEND_ONLINE,온라인,Online
+FRIEND_OFFLINE,오프라인,Offline
+REMOTE_STATS_TITLE,{0:N0}타 · {1},{0:N0} · {1}
+REMOTE_CONNECTING,연결 확인 중…,Connecting…
+REMOTE_RESTING,쉬는 중 · {0}분,Resting · {0} min
+REMOTE_COLLECTION,도감 {0}%,Collection {0}%
+REMOTE_BANANAS,+{0} 바나나,+{0} bananas
+OPT_SCALE,내 창 크기,My window size
+OPT_FRIEND_SCALE,친구 칸 크기,Friend window size
+OPT_CURSOR_SCALE,내 커서 크기,My cursor size
+OPT_FRIEND_CURSOR_SCALE,친구 커서 크기 (왼쪽 끝 숨김),Friend cursor size
+OPT_OPACITY,투명도,Opacity
+OPT_CURSOR,커서 장식,Cursor decoration
+OPT_CURSOR_INDEPENDENT,숨겨도 커서 장식은 유지,Keep cursor decoration when hidden
+OPT_HIDE_FULLSCREEN,전체화면 앱 위에서 숨김,Hide over fullscreen apps
+OPT_AUTOSTART,Windows 시작 시 자동 실행,Launch when Windows starts
+OPT_LANGUAGE,언어,Language
+OPT_LANGUAGE_AUTO,자동 (스팀 언어),Auto (Steam language)
+OPT_QUIT,게임 종료,Quit game
+OPT_QUIT_ASK,게임을 종료할까요? 진행 상황은 저장됩니다.,Quit the game? Your progress is saved.
+TRAY_TOGGLE,보이기/숨기기,Show/Hide
+TRAY_SETTINGS,설정...,Settings...

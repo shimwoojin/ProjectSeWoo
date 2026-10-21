@@ -163,9 +163,8 @@ public partial class RoomWindow : CanvasLayer
         List<RoomMember> ranked = RoomRanking.Sort(members);
 
         _code.Text = room.Uid;
-        _info.Text = $"경과 {RoomRanking.FormatElapsed(room.CreatedUtc)}"
-            + $"  ·  {members.Count}/{MaxMembers}명"
-            + (room.IsHost ? "  ·  내가 방장" : string.Empty);
+        _info.Text = Loc.F("ROOM_INFO", RoomRanking.FormatElapsed(room.CreatedUtc), members.Count, MaxMembers)
+            + (room.IsHost ? Loc.T("ROOM_INFO_HOST") : string.Empty);
 
         for (int i = 0; i < MaxMembers; i++)
         {
@@ -178,9 +177,9 @@ public partial class RoomWindow : CanvasLayer
 
             RoomMember m = ranked[i];
             row.Root.Visible = true;
-            row.Rank.Text = $"{RoomRanking.RankOf(ranked, m)}위";
-            row.Name.Text = m.Name + (m.IsSelf ? " (나)" : string.Empty) + (m.IsHost ? "  · 방장" : string.Empty);
-            row.Count.Text = $"{m.RoomKeystrokes:N0}타";
+            row.Rank.Text = Loc.F("ROOM_RANK", RoomRanking.RankOf(ranked, m));
+            row.Name.Text = m.Name + (m.IsSelf ? Loc.T("ROOM_ME") : string.Empty) + (m.IsHost ? Loc.T("ROOM_HOST") : string.Empty);
+            row.Count.Text = Loc.F("PUNCHES_N", m.RoomKeystrokes);
 
             Color color = m.IsSelf ? ShopWindow.Accent : Colors.White;
             row.Name.AddThemeColorOverride("font_color", color);
@@ -259,7 +258,7 @@ public partial class RoomWindow : CanvasLayer
         bool enabled = available && !_busy;
 
         _unavailable.Visible = !available;
-        _status.Text = _net?.Current == null ? string.Empty : "로비에 있음";
+        _status.Text = _net?.Current == null ? string.Empty : "ROOM_IN_LOBBY";
 
         _create.Disabled = !enabled;
         _join.Disabled = !enabled;
@@ -275,7 +274,7 @@ public partial class RoomWindow : CanvasLayer
 
         if (friends.Count == 0)
         {
-            _joinFriends.AddChild(MakeDimLabel(_net.IsAvailable ? "스팀 친구가 없어요" : "스팀에 연결되면 친구가 보여요"));
+            _joinFriends.AddChild(MakeDimLabel(_net.IsAvailable ? "ROOM_NO_FRIENDS" : "ROOM_FRIENDS_LATER"));
             return;
         }
 
@@ -285,7 +284,7 @@ public partial class RoomWindow : CanvasLayer
             if (f.Status == FriendStatus.InRoom && f.RoomUid != null)
             {
                 string uid = f.RoomUid;
-                action = new Button { Text = "참가", Disabled = _busy || !_net.IsAvailable };
+                action = new Button { Text = "ROOM_JOIN", Disabled = _busy || !_net.IsAvailable };
                 action.Pressed += () => JoinRequested?.Invoke(uid);
             }
 
@@ -317,7 +316,7 @@ public partial class RoomWindow : CanvasLayer
             if (f.Status == FriendStatus.InRoom && f.RoomUid != null)
             {
                 string uid = f.RoomUid;
-                var join = new Button { Text = "참가", Disabled = _busy || !_net.IsAvailable };
+                var join = new Button { Text = "ROOM_JOIN", Disabled = _busy || !_net.IsAvailable };
                 join.Pressed += () => JoinRequested?.Invoke(uid);
                 _inviteFriends.AddChild(MakeFriendRow(f, join));
                 shown++;
@@ -326,11 +325,11 @@ public partial class RoomWindow : CanvasLayer
 
             PeerId id = f.Id;
             bool sent = _invited.Contains(id);
-            var action = new Button { Text = sent ? "보냄" : "초대", Disabled = sent };
+            var action = new Button { Text = sent ? "ROOM_SENT" : "ROOM_INVITE", Disabled = sent };
             action.Pressed += () =>
             {
                 _invited.Add(id);
-                action.Text = "보냄";
+                action.Text = "ROOM_SENT";
                 action.Disabled = true;
                 InviteRequested?.Invoke(id);
             };
@@ -341,7 +340,7 @@ public partial class RoomWindow : CanvasLayer
 
         if (shown == 0)
         {
-            _inviteFriends.AddChild(MakeDimLabel("초대할 수 있는 친구가 없어요. 로비 코드를 복사해 보내 주세요"));
+            _inviteFriends.AddChild(MakeDimLabel("ROOM_NO_INVITABLE"));
         }
     }
 
@@ -426,7 +425,7 @@ public partial class RoomWindow : CanvasLayer
 
         _popupOk = new Button
         {
-            Text = "확인",
+            Text = "BTN_OK",
             CustomMinimumSize = new Vector2(96, 30),
             SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
         };
@@ -441,7 +440,7 @@ public partial class RoomWindow : CanvasLayer
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 8);
 
-        var title = new Label { Text = "멀티 로비" };
+        var title = new Label { Text = "ROOM_TITLE" };
         title.AddThemeFontSizeOverride("font_size", 16);
         header.AddChild(title);
 
@@ -460,13 +459,13 @@ public partial class RoomWindow : CanvasLayer
 
         _unavailable = new Label
         {
-            Text = "스팀이 켜져 있어야 멀티를 쓸 수 있어요",
+            Text = "ROOM_NEED_STEAM",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         _unavailable.AddThemeColorOverride("font_color", Error);
         box.AddChild(_unavailable);
 
-        _create = new Button { Text = "로비 만들기", CustomMinimumSize = new Vector2(0, 32) };
+        _create = new Button { Text = "ROOM_CREATE", CustomMinimumSize = new Vector2(0, 32) };
         _create.Pressed += () => CreateRequested?.Invoke();
         box.AddChild(_create);
 
@@ -474,21 +473,21 @@ public partial class RoomWindow : CanvasLayer
         codeRow.AddThemeConstantOverride("separation", 6);
         _codeInput = new LineEdit
         {
-            PlaceholderText = "로비 코드 (예: K7Q-2XMD)",
+            PlaceholderText = "ROOM_CODE_PLACEHOLDER",
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             MaxLength = 16,
         };
         _codeInput.TextSubmitted += text => JoinRequested?.Invoke(text);
         codeRow.AddChild(_codeInput);
 
-        _join = new Button { Text = "입장", CustomMinimumSize = new Vector2(56, 0) };
+        _join = new Button { Text = "ROOM_ENTER", CustomMinimumSize = new Vector2(56, 0) };
         _join.Pressed += () => JoinRequested?.Invoke(_codeInput.Text);
         codeRow.AddChild(_join);
         box.AddChild(codeRow);
 
         // 입력칸에 포커스가 안 가는 환경(오버레이 창)을 위한 길이기도 하다 -
         // 친구가 보낸 코드를 복사해 두고 이것만 누르면 된다.
-        _pasteJoin = new Button { Text = "복사한 로비 코드로 입장" };
+        _pasteJoin = new Button { Text = "ROOM_PASTE_JOIN" };
         _pasteJoin.Pressed += () =>
         {
             string pasted = DisplayServer.ClipboardGet().Trim();
@@ -498,7 +497,7 @@ public partial class RoomWindow : CanvasLayer
         box.AddChild(_pasteJoin);
 
         box.AddChild(new HSeparator());
-        box.AddChild(MakeSectionLabel("스팀 친구"));
+        box.AddChild(MakeSectionLabel("ROOM_STEAM_FRIENDS"));
         box.AddChild(MakeScroll(out _joinFriends));
 
         return box;
@@ -512,7 +511,7 @@ public partial class RoomWindow : CanvasLayer
         var codeRow = new HBoxContainer();
         codeRow.AddThemeConstantOverride("separation", 8);
 
-        var codeTitle = new Label { Text = "로비 코드" };
+        var codeTitle = new Label { Text = "ROOM_CODE" };
         codeTitle.AddThemeColorOverride("font_color", ShopWindow.Dim);
         codeRow.AddChild(codeTitle);
 
@@ -521,7 +520,7 @@ public partial class RoomWindow : CanvasLayer
         _code.AddThemeColorOverride("font_color", ShopWindow.Gold);
         codeRow.AddChild(_code);
 
-        var copy = new Button { Text = "복사" };
+        var copy = new Button { Text = "BTN_COPY" };
         copy.Pressed += CopyCode;
         codeRow.AddChild(copy);
         box.AddChild(codeRow);
@@ -532,7 +531,7 @@ public partial class RoomWindow : CanvasLayer
         box.AddChild(_info);
 
         box.AddChild(new HSeparator());
-        box.AddChild(MakeSectionLabel("로비 랭킹"));
+        box.AddChild(MakeSectionLabel("ROOM_RANKING"));
 
         for (int i = 0; i < MaxMembers; i++)
         {
@@ -543,17 +542,17 @@ public partial class RoomWindow : CanvasLayer
         box.AddChild(new HSeparator());
 
         var inviteHead = new HBoxContainer();
-        var inviteTitle = MakeSectionLabel("스팀 친구");
+        var inviteTitle = MakeSectionLabel("ROOM_STEAM_FRIENDS");
         inviteTitle.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         inviteHead.AddChild(inviteTitle);
-        _inviteOverlay = new Button { Text = "스팀으로 초대" };
+        _inviteOverlay = new Button { Text = "ROOM_INVITE_OVERLAY" };
         _inviteOverlay.Pressed += () => InviteOverlayRequested?.Invoke();
         inviteHead.AddChild(_inviteOverlay);
         box.AddChild(inviteHead);
 
         box.AddChild(MakeScroll(out _inviteFriends));
 
-        _leave = new Button { Text = "로비 나가기" };
+        _leave = new Button { Text = "ROOM_LEAVE" };
         _leave.Pressed += () => LeaveRequested?.Invoke();
         box.AddChild(_leave);
 
@@ -568,7 +567,7 @@ public partial class RoomWindow : CanvasLayer
         }
 
         DisplayServer.ClipboardSet(room.Uid);
-        ShowMessage($"로비 코드 {room.Uid} 를 복사했어요. 친구에게 보내 주세요");
+        ShowMessage(Loc.F("ROOM_COPIED", room.Uid));
     }
 
     private static RankRow MakeRankRow()
@@ -585,6 +584,7 @@ public partial class RoomWindow : CanvasLayer
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             ClipText = true,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            AutoTranslateMode = Node.AutoTranslateModeEnum.Disabled,
         };
         name.AddThemeFontSizeOverride("font_size", 14);
         row.AddChild(name);
@@ -620,6 +620,7 @@ public partial class RoomWindow : CanvasLayer
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             ClipText = true,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+            AutoTranslateMode = Node.AutoTranslateModeEnum.Disabled,
         };
         name.AddThemeFontSizeOverride("font_size", 13);
         if (f.Status == FriendStatus.Offline)
@@ -633,10 +634,10 @@ public partial class RoomWindow : CanvasLayer
         {
             Text = f.Status switch
             {
-                FriendStatus.InRoom => "로비에 있음",
-                FriendStatus.InGame => "게임 중",
-                FriendStatus.Online => "온라인",
-                _ => "오프라인",
+                FriendStatus.InRoom => "ROOM_IN_LOBBY",
+                FriendStatus.InGame => "FRIEND_IN_GAME",
+                FriendStatus.Online => "FRIEND_ONLINE",
+                _ => "FRIEND_OFFLINE",
             },
         };
         state.AddThemeFontSizeOverride("font_size", 11);

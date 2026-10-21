@@ -40,6 +40,11 @@ project/assembly_name="ProjectSeWoo"
 
 theme/custom="res://assets/ui/theme.tres"
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://game/i18n/strings.ko.translation", "res://game/i18n/strings.en.translation")
+locale/fallback="en"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

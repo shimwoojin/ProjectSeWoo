@@ -33,15 +33,10 @@ public partial class OnboardingWindow : CanvasLayer
     /// <summary>[시작하기]. 게임 레이어가 세이브에 본 것을 남긴다.</summary>
     public event Action Finished;
 
-    private const string Title = "PunchMonkey 에 오신 걸 환영합니다";
+    // 번역 키 (Shared.Loc, game/i18n/strings.csv)
+    private const string Title = "ONBOARD_TITLE";
 
-    private static readonly string[] Lines =
-    {
-        "바탕화면에 켜 두고 평소처럼 일하는 게임입니다.",
-        "시간이 지나면 나무에 바나나가 열립니다.",
-        "키보드를 치면 원숭이가 나무를 쳐서 익은 바나나를 떨어뜨립니다.",
-        "모은 바나나로 마우스 커서를 꾸며 보세요.",
-    };
+    private static readonly string[] Lines = { "ONBOARD_1", "ONBOARD_2", "ONBOARD_3", "ONBOARD_4" };
 
     /// <summary>펀치 시트(8칸 x 298x324)의 팔을 뻗은 칸 - 캡슐 아트와 같은 프레임.</summary>
     private static Texture2D PunchingMonkey() => new AtlasTexture
@@ -124,7 +119,7 @@ public partial class OnboardingWindow : CanvasLayer
 
         var buttons = new HBoxContainer();
         buttons.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-        var start = new Button { Text = "시작하기", CustomMinimumSize = new Vector2(84, 0) };
+        var start = new Button { Text = "ONBOARD_START", CustomMinimumSize = new Vector2(84, 0) };
         start.Pressed += Finish;
         buttons.AddChild(start);
         rows.AddChild(buttons);

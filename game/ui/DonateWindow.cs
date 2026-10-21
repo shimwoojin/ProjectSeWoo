@@ -98,13 +98,13 @@ public partial class DonateWindow : CanvasLayer
         long total = _inventory.Donated;
         bool online = _inventory.Online;
 
-        _bananas.Text = $"바나나 {bananas:N0}";
-        _notice.Text = !online ? "인터넷 연결이 필요합니다 - 기부는 온라인에서만 할 수 있습니다" : _message ?? string.Empty;
+        _bananas.Text = Loc.F("BANANAS_N", bananas);
+        _notice.Text = !online ? Loc.T("DONATE_OFFLINE") : _message ?? string.Empty;
         _notice.Visible = _notice.Text.Length > 0;
 
-        _total.Text = $"누적 기부 {total:N0}";
+        _total.Text = Loc.F("DONATE_TOTAL", total);
         string title = DonationTable.TitleFor(total);
-        _title.Text = title ?? "아직 칭호가 없습니다";
+        _title.Text = title ?? "DONATE_NO_TITLE";
         _title.AddThemeColorOverride("font_color", title != null ? ShopWindow.Gold : ShopWindow.Dim);
 
         if (DonationTable.NextTitle(total) is (long threshold, string nextTitle))
@@ -114,12 +114,12 @@ public partial class DonateWindow : CanvasLayer
             _progress.MaxValue = threshold;
             _progress.Value = total;
             _progress.Visible = true;
-            _next.Text = $"다음 칭호 \"{nextTitle}\"까지 {threshold - total:N0}";
+            _next.Text = Loc.F("DONATE_NEXT", Loc.T(nextTitle), threshold - total);
         }
         else
         {
             _progress.Visible = false;
-            _next.Text = "최고 칭호입니다. 감사합니다!";
+            _next.Text = Loc.T("DONATE_TOP");
         }
 
         for (int i = 0; i < _amountButtons.Length; i++)
@@ -144,11 +144,11 @@ public partial class DonateWindow : CanvasLayer
             long afterTotal = total + _pending;
             string titleNow = DonationTable.TitleFor(total);
             string titleAfter = DonationTable.TitleFor(afterTotal);
-            _confirmBananas.Text = $"바나나 {bananas:N0} → {bananas - _pending:N0}";
-            _confirmTotal.Text = $"누적 기부 {total:N0} → {afterTotal:N0}";
-            _confirmTitle.Text = titleAfter != null && titleAfter != titleNow ? $"새 칭호 \"{titleAfter}\"" : string.Empty;
+            _confirmBananas.Text = Loc.F("BANANAS_ARROW", bananas, bananas - _pending);
+            _confirmTotal.Text = Loc.F("DONATE_TOTAL_ARROW", total, afterTotal);
+            _confirmTitle.Text = titleAfter != null && titleAfter != titleNow ? Loc.F("DONATE_NEW_TITLE", Loc.T(titleAfter)) : string.Empty;
             _confirmTitle.Visible = _confirmTitle.Text.Length > 0;
-            _confirmYes.Text = $"{_pending:N0} 기부";
+            _confirmYes.Text = Loc.F("DONATE_CONFIRM", _pending);
         }
     }
 
@@ -219,7 +219,7 @@ public partial class DonateWindow : CanvasLayer
 
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 8);
-        var heading = new Label { Text = "기부" };
+        var heading = new Label { Text = "MENU_DONATE" };
         heading.AddThemeFontSizeOverride("font_size", 16);
         header.AddChild(heading);
         _bananas = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -236,7 +236,7 @@ public partial class DonateWindow : CanvasLayer
 
         var hint = new Label
         {
-            Text = "정글 기부함에 바나나를 넣습니다. 누적 기부량은 칭호가 되어 이름 옆에 표시됩니다.",
+            Text = "DONATE_DESC",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         hint.AddThemeFontSizeOverride("font_size", 11);
@@ -272,7 +272,7 @@ public partial class DonateWindow : CanvasLayer
             _amountButtons[i] = button;
         }
 
-        _all = new Button { Text = "전부", CustomMinimumSize = new Vector2(96, 30) };
+        _all = new Button { Text = "DONATE_ALL", CustomMinimumSize = new Vector2(96, 30) };
         _all.Pressed += () => AskConfirm(Math.Min(_inventory?.Bananas ?? 0, DonationTable.MaxPerRequest));
         _amountRow.AddChild(_all);
 
@@ -281,7 +281,7 @@ public partial class DonateWindow : CanvasLayer
         _confirm.AddThemeConstantOverride("separation", 4);
         rows.AddChild(_confirm);
 
-        var ask = new Label { Text = "정말 기부할까요? 돌려받을 수 없습니다", HorizontalAlignment = HorizontalAlignment.Center };
+        var ask = new Label { Text = "DONATE_ASK", HorizontalAlignment = HorizontalAlignment.Center };
         ask.AddThemeFontSizeOverride("font_size", 12);
         ask.AddThemeColorOverride("font_color", ShopWindow.Warn);
         _confirm.AddChild(ask);
@@ -308,13 +308,13 @@ public partial class DonateWindow : CanvasLayer
         _confirmYes.Pressed += OnConfirmPressed;
         answers.AddChild(_confirmYes);
 
-        var cancel = new Button { Text = "취소", CustomMinimumSize = new Vector2(64, 30) };
+        var cancel = new Button { Text = "BTN_CANCEL", CustomMinimumSize = new Vector2(64, 30) };
         cancel.Pressed += OnCancelPressed;
         answers.AddChild(cancel);
 
         rows.AddChild(new HSeparator());
 
-        rows.AddChild(DimLabel("칭호"));
+        rows.AddChild(DimLabel("DONATE_TITLE_LABEL"));
 
         // 글꼴이 고정폭이 아니라 공백으로는 줄이 안 맞는다 - 문턱(오른쪽 정렬)·이름(왼쪽 정렬) 두 칸 표로.
         var indent = new MarginContainer();

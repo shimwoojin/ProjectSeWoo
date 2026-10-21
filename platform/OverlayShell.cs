@@ -217,6 +217,10 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         // 무인 실행에서는 읽기만 하고 디스크에 안 쓴다.
         _save = new SaveStore(_unattended);
 
+        // 화면 언어. 게임 창들을 만들기 전에 정한다 - 스팀은 아직이라 옵션 값(없으면 Windows 언어)으로 먼저 고르고,
+        // 스팀이 붙은 뒤 스팀 언어로 다시 고른다(ApplyLanguage).
+        Loc.Apply(LanguageOverride() ?? Loc.Resolve(_save.Data.Settings.Language, null));
+
         BuildScene();
 
         _options = new OptionsWindow { Name = "Options" };
@@ -268,6 +272,7 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
         {
             _steam = new SteamService();
             _steam.Start();
+            ApplyLanguage();
 
             // **무인 실행(--steam-selftest, --report=)은 게임에 진짜 도전과제를 넘기지 않는다.**
             // 게임 레이어는 무인 실행에서도 떠서, 스팀 통계가 오면 "놓친 해금 회수"
@@ -839,6 +844,32 @@ public partial class OverlayShell : Node2D, IShell, IPlatformServices
     /// <see cref="_settings"/>는 세이브 객체 안의 <c>Settings</c> 그 자체이므로
     /// 여기서 따로 대입할 것이 창 위치 한 줄뿐이다.
     /// </summary>
+    /// <summary>
+    /// 화면 언어를 옵션·스팀 언어로 다시 고른다 (<see cref="Loc.Resolve"/>). 스팀이 붙은 뒤와 옵션에서 바꿨을 때.
+    /// 바뀌면 <see cref="Loc.Changed"/> 가 화면을 다시 그린다.
+    /// </summary>
+    private void ApplyLanguage()
+    {
+        Loc.Apply(LanguageOverride() ?? Loc.Resolve(_save.Data.Settings.Language, _steam?.GameLanguage));
+    }
+
+    /// <summary>
+    /// <c>--lang=en</c> / <c>--lang=ko</c> - 옵션·스팀과 상관없이 그 언어로 띄운다. 영어 화면 확인과 언어별 스토어
+    /// 스크린샷(<c>--store-shot</c>)용. 세이브에는 안 남는다.
+    /// </summary>
+    private static string LanguageOverride()
+    {
+        foreach (string arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg == "--lang=" + Loc.Korean || arg == "--lang=" + Loc.English)
+            {
+                return arg["--lang=".Length..];
+            }
+        }
+
+        return null;
+    }
+
     private void PersistSettings()
     {
         // 메뉴 칸이 열려 있으면 창 왼쪽 끝이 아니라 게임 화면 자리를 남긴다 - 다음 실행은 칸 없이 뜬다.

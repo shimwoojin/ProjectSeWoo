@@ -187,13 +187,13 @@ public partial class OverlayShell
                 _trailerCursor = new Vector2(-325, 28);          // 탭 줄 [강화]
                 break;
             case 672:
-                PressGameButton("강화");
+                PressGameButton("MENU_UPGRADE");
                 break;
             case 700:
                 _trailerCursor = new Vector2(-29, 28);           // [닫기]
                 break;
             case 712:
-                PressGameButton("닫기");
+                PressGameButton("BTN_CLOSE");
                 break;
             case 715:
                 if (net != null)

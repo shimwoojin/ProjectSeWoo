@@ -3522,4 +3522,29 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 - 시작 화면이 실제로 안 뜨는지는 눈으로 확인 안 했다 - 설치본 한 번 켜 볼 것
 - `--import` 중 `Unable to start the timer because it's not inside the scene tree` 한 줄 - 이번 변경과 무관해 보이나 원인 미확인
 - `game/GameRoot.cs` 에 공백만 바뀐 미커밋 변경이 있다(이번 커밋 제외). 빌드는 작업 트리로 뽑으므로 26106660 에는 들어갔다 - 동작 영향 없음
-- 영어 UI 업데이트 → 그 뒤 스토어 지원 언어 English 인터페이스 체크, 영어 스크린샷
+- 영어 UI 빌드 올리기 → default → 스토어 지원 언어 English 인터페이스 체크, 영어 스크린샷 (I18N §0)
+
+## 2026-10-21 (둘째) — 갑: 게임 화면 영어 지원 (docs/I18N.md)
+
+### 한 일
+
+- 번역 구조: `shared/Loc.cs` + `game/i18n/strings.csv`(keys,ko,en 145키) → Godot TranslationServer. 고정 글자는 컨트롤 Text 에 **키를 그대로**
+  넣어 언어가 바뀌면 Godot 이 다시 그리고, 숫자가 낀 글자만 `Loc.F` + `Loc.Changed` 로 다시 만든다
+- 아이템 이름 50개는 items.json 의 ko/en 을 `ITEM_<ID>` 키로 런타임에 올린다 - 원본을 둘로 나누지 않는다
+- 기부 칭호는 키로 들고, 영어 이름은 같은 문턱의 도전과제 이름과 맞췄다
+- 언어 고르기: 설정 "언어"(자동 / 한국어 / English) - 자동은 스팀 언어 → Windows 언어. 세이브 v13 `settings.language`. `--lang=en|ko` 강제
+- 트레이 메뉴(OS 메뉴)는 자동 번역이 안 닿아서 직접 바꾼다
+- 닉네임 라벨은 자동 번역을 끈다 - 닉네임이 키와 같으면 번역돼 버린다
+- `--store-shot` 이 버튼을 글자로 찾던 것(강화·기부·설정·닫기)을 키로, 트레일러도 같이. 목 이름도 화면 언어를 따른다
+
+### 확인
+
+- `--store-shot --lang=en` 전 장면 확인 → 넘친 곳 2개 고침(상점 탭 Decoration → Deco, 친구 칸 칭호 줄). `--lang=ko` 는 전과 같다
+- 실행 중 언어 바꾸기: 한국어로 띄운 뒤 영어로 바꿔 메뉴·탭·HUD·상점 숫자 글자가 바로 바뀌는 것 확인(임시 코드, 커밋 안 함)
+- `--selftest`: 세이브 v13 · 전송 형식 · 아이템 · 칭호 표 PASS
+
+### 이슈 / 남은 것
+
+- 빌드 → default → 스토어 English 인터페이스 체크, 영어 스크린샷 (I18N §0)
+- 실물 스팀 언어 자동 선택은 아직 실제 스팀 English 로 켜 보지 않았다 - 목/`--lang` 로만 봤다
+- 작업 전 `game/GameRoot.cs` 의 탭 들여쓰기 변경(미커밋)은 스크래치에 보관하고 HEAD 로 되돌린 뒤 작업했다

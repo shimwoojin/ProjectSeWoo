@@ -80,6 +80,12 @@ public sealed class SteamService : IAchievements, IDisposable
     /// <summary>내 스팀 닉네임. 멀티 룸 표시용 (§4-2). 초기화 전에는 빈 문자열.</summary>
     public string PersonaName { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// 스팀 클라이언트가 이 게임에 고른 언어 (<c>SteamApps.GetCurrentGameLanguage</c> - "koreana", "english" ...). 라이브러리의
+    /// 게임 속성 > 언어 에서 바꿀 수 있다. 초기화 전에는 null. 화면 언어 자동 선택에 쓴다(<see cref="Shared.Loc.Resolve"/>).
+    /// </summary>
+    public string GameLanguage { get; private set; }
+
     /// <summary>실제로 쓰는 앱 ID. <see cref="SpacewarAppId"/>(480) 이면 진단 실행이다.</summary>
     public uint AppId => _appId;
 
@@ -337,6 +343,7 @@ public sealed class SteamService : IAchievements, IDisposable
             _initialized = true;
             SelfId = new PeerId(SteamUser.GetSteamID().m_SteamID);
             PersonaName = SteamFriends.GetPersonaName();
+            GameLanguage = SteamApps.GetCurrentGameLanguage();
 
             // 도전과제 상태는 비동기로 온다. 이 콜백이 오기 전까지 IsAvailable 은 false 다.
             _statsReceived = Callback<UserStatsReceived_t>.Create(OnUserStatsReceived);

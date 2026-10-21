@@ -55,8 +55,6 @@ public partial class ShopWindow : CanvasLayer
     private Label _notice;
     private string _purchaseMessage;
 
-    private const string OfflineNotice = "인터넷 연결이 필요합니다 - 구매는 온라인에서만 할 수 있습니다";
-
     // 도감 탭 (B7)
     private Label _collectionTotal;
     private ProgressBar _collectionBar;
@@ -134,14 +132,14 @@ public partial class ShopWindow : CanvasLayer
             return;
         }
 
-        _bananas.Text = $"바나나 {_inventory.Bananas:N0}";
+        _bananas.Text = Loc.F("BANANAS_N", _inventory.Bananas);
 
         bool online = _inventory.Online;
-        _notice.Text = !online ? OfflineNotice : _purchaseMessage ?? string.Empty;
+        _notice.Text = !online ? Loc.T("SHOP_OFFLINE") : _purchaseMessage ?? string.Empty;
         _notice.Visible = _notice.Text.Length > 0;
         // 퍼센트는 **내림**이다. 도감 탭(RefreshCollection)과 같은 식이어야
         // 한 화면에 15/16 이 93% 와 94% 로 동시에 보이는 일이 없다.
-        _collection.Text = $"수집 {_inventory.OwnedCount}/{ShopCatalog.All.Length}"
+        _collection.Text = Loc.F("SHOP_COLLECTED", _inventory.OwnedCount, ShopCatalog.All.Length)
             + $" ({_inventory.OwnedCount * 100 / ShopCatalog.All.Length}%)";
 
         foreach (ShopCatalog.Item item in ShopCatalog.All)
@@ -171,24 +169,24 @@ public partial class ShopWindow : CanvasLayer
         {
             // 비울 수 없는 칸(원숭이·바나나)은 해제가 없다 - 다른 것을 끼우면 바뀐다.
             bool canEmpty = ShopCatalog.CanBeEmpty(item.Slot);
-            row.State.Text = "장착 중";
+            row.State.Text = "SHOP_EQUIPPED";
             row.State.AddThemeColorOverride("font_color", Accent);
-            row.Action.Text = canEmpty ? "해제" : "사용 중";
+            row.Action.Text = canEmpty ? "SHOP_UNEQUIP" : "SHOP_IN_USE";
             row.Action.Disabled = !canEmpty;
         }
         else if (_inventory.IsReceiving(item.Id))
         {
             // 샀는데 스팀 인벤토리에 아직 안 보인다 - 다시 사지 못하게 잠근다 (Inventory.MarkReceiving)
-            row.State.Text = "받는 중...";
+            row.State.Text = "SHOP_RECEIVING_STATE";
             row.State.AddThemeColorOverride("font_color", Accent);
-            row.Action.Text = "받는 중";
+            row.Action.Text = "SHOP_RECEIVING";
             row.Action.Disabled = true;
         }
         else if (owned)
         {
-            row.State.Text = "보유";
+            row.State.Text = "SHOP_OWNED";
             row.State.AddThemeColorOverride("font_color", Dim);
-            row.Action.Text = "장착";
+            row.Action.Text = "SHOP_EQUIP";
             row.Action.Disabled = false;
         }
         else
@@ -196,7 +194,7 @@ public partial class ShopWindow : CanvasLayer
             bool affordable = _inventory.Bananas >= item.Price;
             row.State.Text = $"{item.Price:N0}";
             row.State.AddThemeColorOverride("font_color", affordable ? Gold : Dim);
-            row.Action.Text = "구매";
+            row.Action.Text = "SHOP_BUY";
 
             // **못 사는 것도 보여 준다.** 버튼만 잠근다 - §3-2 가 "유저가 다음
             // 목표를 눈으로 볼 수 있어야 커브가 작동한다" 고 한 부분이다.
@@ -226,7 +224,7 @@ public partial class ShopWindow : CanvasLayer
 
             if (_ownedHeads.TryGetValue(slot, out Label head))
             {
-                head.Text = $"{ShopCatalog.SlotName(slot)}  {inSlot}";
+                head.Text = $"{Loc.T(ShopCatalog.SlotName(slot))}  {inSlot}";
                 head.Visible = inSlot > 0;
             }
 
@@ -295,7 +293,7 @@ public partial class ShopWindow : CanvasLayer
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 8);
 
-        var title = new Label { Text = "상점" };
+        var title = new Label { Text = "MENU_SHOP" };
         title.AddThemeFontSizeOverride("font_size", 16);
         header.AddChild(title);
 
@@ -333,7 +331,7 @@ public partial class ShopWindow : CanvasLayer
         // 원숭이·바나나 칸은 비울 수 없다 (B17 - 바나나가 원숭이의 손잡이다).
         if (ShopCatalog.CanBeEmpty(slot))
         {
-            var clear = new Button { Text = "장식 빼기" };
+            var clear = new Button { Text = "SHOP_CLEAR_DECO" };
             clear.Pressed += () => EquipRequested?.Invoke(slot, null);
             list.AddChild(clear);
         }
@@ -354,7 +352,7 @@ public partial class ShopWindow : CanvasLayer
     {
         var scroll = new ScrollContainer
         {
-            Name = "보유",
+            Name = "SHOP_OWNED",
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
         tabs.AddChild(scroll);
@@ -363,7 +361,7 @@ public partial class ShopWindow : CanvasLayer
         list.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(list);
 
-        _ownedEmpty = new Label { Text = "아직 가진 장식이 없습니다", HorizontalAlignment = HorizontalAlignment.Center };
+        _ownedEmpty = new Label { Text = "SHOP_NONE_OWNED", HorizontalAlignment = HorizontalAlignment.Center };
         _ownedEmpty.AddThemeFontSizeOverride("font_size", 12);
         _ownedEmpty.AddThemeColorOverride("font_color", Dim);
         list.AddChild(_ownedEmpty);
@@ -398,7 +396,7 @@ public partial class ShopWindow : CanvasLayer
     {
         var scroll = new ScrollContainer
         {
-            Name = "도감",
+            Name = "SHOP_TAB_COLLECTION",
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
         tabs.AddChild(scroll);
@@ -436,7 +434,7 @@ public partial class ShopWindow : CanvasLayer
             foreach (ShopCatalog.Item item in ShopCatalog.ForSlot(slot))
             {
                 var cell = (TextureRect)MakeThumb(item, ThumbSize);
-                cell.TooltipText = item.Name;
+                cell.TooltipText = item.NameKey;
                 grid.AddChild(cell);
                 _collectionCells[item.Id] = cell;
             }
@@ -457,7 +455,7 @@ public partial class ShopWindow : CanvasLayer
         {
             if (_slotHeads.TryGetValue(slot, out Label head))
             {
-                head.Text = $"{ShopCatalog.SlotName(slot)}"
+                head.Text = Loc.T(ShopCatalog.SlotName(slot))
                     + $"  {_inventory.OwnedInSlot(slot)}/{ShopCatalog.CountInSlot(slot)}";
             }
         }
@@ -485,7 +483,7 @@ public partial class ShopWindow : CanvasLayer
         var text = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         text.AddThemeConstantOverride("separation", 0);
 
-        var name = new Label { Text = item.Name };
+        var name = new Label { Text = item.NameKey };
         name.AddThemeFontSizeOverride("font_size", 13);
         text.AddChild(name);
 

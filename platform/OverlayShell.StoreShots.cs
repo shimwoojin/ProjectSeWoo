@@ -350,28 +350,28 @@ public partial class OverlayShell
         }
 
         // 강화 - 2026-09-27 부터 상점 탭이 아니라 메뉴의 탭이다. 탭 줄 버튼을 누른 것처럼 한다.
-        PressGameButton("강화");
+        PressGameButton("MENU_UPGRADE");
         await Seconds(0.3);
         await Capture(dir, manifest, "upgrade");
 
         // 기부 (B20) - 확인용. 1,000 을 한 번 넣어 칭호가 붙는 것까지 (HUD 이름 옆에도 붙는다).
         // 금액 버튼은 확인 칸만 띄운다(2026-10-01) - 그 칸도 찍고 [1,000 기부] 로 넣는다.
-        PressGameButton("기부");
+        PressGameButton("MENU_DONATE");
         await Seconds(0.3);
         await Capture(dir, manifest, "donate");
         PressGameButton("1,000");
         await Seconds(0.3);
         await Capture(dir, manifest, "donate_confirm");
-        PressGameButton("1,000 기부");
+        PressGameButton(Loc.F("DONATE_CONFIRM", 1_000));
         await Seconds(0.4);
         await Capture(dir, manifest, "donate_after");
 
         // 설정 - 셸 창이지만 메뉴 칸에 뜬다 (2026-09-28). 스토어에 쓰지는 않고 확인용이다.
-        PressGameButton("설정");
+        PressGameButton("MENU_SETTINGS");
         await Seconds(0.3);
         await Capture(dir, manifest, "settings");
 
-        PressGameButton("닫기");   // 메뉴의 [닫기]
+        PressGameButton("BTN_CLOSE");   // 메뉴의 [닫기]
         await Seconds(0.3);
 
         // 4) 로비 - 가짜 친구 3명이 계속 치고 딴다. 로비 타수는 랭킹이 보이게 벌려 둔다.
@@ -379,7 +379,8 @@ public partial class OverlayShell
         {
             net.SimulatePeerActivity = true;
             await net.CreateRoom();
-            string[] names = { "바나나킹", "타자왕", "고릴라" };
+            // 가짜 친구 이름도 찍는 언어로 (--lang=en 이면 영어 스크린샷)
+            string[] names = Loc.Language == Loc.Korean ? new[] { "바나나킹", "타자왕", "고릴라" } : new[] { "BananaKing", "TypeLord", "Gorilla" };
             long[] lobbyKeys = { 1_842, 1_310, 655 };
             for (int i = 0; i < names.Length; i++)
             {
@@ -472,6 +473,7 @@ public partial class OverlayShell
     }
 
     /// <summary>게임 화면에서 글자가 <paramref name="text"/> 인 첫 버튼을 누른 것처럼 한다. 게임 타입을 모르므로 글자로 찾는다.</summary>
+    /// <param name="text">버튼 글자 - 번역 키를 넣은 버튼은 키로, 숫자가 낀 버튼은 지금 언어로 만든 글자(<see cref="Loc.F"/>)로 찾는다.</param>
     private void PressGameButton(string text)
     {
         Button button = null;

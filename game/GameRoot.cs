@@ -211,6 +211,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         _store = platform.Save;
         _platform.Input.OnKeystrokes += OnKeystrokes;
         _platform.Economy.OnStateChanged += OnEconomyStateChanged;
+        Loc.Changed += OnLanguageChanged;
         _menu.BindShell(_platform.Shell);
 
         // 메뉴·안내가 뜨면 창을 왼쪽으로 넓혀 그 칸에 띄운다 - 게임 화면을 가리지 않는다 (2026-09-28).
@@ -312,8 +313,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     /// </summary>
     private void UpdateOfflineNotice()
     {
-        string notice = !_loaded ? "서버에 연결하는 중..."
-            : _platform.Economy.Slots.Count == 0 ? "오프라인 - 연결되면 바나나가 열립니다"
+        string notice = !_loaded ? Loc.T("HUD_CONNECTING")
+            : _platform.Economy.Slots.Count == 0 ? Loc.T("HUD_OFFLINE")
             : null;
 
         if (notice != _shownNotice)
@@ -979,6 +980,7 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         // 셸은 _ExitTree 가 더 늦게 돈다. 구독을 남긴 채 나가지 않는다.
         _platform.Input.OnKeystrokes -= OnKeystrokes;
         _platform.Economy.OnStateChanged -= OnEconomyStateChanged;
+        Loc.Changed -= OnLanguageChanged;
         _room?.Dispose();
 
         // 마지막 상태를 써 넣는다. 디스크 쓰기는 셸의 _ExitTree 가 FlushNow 로
@@ -1009,10 +1011,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
             // 나머지는 이유를 보여 준다 - 전에는 오프라인 구매가 아무 반응 없이 실패했다.
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
+                PurchaseOutcome.ServerUnavailable => Loc.T("ERR_SERVER"),
+                PurchaseOutcome.InsufficientBalance => Loc.T("ERR_NO_BANANAS"),
                 PurchaseOutcome.AlreadyOwned => null,
-                _ => "구매가 거절됐습니다. 바나나는 그대로입니다",
+                _ => Loc.T("SHOP_BUY_REJECTED"),
             };
 
             GD.Print($"[game] 구매 실패 {item.Id} - {outcome}");
@@ -1054,10 +1056,10 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
-                PurchaseOutcome.MaxLevel => "이미 최대 단계입니다",
-                _ => "강화가 거절됐습니다. 바나나는 그대로입니다",
+                PurchaseOutcome.ServerUnavailable => Loc.T("ERR_SERVER"),
+                PurchaseOutcome.InsufficientBalance => Loc.T("ERR_NO_BANANAS"),
+                PurchaseOutcome.MaxLevel => Loc.T("UPGRADE_MAX_LEVEL"),
+                _ => Loc.T("UPGRADE_REJECTED"),
             };
 
             GD.Print($"[game] 강화 실패 {axis} - {outcome}");
@@ -1141,6 +1143,24 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
     }
 
     /// <summary>
+    /// 설정에서 언어를 바꿨다 (<see cref="Loc.Changed"/>). 키를 넣은 라벨은 Godot 이 알아서 바꾸고, 숫자가 낀 글자만
+    /// 여기서 다시 만든다 - HUD, 안내 줄(다음 프레임 <see cref="UpdateOfflineNotice"/>), 열린 창.
+    /// </summary>
+    private void OnLanguageChanged()
+    {
+        _hud.SetBananas(_platform.Economy.Balance);
+        _hud.SetKeystrokes(Save.TotalKeystrokes);
+        _hud.SetTitle(DonationTable.TitleFor(_platform.Economy.DonatedTotal));
+        _shownNotice = null;
+        RefreshOpenWindows();
+
+        if (_roomWindow.IsOpen)
+        {
+            _roomWindow.Refresh();
+        }
+    }
+
+    /// <summary>
     /// 잔액·소유가 바뀐 뒤 열려 있는 메뉴 창을 다시 그린다. 닫힌 창은 열 때 스스로 다시 그린다.
     /// </summary>
     private void RefreshOpenWindows()
@@ -1203,9 +1223,9 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         {
             string message = outcome switch
             {
-                PurchaseOutcome.ServerUnavailable => "서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요",
-                PurchaseOutcome.InsufficientBalance => "바나나가 부족합니다",
-                _ => "기부가 거절됐습니다. 바나나는 그대로입니다",
+                PurchaseOutcome.ServerUnavailable => Loc.T("ERR_SERVER"),
+                PurchaseOutcome.InsufficientBalance => Loc.T("ERR_NO_BANANAS"),
+                _ => Loc.T("DONATE_REJECTED"),
             };
 
             GD.Print($"[game] 기부 실패 {amount} - {outcome}");
@@ -1217,8 +1237,8 @@ public partial class GameRoot : Node2D, IInteractiveArea, IPlatformConsumer
         string after = DonationTable.TitleFor(total);
         GD.Print($"[game] 기부 {amount} → 누적 {total} 잔액 {_platform.Economy.Balance}");
         _donate.ShowMessage(after != null && after != before
-            ? $"감사합니다! 새 칭호 \"{after}\" 획득"
-            : $"감사합니다! 바나나 {amount:N0}개를 기부했습니다.");
+            ? Loc.F("DONATE_THANKS_TITLE", Loc.T(after))
+            : Loc.F("DONATE_THANKS", amount));
         _hud.SetTitle(after);
         CheckDonationAchievements();
         RefreshOpenWindows();

@@ -30,6 +30,7 @@ public partial class UpgradeWindow : CanvasLayer
     private Inventory _inventory;
     private Label _bananas;
     private Label _notice;
+    private Label _hint;
     private string _message;
 
     /// <summary>한 줄: 이름+단계 / 지금 → 다음 효과 / 가격 / 버튼.</summary>
@@ -84,10 +85,11 @@ public partial class UpgradeWindow : CanvasLayer
             return;
         }
 
-        _bananas.Text = $"바나나 {_inventory.Bananas:N0}";
+        _bananas.Text = Loc.F("BANANAS_N", _inventory.Bananas);
+        _hint.Text = Loc.F("UPGRADE_DESC", UpgradeTable.GoldenMultiplier);
 
         bool online = _inventory.Online;
-        _notice.Text = !online ? "인터넷 연결이 필요합니다 - 강화는 온라인에서만 할 수 있습니다" : _message ?? string.Empty;
+        _notice.Text = !online ? Loc.T("UPGRADE_OFFLINE") : _message ?? string.Empty;
         _notice.Visible = _notice.Text.Length > 0;
 
         foreach ((UpgradeAxis axis, UpgradeRow row) in _rows)
@@ -96,13 +98,13 @@ public partial class UpgradeWindow : CanvasLayer
             int max = UpgradeTable.MaxLevel(axis);
             long? price = UpgradeTable.NextPrice(axis, level);
 
-            row.Title.Text = $"{AxisName(axis)}  {Math.Min(level, max)}/{max}단계";
+            row.Title.Text = Loc.F("UPGRADE_LEVEL", Loc.T(AxisName(axis)), Math.Min(level, max), max);
 
             if (price == null)
             {
-                row.Effect.Text = $"{Effect(axis, level)} (최대)";
+                row.Effect.Text = Loc.F("UPGRADE_MAXED", Effect(axis, level));
                 row.Price.Text = string.Empty;
-                row.Action.Text = "최대";
+                row.Action.Text = "UPGRADE_MAX";
                 row.Action.Disabled = true;
                 continue;
             }
@@ -111,25 +113,25 @@ public partial class UpgradeWindow : CanvasLayer
             row.Effect.Text = $"{Effect(axis, level)} → {Effect(axis, level + 1)}";
             row.Price.Text = $"{price.Value:N0}";
             row.Price.AddThemeColorOverride("font_color", affordable ? ShopWindow.Gold : ShopWindow.Dim);
-            row.Action.Text = "강화";
+            row.Action.Text = "UPGRADE_BUTTON";
             row.Action.Disabled = !affordable || !online;
         }
     }
 
     private static string AxisName(UpgradeAxis axis) => axis switch
     {
-        UpgradeAxis.Slots => "가지 늘리기",
-        UpgradeAxis.Cycle => "빨리 익기",
-        UpgradeAxis.Golden => "황금 바나나",
+        UpgradeAxis.Slots => "AXIS_SLOTS",
+        UpgradeAxis.Cycle => "AXIS_CYCLE",
+        UpgradeAxis.Golden => "AXIS_GOLDEN",
         _ => axis.ToString(),
     };
 
     /// <summary>단계 <paramref name="level"/> 의 효과를 한 마디로.</summary>
     private static string Effect(UpgradeAxis axis, int level) => axis switch
     {
-        UpgradeAxis.Slots => $"송이 {UpgradeTable.SlotsAt(level)}개",
-        UpgradeAxis.Cycle => $"{UpgradeTable.GrowthMsAt(level) / 60_000}분마다 익음",
-        UpgradeAxis.Golden => $"황금 확률 {UpgradeTable.GoldenChanceAt(level)}%",
+        UpgradeAxis.Slots => Loc.F("EFFECT_SLOTS", UpgradeTable.SlotsAt(level)),
+        UpgradeAxis.Cycle => Loc.F("EFFECT_CYCLE", UpgradeTable.GrowthMsAt(level) / 60_000),
+        UpgradeAxis.Golden => Loc.F("EFFECT_GOLDEN", UpgradeTable.GoldenChanceAt(level)),
         _ => string.Empty,
     };
 
@@ -155,7 +157,7 @@ public partial class UpgradeWindow : CanvasLayer
 
         var header = new HBoxContainer();
         header.AddThemeConstantOverride("separation", 8);
-        var title = new Label { Text = "강화" };
+        var title = new Label { Text = "MENU_UPGRADE" };
         title.AddThemeFontSizeOverride("font_size", 16);
         header.AddChild(title);
         _bananas = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -170,14 +172,11 @@ public partial class UpgradeWindow : CanvasLayer
 
         rows.AddChild(new HSeparator());
 
-        var hint = new Label
-        {
-            Text = $"나무를 키웁니다. 황금 바나나를 따면 바나나 {UpgradeTable.GoldenMultiplier}개를 얻습니다.",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        };
-        hint.AddThemeFontSizeOverride("font_size", 11);
-        hint.AddThemeColorOverride("font_color", ShopWindow.Dim);
-        rows.AddChild(hint);
+        // 글자는 Refresh 가 쓴다 - 숫자가 끼어서 언어가 바뀌면 다시 만들어야 한다.
+        _hint = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _hint.AddThemeFontSizeOverride("font_size", 11);
+        _hint.AddThemeColorOverride("font_color", ShopWindow.Dim);
+        rows.AddChild(_hint);
 
         var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         list.AddThemeConstantOverride("separation", 12);

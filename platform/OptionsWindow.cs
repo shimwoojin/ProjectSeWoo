@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using ProjectSeWoo.Shared;
 
 namespace ProjectSeWoo.Platform;
 
@@ -25,6 +26,7 @@ public partial class OptionsWindow : CanvasLayer
     private CheckBox _cursorIndependent;
     private CheckBox _hideOnFullscreen;
     private CheckBox _autostart;
+    private OptionButton _language;
     private PanelContainer _panel;
     private MarginContainer _margin;
     private Button _closeButton;
@@ -52,6 +54,9 @@ public partial class OptionsWindow : CanvasLayer
     public event Action<bool> CursorIndependentChanged;
     public event Action<bool> HideOnFullscreenChanged;
     public event Action<bool> AutostartChanged;
+
+    /// <summary>언어를 골랐다 - <c>""</c>(자동), <see cref="Loc.Korean"/>, <see cref="Loc.English"/>. 세이브 <c>settings.language</c> 값 그대로.</summary>
+    public event Action<string> LanguageChanged;
 
     /// <summary>
     /// 닫힐 때(닫기 버튼) 쏜다. 호출부(OverlayShell)가 이걸 듣고 클릭 통과를
@@ -151,6 +156,8 @@ public partial class OptionsWindow : CanvasLayer
         // Windows "시작 앱" 설정에서 수동으로 껐다면 체크박스도 그 사실을 보여줘야 한다.
         _autostart.ButtonPressed = autostartActual;
 
+        _language.Selected = Array.IndexOf(LanguageValues, s.Language) is int i and >= 0 ? i : 0;
+
         _initializing = false;
     }
 
@@ -179,30 +186,30 @@ public partial class OptionsWindow : CanvasLayer
         rows.AddThemeConstantOverride("separation", 6);
         _panel.AddChild(rows);
 
-        rows.AddChild(MakeTitle("설정"));
+        rows.AddChild(MakeTitle("MENU_SETTINGS"));
         rows.AddChild(new HSeparator());
 
         // 크기는 넷으로 나뉜다 (2026-09-30). 범위는 OverlayShell 의 Set*Scale clamp 와 같고, 0.25 칸씩 끊는다
         // (OverlayShell.ScaleStep) - 0.05 씩이면 조금만 끌어도 크기가 바뀌어 원하는 값에 멈추기 어려웠다. 칸마다 눈금을 단다.
-        rows.AddChild(MakeScaleRow("내 창 크기", 0.5f, 2.0f, out _scaleSlider));
+        rows.AddChild(MakeScaleRow("OPT_SCALE", 0.5f, 2.0f, out _scaleSlider));
         _scaleSlider.ValueChanged += v => Relay(() => ScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeScaleRow("친구 칸 크기", 0.5f, 2.0f, out _friendScaleSlider));
+        rows.AddChild(MakeScaleRow("OPT_FRIEND_SCALE", 0.5f, 2.0f, out _friendScaleSlider));
         _friendScaleSlider.ValueChanged += v => Relay(() => FriendScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeScaleRow("내 커서 크기", 0.5f, 2.0f, out _cursorScaleSlider));
+        rows.AddChild(MakeScaleRow("OPT_CURSOR_SCALE", 0.5f, 2.0f, out _cursorScaleSlider));
         _cursorScaleSlider.ValueChanged += v => Relay(() => CursorScaleChanged?.Invoke((float)v));
 
-        rows.AddChild(MakeScaleRow("친구 커서 크기 (왼쪽 끝 숨김)", 0f, 1.25f, out _friendCursorScaleSlider));
+        rows.AddChild(MakeScaleRow("OPT_FRIEND_CURSOR_SCALE", 0f, 1.25f, out _friendCursorScaleSlider));
         _friendCursorScaleSlider.ValueChanged += v => Relay(() => FriendCursorScaleChanged?.Invoke((float)v));
 
-        HBoxContainer opacityRow = MakeSliderRow("투명도", 0.1f, 1.0f, 0.05f, out _opacitySlider);
+        HBoxContainer opacityRow = MakeSliderRow("OPT_OPACITY", 0.1f, 1.0f, 0.05f, out _opacitySlider);
         AddValueLabel(opacityRow, _opacitySlider, PercentText);
         rows.AddChild(opacityRow);
         _opacitySlider.ValueChanged += v => Relay(() => OpacityChanged?.Invoke((float)v));
 
 
-        rows.AddChild(MakeCheckRow("커서 장식", out _cursorEnabled));
+        rows.AddChild(MakeCheckRow("OPT_CURSOR", out _cursorEnabled));
         _cursorEnabled.Toggled += on =>
         {
             // 커서 자체를 끄면 "숨겨도 유지" 는 물어볼 것이 없어진다. 값은 그대로
@@ -212,14 +219,18 @@ public partial class OptionsWindow : CanvasLayer
             Relay(() => CursorEnabledChanged?.Invoke(on));
         };
 
-        rows.AddChild(MakeCheckRow("숨겨도 커서 장식은 유지", out _cursorIndependent));
+        rows.AddChild(MakeCheckRow("OPT_CURSOR_INDEPENDENT", out _cursorIndependent));
         _cursorIndependent.Toggled += on => Relay(() => CursorIndependentChanged?.Invoke(on));
 
-        rows.AddChild(MakeCheckRow("전체화면 앱 위에서 숨김", out _hideOnFullscreen));
+        rows.AddChild(MakeCheckRow("OPT_HIDE_FULLSCREEN", out _hideOnFullscreen));
         _hideOnFullscreen.Toggled += on => Relay(() => HideOnFullscreenChanged?.Invoke(on));
 
-        rows.AddChild(MakeCheckRow("Windows 시작 시 자동 실행", out _autostart));
+        rows.AddChild(MakeCheckRow("OPT_AUTOSTART", out _autostart));
         _autostart.Toggled += on => Relay(() => AutostartChanged?.Invoke(on));
+
+        // 언어 (2026-10-21). 언어 이름은 그 언어로 쓴다 - 읽을 수 없는 언어로 바꿔 버린 사람도 돌아올 수 있게.
+        rows.AddChild(MakeLanguageRow(out _language));
+        _language.ItemSelected += i => Relay(() => LanguageChanged?.Invoke(LanguageValues[i]));
 
         // 게임 종료 (2026-10-01). 창을 닫으면 트레이로 숨을 뿐이라, 끄려면 트레이 메뉴를 찾아야 했다.
         // 잘못 눌러 꺼지지 않게 "종료할까?" 를 한 번 거친다. 진행은 종료 때 저장된다(OverlayShell._ExitTree).
@@ -228,7 +239,7 @@ public partial class OptionsWindow : CanvasLayer
         // 버튼 글자도 확인 줄과 같은 경고색이다 - 다른 설정과 달리 창이 꺼지는 버튼이라는 것이 보이게.
         var warn = new Color(1.00f, 0.62f, 0.45f);
         var quitRow = new HBoxContainer();
-        var quit = new Button { Text = "게임 종료" };
+        var quit = new Button { Text = "OPT_QUIT" };
         quit.AddThemeFontSizeOverride("font_size", 12);
         foreach (string state in new[] { "font_color", "font_hover_color", "font_focus_color", "font_pressed_color" })
         {
@@ -241,15 +252,15 @@ public partial class OptionsWindow : CanvasLayer
 
         var confirm = new HBoxContainer { Visible = false };
         confirm.AddThemeConstantOverride("separation", 6);
-        var ask = new Label { Text = "게임을 종료할까요? 진행 상황은 저장됩니다.", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var ask = new Label { Text = "OPT_QUIT_ASK", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         ask.AddThemeFontSizeOverride("font_size", 12);
         ask.AddThemeColorOverride("font_color", warn);
         confirm.AddChild(ask);
-        var yes = new Button { Text = "종료" };
+        var yes = new Button { Text = "BTN_QUIT" };
         yes.AddThemeFontSizeOverride("font_size", 12);
         yes.Pressed += () => QuitRequested?.Invoke();
         confirm.AddChild(yes);
-        var no = new Button { Text = "취소" };
+        var no = new Button { Text = "BTN_CANCEL" };
         no.AddThemeFontSizeOverride("font_size", 12);
         no.Pressed += () => ShowQuitConfirm(false);
         confirm.AddChild(no);
@@ -258,7 +269,7 @@ public partial class OptionsWindow : CanvasLayer
         _closeRule = new HSeparator();
         rows.AddChild(_closeRule);
 
-        _closeButton = new Button { Text = "닫기" };
+        _closeButton = new Button { Text = "BTN_CLOSE" };
         _closeButton.Pressed += Close;
         rows.AddChild(_closeButton);
     }
@@ -337,9 +348,32 @@ public partial class OptionsWindow : CanvasLayer
     /// <summary>투명도 0.1~1.0 → "10%"~"100%". 0.05 칸이라 5% 단위로 나온다.</summary>
     private static string PercentText(double v) => $"{Math.Round(v * 100):0}%";
 
-    /// <summary>1 → "1.0x", 1.25 → "1.25x", 0.5 → "0.5x", 0 → "숨김".</summary>
+    /// <summary>1 → "1.0x", 1.25 → "1.25x", 0.5 → "0.5x", 0 → 숨김(번역 키 - 라벨이 지금 언어로 그린다).</summary>
     private static string ScaleText(double v) =>
-        v <= 0 ? "숨김" : v.ToString("0.0#", System.Globalization.CultureInfo.InvariantCulture) + "x";
+        v <= 0 ? "OPT_HIDDEN" : v.ToString("0.0#", System.Globalization.CultureInfo.InvariantCulture) + "x";
+
+    /// <summary>언어 목록의 순서 = 세이브 값. 0 번이 자동이다.</summary>
+    private static readonly string[] LanguageValues = { string.Empty, Loc.Korean, Loc.English };
+
+    private static HBoxContainer MakeLanguageRow(out OptionButton picker)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+
+        var text = new Label { Text = "OPT_LANGUAGE", CustomMinimumSize = new Vector2(150, 0) };
+        text.AddThemeFontSizeOverride("font_size", 12);
+        text.AddThemeColorOverride("font_color", new Color(0.85f, 0.88f, 0.93f));
+        row.AddChild(text);
+
+        picker = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        picker.AddThemeFontSizeOverride("font_size", 12);
+        picker.AddItem("OPT_LANGUAGE_AUTO");
+        picker.AddItem("한국어");
+        picker.AddItem("English");
+        row.AddChild(picker);
+
+        return row;
+    }
 
     private static HBoxContainer MakeCheckRow(string label, out CheckBox box)
     {

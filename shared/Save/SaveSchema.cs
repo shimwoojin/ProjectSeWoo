@@ -14,7 +14,7 @@ namespace ProjectSeWoo.Shared;
 public static class SaveSchema
 {
     /// <summary>현재 스키마 버전. 필드를 바꾸면 올리고 마이그레이션을 추가한다.</summary>
-    public const int CurrentVersion = 12;
+    public const int CurrentVersion = 13;
 
     /// <summary>
     /// 직렬화 옵션. **필드 이름은 어트리뷰트로 고정돼 있으므로 여기서 정하지 않는다.**
@@ -99,6 +99,11 @@ public static class SaveSchema
                 case 11:
                     MigrateV11ToV12(root);
                     version = 12;
+                    break;
+
+                case 12:
+                    MigrateV12ToV13(root);
+                    version = 13;
                     break;
 
                 default:
@@ -260,6 +265,15 @@ public static class SaveSchema
         }
 
         root["version"] = 12;
+    }
+
+    /// <summary>
+    /// v12 -> v13 (2026-10-21): <c>settings.language</c> 를 추가했다(영어 지원). 기본값 빈 문자열 = 자동이라
+    /// <see cref="MigrateV1ToV2"/> 와 같은 이유로 버전 태그만 올린다.
+    /// </summary>
+    private static void MigrateV12ToV13(JsonNode root)
+    {
+        root["version"] = 13;
     }
 
     /// <summary>

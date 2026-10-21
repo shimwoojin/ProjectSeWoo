@@ -315,13 +315,13 @@ public partial class MenuHub : CanvasLayer
         row.AddThemeConstantOverride("separation", 4);
         panel.AddChild(row);
 
-        AddTab(row, Tab.Shop, "상점");
-        AddTab(row, Tab.Upgrade, "강화");
-        AddTab(row, Tab.Donate, "기부");
-        AddTab(row, Tab.Room, "멀티");
-        AddTab(row, Tab.Options, "설정");
+        AddTab(row, Tab.Shop, "MENU_SHOP");
+        AddTab(row, Tab.Upgrade, "MENU_UPGRADE");
+        AddTab(row, Tab.Donate, "MENU_DONATE");
+        AddTab(row, Tab.Room, "MENU_MULTI");
+        AddTab(row, Tab.Options, "MENU_SETTINGS");
 
-        var help = new Button { Text = "안내", Flat = true, FocusMode = Control.FocusModeEnum.None };
+        var help = new Button { Text = "MENU_HELP", Flat = true, FocusMode = Control.FocusModeEnum.None };
         help.AddThemeFontSizeOverride("font_size", 12);
         help.AddThemeColorOverride("font_color", ShopWindow.Dim);
         help.Pressed += () =>
@@ -335,9 +335,9 @@ public partial class MenuHub : CanvasLayer
 
         var close = new Button
         {
-            Text = "닫기",
+            Text = "BTN_CLOSE",
             FocusMode = Control.FocusModeEnum.None,
-            TooltipText = "메뉴 닫기 (Esc)",
+            TooltipText = "MENU_CLOSE_TOOLTIP",
         };
         close.AddThemeFontSizeOverride("font_size", 12);
         close.Pressed += Close;

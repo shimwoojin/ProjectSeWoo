@@ -36,8 +36,8 @@ offset_top = 412.0
 offset_right = 336.0
 offset_bottom = 438.0
 custom_minimum_size = Vector2(80, 26)
-tooltip_text = "상점 · 강화 · 기부 · 멀티 · 설정"
-text = "메뉴"
+tooltip_text = "MENU_TOOLTIP"
+text = "MENU_OPEN"
 
 [node name="ShopWindow" type="CanvasLayer" parent="."]
 script = ExtResource("6_shop")

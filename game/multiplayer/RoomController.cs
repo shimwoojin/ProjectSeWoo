@@ -117,7 +117,7 @@ public sealed class RoomController : IDisposable
         await RunBusy(async () =>
         {
             RoomHandle room = await _net.CreateRoom();
-            _window.ShowMessage($"로비를 만들었어요. 로비 코드 {room.Uid} 를 친구에게 보내 주세요");
+            _window.ShowMessage(Loc.F("ROOM_CREATED", room.Uid));
         });
     }
 
@@ -127,14 +127,14 @@ public sealed class RoomController : IDisposable
         {
             RoomHandle room = await _net.JoinRoom(uid);
             _window.ClearCodeInput();
-            _window.ShowMessage($"로비 {room.Uid} 에 들어왔어요");
+            _window.ShowMessage(Loc.F("ROOM_JOINED", room.Uid));
         });
     }
 
     private void OnInviteRequested(PeerId friend)
     {
         _net.InviteFriend(friend);
-        _window.ShowMessage("초대를 보냈어요. 친구가 스팀에서 수락하면 들어와요");
+        _window.ShowMessage(Loc.T("ROOM_INVITE_SENT"));
     }
 
     private void OnInviteOverlayRequested() => _net.OpenInviteOverlay();
@@ -146,7 +146,7 @@ public sealed class RoomController : IDisposable
         _store.MarkDirty();
 
         _net.LeaveRoom();
-        _window.ShowMessage("로비에서 나왔어요. 다시 들어가면 타수가 이어져요");
+        _window.ShowMessage(Loc.T("ROOM_LEFT"));
     }
 
     /// <summary>
@@ -162,7 +162,7 @@ public sealed class RoomController : IDisposable
 
         _busy = true;
         _window.SetBusy(true);
-        _window.ShowMessage("잠시만요...");
+        _window.ShowMessage(Loc.T("ROOM_WAIT"));
         try
         {
             await action();
@@ -189,10 +189,10 @@ public sealed class RoomController : IDisposable
     private static string MessageFor(RoomJoinError error) => error switch
     {
         // 형식이 틀린 것과 없는 룸을 가르지 않는다 - 유저가 할 일(번호를 다시 확인)이 같다.
-        RoomJoinError.InvalidCode or RoomJoinError.NotFound => "잘못된 로비 코드입니다",
-        RoomJoinError.Full => $"로비가 가득 찼어요 (최대 {RoomWindow.MaxMembers}명)",
-        RoomJoinError.SteamUnavailable => "스팀이 켜져 있어야 멀티를 쓸 수 있어요",
-        _ => "들어가지 못했어요. 잠시 뒤 다시 해 주세요",
+        RoomJoinError.InvalidCode or RoomJoinError.NotFound => Loc.T("ROOM_ERR_CODE"),
+        RoomJoinError.Full => Loc.F("ROOM_ERR_FULL", RoomWindow.MaxMembers),
+        RoomJoinError.SteamUnavailable => Loc.T("ROOM_NEED_STEAM"),
+        _ => Loc.T("ROOM_ERR_FAILED"),
     };
 
     // ------------------------------------------------------------------ 상태 반영
@@ -245,7 +245,7 @@ public sealed class RoomController : IDisposable
         {
             RoomHandle room = await _net.JoinRoom(code);
             GD.Print($"[room] 지난번 로비 {room.Uid} 에 다시 들어왔다");
-            _window.ShowMessage($"지난번 로비 {room.Uid} 에 다시 들어왔어요");
+            _window.ShowMessage(Loc.F("ROOM_REJOINED", room.Uid));
         }
         catch (RoomJoinException e) when (e.Error == RoomJoinError.SteamUnavailable)
         {
@@ -296,7 +296,7 @@ public sealed class RoomController : IDisposable
         {
             if (room.IsHost)
             {
-                _window.ShowMessage("방장이 나가서 내가 방장이 됐어요");
+                _window.ShowMessage(Loc.T("ROOM_NOW_HOST"));
             }
             else
             {
@@ -304,7 +304,7 @@ public sealed class RoomController : IDisposable
                 {
                     if (m.Id == room.Host)
                     {
-                        _window.ShowMessage($"방장이 {m.Name} 님으로 바뀌었어요");
+                        _window.ShowMessage(Loc.F("ROOM_HOST_CHANGED", m.Name));
                         break;
                     }
                 }
@@ -328,8 +328,7 @@ public sealed class RoomController : IDisposable
         {
             if (m.IsSelf)
             {
-                _hud.SetRoom($"로비 {members.Count}/{RoomWindow.MaxMembers}"
-                    + $" · {RoomRanking.RankOf(members, m)}위 · {m.RoomKeystrokes:N0}타");
+                _hud.SetRoom(Loc.F("HUD_ROOM", members.Count, RoomWindow.MaxMembers, RoomRanking.RankOf(members, m), m.RoomKeystrokes));
                 return;
             }
         }

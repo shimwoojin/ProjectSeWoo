@@ -35,14 +35,24 @@ public static class ShopCatalog
         /// </summary>
         public bool IsStarter => Tier == 0;
 
+        /// <summary>표시 이름의 번역 키 (<see cref="Loc"/>). 컨트롤 Text 에 그대로 넣으면 지금 언어로 그려진다.</summary>
+        public string NameKey => "ITEM_" + Id.ToUpperInvariant();
+
         /// <summary>상점·도감에 그리는 아이콘.</summary>
         public string IconPath => ItemManifest.IconPath(Slot, Id);
     }
 
     /// <summary>JSON 순서 그대로.</summary>
-    public static readonly Item[] All = ItemManifest.Items
+    public static readonly Item[] All = RegisterNames(ItemManifest.Items
         .Select(e => new Item(e.Id, e.Slot, e.Tier, e.NameKo, e.NameEn, e.DecoKind, e.Price))
-        .ToArray();
+        .ToArray());
+
+    /// <summary>아이템 이름 ko/en 을 번역 키(<see cref="Item.NameKey"/>)로 올린다. 화면이 표를 처음 볼 때 한 번 돈다.</summary>
+    private static Item[] RegisterNames(Item[] items)
+    {
+        Loc.AddMessages(items.Select(i => (i.NameKey, i.Name, i.NameEn)));
+        return items;
+    }
 
     private static readonly Dictionary<string, Item> ById =
         All.ToDictionary(i => i.Id, StringComparer.Ordinal);
@@ -66,12 +76,12 @@ public static class ShopCatalog
 
     public static int CountInSlot(CursorSlot slot) => All.Count(i => i.Slot == slot);
 
-    /// <summary>칸의 사람 말 이름. 도감·탭 라벨이 같은 문자열을 봐야 한다.</summary>
+    /// <summary>칸 이름의 번역 키 (<see cref="Loc"/>). 도감·탭 라벨이 같은 키를 봐야 한다.</summary>
     public static string SlotName(CursorSlot slot) => slot switch
     {
-        CursorSlot.Monkey => "원숭이",
-        CursorSlot.Banana => "바나나",
-        CursorSlot.Deco => "장식",
+        CursorSlot.Monkey => "SLOT_MONKEY",
+        CursorSlot.Banana => "SLOT_BANANA",
+        CursorSlot.Deco => "SLOT_DECO",
         _ => slot.ToString(),
     };
 

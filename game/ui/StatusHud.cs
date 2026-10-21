@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using ProjectSeWoo.Shared;
 
 namespace ProjectSeWoo.Game;
 
@@ -36,6 +37,7 @@ public partial class StatusHud : VBoxContainer
     public override void _Ready()
     {
         _name = GetNode<Label>("Name");
+        _name.AutoTranslateMode = AutoTranslateModeEnum.Disabled;   // 내 닉네임 - 키와 같아도 번역하지 않는다
         _keystrokes = GetNode<Label>("Keystrokes");
         _bananas = GetNode<Label>("Bananas");
         _notice = GetNode<Label>("Notice");
@@ -51,21 +53,19 @@ public partial class StatusHud : VBoxContainer
         RefreshName();
     }
 
-    /// <summary>기부 칭호 (B20, <see cref="Shared.DonationTable"/>). 이름 뒤에 붙는다. null 이면 이름만.</summary>
+    /// <summary>
+    /// 기부 칭호 키 (B20, <see cref="Shared.DonationTable"/>). 이름 뒤에 붙는다. null 이면 이름만. 같은 키가 와도 다시
+    /// 쓴다 - 언어가 바뀌면 같은 키로 다시 부른다(GameRoot.OnLanguageChanged).
+    /// </summary>
     public void SetTitle(string title)
     {
-        if (_title == title)
-        {
-            return;
-        }
-
         _title = title;
         RefreshName();
     }
 
     private void RefreshName()
     {
-        string text = string.IsNullOrEmpty(_title) ? _playerName : $"{_playerName} · {_title}";
+        string text = string.IsNullOrEmpty(_title) ? _playerName : $"{_playerName} · {Loc.T(_title)}";
         bool show = !string.IsNullOrEmpty(_playerName);
         _name.Visible = show;
         _name.Text = show ? text : string.Empty;
@@ -98,7 +98,7 @@ public partial class StatusHud : VBoxContainer
     /// <summary>보유 바나나. 유일한 재화다 (§3-2).</summary>
     public void SetBananas(long bananas)
     {
-        _bananas.Text = $"바나나 {bananas:N0}";
+        _bananas.Text = Loc.F("BANANAS_N", bananas);
     }
 
     /// <summary>바나나가 늘어난 순간 숫자를 한 번 튕긴다 (§2-3 "카운터 숫자 증가 애니").</summary>
@@ -140,6 +140,6 @@ public partial class StatusHud : VBoxContainer
     /// <summary>누적 타수 (§6). 재화가 아니라 기록이다.</summary>
     public void SetKeystrokes(long total)
     {
-        _keystrokes.Text = $"{total:N0}타";
+        _keystrokes.Text = Loc.F("PUNCHES_N", total);
     }
 }

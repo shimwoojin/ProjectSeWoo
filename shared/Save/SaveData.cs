@@ -170,5 +170,12 @@ public sealed class SaveData
         /// </summary>
         [JsonPropertyName("cursorIndependent")]
         public bool CursorIndependent { get; set; }
+
+        /// <summary>
+        /// 화면 글자 언어 (v13, 영어 지원) - <c>"ko"</c>, <c>"en"</c>, 빈 문자열이면 자동(스팀 클라이언트 언어, 스팀이 없으면
+        /// Windows 언어). 고르는 규칙은 <see cref="Loc.Resolve"/>.
+        /// </summary>
+        [JsonPropertyName("language")]
+        public string Language { get; set; } = string.Empty;
     }
 }
