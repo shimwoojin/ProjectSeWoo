@@ -3491,15 +3491,16 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 - 안 뜨면 방장 PC `%APPDATA%\PunchMonkey\logs\godot.log` 의 `[net] 멤버 입장` · `[friends]` · 예외 줄
 - Steamworks "Publish to Steam" 은 에이전트 권한 확인에서 막혔다 - 사람이 눌렀다
 
-## 2026-10-21 — 갑: 출시 준비 확인, 시작 화면·아이콘 교체, 릴리스 빌드 26106660 → default
+## 2026-10-21 — 갑: **출시**, 시작 화면·아이콘 교체, 릴리스 빌드 26106660 → default, 업적 영어/진행 막대
 
 ### 확인
 
 - 랜딩 페이지: Store Presence / Game Build 둘 다 **APPROVED FOR RELEASE** - 10/10 재검수 통과. 가장 빠른 출시 가능일 10/21
 - Game Build 체크리스트에 **Common Redistributables** 하나만 빠져 "Checklist incomplete" 였다 → Installation > Redistributables 에서 "필요 없음" 체크 → Publish (diff 는 `nocommonredists = 1` 하나). 이후 Release 칸까지 APPROVED, **Release App...** 버튼 활성
   - 필요 없는 근거: Godot 본체는 런타임 설치가 필요 없고, InputHelper 는 NativeAOT(`build-release.ps1` §2)
-- 출시일은 그대로 **10/27 02:00 (GMT+9)** = 10/26 10:00 PDT. 한국 날짜로는 27일이다
-- **첫 출시는 자동이 아니다** - 그 시각에 랜딩의 Release App 버튼을 직접 눌러야 한다
+- 예정 출시일은 10/27 02:00 (GMT+9) = 10/26 10:00 PDT 였다. **첫 출시는 자동이 아니다** - 랜딩의 Release App 버튼을 직접 눌러야 한다
+- **갑이 10/21 21:12 (KST) 에 Release App 을 눌러 출시했다** (랜딩: Released, 21 Oct @ 5:12am PDT, 패키지 1825937 Released $1.99).
+  그때 default 는 25849592, 약 30분 뒤 26106660 으로 바꿨다. 10/27 기준으로 잡아 둔 공지·홍보 일정은 다시 본다
 
 ### 한 일
 
@@ -3510,10 +3511,15 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
   - 함정: `.ico` 는 리소스가 아니라 `all_resources` 에 안 잡힌다 → `include_filter` 에 `icon.ico` 추가
   - 시험 익스포트에서 exe 아이콘을 뽑아 원숭이인 것 확인
 - `build-release.ps1` (커밋 `11d69c6`, 213.2MB, 검증 PASS) → steamcmd **BuildID 26106660** (캐시 로그인) → default 지정 (업데이트 3.1MB, "Set Build Live Now" 확인창은 갑이 누름)
+- 영어 지원 범위 정리: 업적·아이템 정의·스토어 설명은 영어가 이미 있다. 일은 인게임 UI(한국어 문장 약 200~250개, 번역 체계 없음)와 영어 스크린샷. 출시 뒤 첫 업데이트로
+- 업적 문구 (A15 §2-1): 업적 언어에 Korean 추가 → `achievements_localization.csv`(A15 표에서 생성) 일괄 가져오기 → `english` = 영어, `koreana` = 한국어로 게시
+- 업적 진행 막대 (A15 §5-2): 누적 타수 4개에 `STAT_KEYSTROKES` 가 **안 붙어 있었다**, 기부 4개는 `STAT_DONATED` Min/Max 가 **뒤집혀**(문턱-0) 있었다 →
+  `achievements_definitions.csv` 로 Min 0 / Max 문턱 게시 (stats rev 10)
+  - 함정: Publish 는 **Prepare for Publishing 뒤에** 버튼이 나오고, 확인 코드는 직접 타이핑해야 한다 - 값만 넣었을 때 게시가 조용히 안 됐다
 
 ### 이슈 / 남은 것
 
 - 시작 화면이 실제로 안 뜨는지는 눈으로 확인 안 했다 - 설치본 한 번 켜 볼 것
 - `--import` 중 `Unable to start the timer because it's not inside the scene tree` 한 줄 - 이번 변경과 무관해 보이나 원인 미확인
 - `game/GameRoot.cs` 에 공백만 바뀐 미커밋 변경이 있다(이번 커밋 제외). 빌드는 작업 트리로 뽑으므로 26106660 에는 들어갔다 - 동작 영향 없음
-- 10/27 02:00 (KST) Release App 누르기
+- 영어 UI 업데이트 → 그 뒤 스토어 지원 언어 English 인터페이스 체크, 영어 스크린샷

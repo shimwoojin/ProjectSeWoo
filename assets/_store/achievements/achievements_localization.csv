@@ -1,0 +1,29 @@
+api_name (required; must match an api_name from the definitions CSV),field (name or description),english,koreana
+ACH_KEYSTROKES_1K,name,First Thousand,첫 천 타
+ACH_KEYSTROKES_1K,description,"Reach 1,000 total keystrokes.","누적 1,000타를 칩니다."
+ACH_KEYSTROKES_10K,name,Warmed Up,손이 풀렸다
+ACH_KEYSTROKES_10K,description,"Reach 10,000 total keystrokes.","누적 10,000타를 칩니다."
+ACH_KEYSTROKES_100K,name,Keyboard Warrior,키보드 전사
+ACH_KEYSTROKES_100K,description,"Reach 100,000 total keystrokes.","누적 100,000타를 칩니다."
+ACH_KEYSTROKES_1M,name,Million Punches,백만 펀치
+ACH_KEYSTROKES_1M,description,"Reach 1,000,000 total keystrokes.","누적 1,000,000타를 칩니다."
+ACH_FIRST_PURCHASE,name,First Decoration,첫 장식
+ACH_FIRST_PURCHASE,description,Buy your first cursor decoration.,상점에서 커서 장식을 처음 삽니다.
+ACH_SLOT_HANG,name,Monkey Collector,원숭이 수집가
+ACH_SLOT_HANG,description,Collect every monkey.,원숭이를 모두 모읍니다.
+ACH_SLOT_TRAIL,name,Decorator,장식 수집가
+ACH_SLOT_TRAIL,description,Collect every decoration.,장식을 모두 모읍니다.
+ACH_SLOT_BASE,name,Banana Collector,바나나 수집가
+ACH_SLOT_BASE,description,Collect every banana.,바나나를 모두 모읍니다.
+ACH_COLLECTION_100,name,Complete Collection,성실한 수집가
+ACH_COLLECTION_100,description,Collect every cursor decoration.,커서 장식을 모두 모읍니다.
+ACH_ROOM_FIRST_JOIN,name,Better Together,같이 치자
+ACH_ROOM_FIRST_JOIN,description,Create or join a room with friends.,친구와 룸을 처음 만들거나 들어갑니다.
+ACH_DONATE_FIRST,name,Kind Heart,따뜻한 마음
+ACH_DONATE_FIRST,description,Donate bananas for the first time.,처음으로 바나나를 기부합니다.
+ACH_DONATE_1K,name,Banana Donor,바나나 후원자
+ACH_DONATE_1K,description,"Donate 1,000 bananas in total.","바나나를 누적 1,000개 기부합니다."
+ACH_DONATE_10K,name,Jungle Donor,정글 후원자
+ACH_DONATE_10K,description,"Donate 10,000 bananas in total.","바나나를 누적 10,000개 기부합니다."
+ACH_DONATE_100K,name,Jungle Benefactor,정글의 은인
+ACH_DONATE_100K,description,"Donate 100,000 bananas in total.","바나나를 누적 100,000개 기부합니다."

@@ -13,6 +13,8 @@
 | 등록 확인 | ☑ `--steam-selftest` → `ach 등록 : 10/10`, 통계 수신 PASS — §4 |
 | 아이콘 | ☑ 달성·미달성 각 10장 — `assets/_store/achievements/` (§6) |
 | 누적 타수 통계 `STAT_KEYSTROKES` | ☑ 2026-09-24 등록·게시, 자체 검사 `등록됨`. 코드는 타건마다 로컬, 1분마다·해금·종료 때 서버 — §5 |
+| 영어/한국어 문구 | ☑ 2026-10-21 업적 언어에 Korean 추가, `english` = 영어 · `koreana` = 한국어로 바로잡아 게시 (§2-1) |
+| 진행 막대 (Progress Stat) | ☑ 2026-10-21 누적 타수 4개 연결, 기부 4개 Min/Max 뒤집힘 바로잡음 (§5-2) |
 
 ## 1. 목록
 
@@ -42,8 +44,8 @@
   안 풀린다(§3-2). 멀티를 출시에서 빼게 되면 이 과제는 파트너 사이트에서 숨기거나 지운다 —
   딸 수 없는 과제가 목록에 있으면 도감 100% 성향의 유저에게 나쁜 신호다
 - 한국어 설명은 **합니다체** (2026-10-05, 게임 안 문구를 높임말로 바꾼 것에 맞춤). 이름은 칭호라 그대로 둔다
-- **파트너 사이트에서 한국어 문구는 `english` 칸에 들어 있다.** 이 화면의 언어 선택에 English 밖에 없다(앱 지원 언어가 한국어뿐인데도).
-  영어 열은 계획일 뿐 실제로 올라가 있지 않다. 10/5 전 사이트 문구는 이 표와 달랐다("첫 구매", "룸 첫 참가", "누적 1,000타 (새로 추가)" 등) - 이제 이 표가 사이트와 같다
+- 2026-10-21 까지는 한국어 문구가 `english` 칸에 들어 있었다(업적 언어가 English 하나뿐이었다). 이제 영어 열은 `english`, 한국어 열은 `koreana` 에
+  올라가 있다 — **이 표가 원본이다.** 사이트 문구를 바꿀 때는 이 표를 먼저 고치고 §2-1 CSV 로 올린다
 
 ## 2. 파트너 사이트에 넣는 순서
 
@@ -55,6 +57,22 @@
    같은 이름의 `.jpg` 를 쓴다 (규격은 업로드 화면에서 확인 — 공식 문서 페이지에 수치가 없었다)
 5. **게시(Publish)를 눌러야 반영된다.** 스팀 인벤토리 아이템 정의 때 "게시"와 "서비스
    활성화"를 따로 눌러야 했던 것과 같은 함정을 조심한다 (ECONOMY-SERVER.md §10)
+
+### 2-1. 문구·진행 막대를 한꺼번에 고치기 — 새 편집기 CSV (2026-10-21)
+
+과제 하나씩 편집하지 않는다. **Achievements 새 편집기**(`/apps/achievementsbeta/5281130`, 옛 화면의 "Try Achievement Groups")
+→ **Bulk Import/Export** 에서 CSV 두 개를 올린다. 올리면 "Pending Changes" 에 바뀌는 과제만 뜨고, Save 를 눌러야 저장된다.
+
+| 파일 (`assets/_store/achievements/`) | 내용 | 헤더 |
+|---|---|---|
+| `achievements_localization.csv` | 이름·설명. 과제마다 `name`/`description` 두 줄 | `api_name, field, english, koreana` |
+| `achievements_definitions.csv` | 권한·숨김·Progress Stat | `api_name, setid, permission, spoiler, archived, progress_stat_name, progress_stat_min, progress_stat_max` |
+
+- 헤더 칸 이름은 사이트가 내보낸 것을 그대로 쓴다(괄호 설명까지 붙은 긴 이름). 칸 순서·이름이 다르면 거부될 수 있다
+- 언어 열은 **Configure Languages** 에서 고른 언어만 나온다. Korean 을 고르자 common 섹션에 `languages { english, koreana }` 가 생겼다 —
+  스팀 클라이언트의 게임 언어 선택지다. 게임은 아직 이 값을 읽지 않는다
+- Save 뒤 Publish → **Prepare for Publishing 을 먼저 눌러야 "Publish to Steam" 버튼이 나온다.** 확인 코드 `STEAMWORKS` 는 직접 타이핑해야 먹는다
+  (값만 넣으면 게시가 조용히 안 된다). 게시 뒤 App Data History 의 Unpublished Changes 가 비었는지 본다
 
 ## 3. 해금 조건 — 코드가 하는 일
 
@@ -158,6 +176,10 @@ Stat)를 연결해야 나온다.
 
 `ACH_KEYSTROKES_1K/10K/100K/1M` 각각 편집 → **Progress Stat = `STAT_KEYSTROKES`**, Min 0, Max 는
 과제 문턱(1000 / 10000 / 100000 / 1000000). 다른 6개(구매·슬롯·도감·룸)는 연결하지 않는다.
+
+**2026-10-21 전에는 이 연결이 실제로 안 돼 있었다** — 사이트에 Progress Stat 이 비어 있었다(§0 표는 통계 등록만 본 것).
+같은 날 기부 과제 4개(`STAT_DONATED`)는 Min 이 문턱, Max 가 0 으로 **뒤집혀** 있었다(진행 막대가 안 나온다). 둘 다
+`achievements_definitions.csv`(§2-1)로 Min 0 / Max 문턱 으로 바로잡아 게시했다.
 
 통계가 Max 에 닿으면 스팀이 그 과제를 **자동으로 해금**하는 것으로 알고 있다(확인은 안 했다).
 그래도 코드의 `Unlock` 은 그대로 둔다 — 이미 풀린 과제의 `Unlock` 은 아무 일도 안 한다.

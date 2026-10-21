@@ -41,7 +41,7 @@
 
 1. **`cd server && npm run db:migrate:donate:remote`** — 칸 추가. `savePlayer` 가 이 칸을 쓰므로 **배포보다 먼저**
 2. `npm run deploy` (개인정보 공개 페이지 문구도 같이 바뀐다)
-3. 파트너 사이트: 도전과제 4개 + 통계 `STAT_DONATED`(INT · Increment Only · Min 0) 등록, 기부 과제 3개(1K·10K·100K)에 Progress Stat 연결 → 게시
+3. 파트너 사이트: 도전과제 4개 + 통계 `STAT_DONATED`(INT · Increment Only · Min 0) 등록, 기부 과제 3개(1K·10K·100K)에 Progress Stat 연결 → 게시 (2026-10-21: 4개 모두 Min/Max 가 뒤집혀 있어 Min 0 / Max 문턱으로 바로잡음 - A15 §5-2)
 4. 릴리스 빌드 → default (클라이언트가 전송 v4 - 옛 빌드끼리는 멀티에서 서로 안 보인다)
 
 ## 2. 유료 바나나 — 검토 (만들지 않았다)

@@ -1,0 +1,15 @@
+"api_name (required, unique; the name your game passes to the API)",setid (optional; the id of a set that already exists),"permission (one of Client, GameServer, OfficialGameServer)",spoiler (true or false),archived (true or false),"progress_stat_name (optional; the name of a stat that already exists, blank for no progress bar)","progress_stat_min (number, no lower than the stat's own min)","progress_stat_max (number, above min and no higher than the stat's own max)"
+ACH_KEYSTROKES_1K,,Client,false,false,STAT_KEYSTROKES,0,1000
+ACH_KEYSTROKES_10K,,Client,false,false,STAT_KEYSTROKES,0,10000
+ACH_KEYSTROKES_100K,,Client,false,false,STAT_KEYSTROKES,0,100000
+ACH_KEYSTROKES_1M,,Client,false,false,STAT_KEYSTROKES,0,1000000
+ACH_FIRST_PURCHASE,,Client,false,false,,0,0
+ACH_SLOT_HANG,,Client,false,false,,0,0
+ACH_SLOT_TRAIL,,Client,false,false,,0,0
+ACH_SLOT_BASE,,Client,false,false,,0,0
+ACH_COLLECTION_100,,Client,false,false,,0,0
+ACH_ROOM_FIRST_JOIN,,Client,false,false,,0,0
+ACH_DONATE_FIRST,,Client,false,false,STAT_DONATED,0,1
+ACH_DONATE_1K,,Client,false,false,STAT_DONATED,0,1000
+ACH_DONATE_10K,,Client,false,false,STAT_DONATED,0,10000
+ACH_DONATE_100K,,Client,false,false,STAT_DONATED,0,100000
