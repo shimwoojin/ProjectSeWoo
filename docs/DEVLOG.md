@@ -3490,3 +3490,30 @@ opt-in(`fill_holes`)으로 작은 구멍을 그 색으로 메운다. 오랑우�
 - 다음: 검수 결과 메일(3~5 영업일) 기다리는 동안 2계정으로 25849592 확인(양쪽 친구 칸 · 빈 곳 클릭 통과). 안 되면 검수 결과 전에 고쳐 새 빌드를 default 로
 - 안 뜨면 방장 PC `%APPDATA%\PunchMonkey\logs\godot.log` 의 `[net] 멤버 입장` · `[friends]` · 예외 줄
 - Steamworks "Publish to Steam" 은 에이전트 권한 확인에서 막혔다 - 사람이 눌렀다
+
+## 2026-10-21 — 갑: 출시 준비 확인, 시작 화면·아이콘 교체, 릴리스 빌드 26106660 → default
+
+### 확인
+
+- 랜딩 페이지: Store Presence / Game Build 둘 다 **APPROVED FOR RELEASE** - 10/10 재검수 통과. 가장 빠른 출시 가능일 10/21
+- Game Build 체크리스트에 **Common Redistributables** 하나만 빠져 "Checklist incomplete" 였다 → Installation > Redistributables 에서 "필요 없음" 체크 → Publish (diff 는 `nocommonredists = 1` 하나). 이후 Release 칸까지 APPROVED, **Release App...** 버튼 활성
+  - 필요 없는 근거: Godot 본체는 런타임 설치가 필요 없고, InputHelper 는 NativeAOT(`build-release.ps1` §2)
+- 출시일은 그대로 **10/27 02:00 (GMT+9)** = 10/26 10:00 PDT. 한국 날짜로는 27일이다
+- **첫 출시는 자동이 아니다** - 그 시각에 랜딩의 Release App 버튼을 직접 눌러야 한다
+
+### 한 일
+
+- Godot 시작 화면 끔 (`11d69c6`): `boot_splash/show_image=false`, `bg_color` 투명, `minimum_display_time=0`. 투명 창이라 아무것도 안 보인다
+- 앱 아이콘 Godot 기본(`icon.svg`, 삭제) → 원숭이 얼굴 `icon.png`(256) / `icon.ico`(16~256)
+  - `tools/make-app-icon.py` 가 `make-store-capsules.py` 의 `community_icon` 을 그대로 쓴다 - 스토어 아이콘과 같은 얼굴
+  - exe 리소스(`application/icon`), 창·작업 표시줄(`windows_native_icon`), 트레이 모두 새 아이콘. 트레이 툴팁 ProjectSeWoo → PunchMonkey
+  - 함정: `.ico` 는 리소스가 아니라 `all_resources` 에 안 잡힌다 → `include_filter` 에 `icon.ico` 추가
+  - 시험 익스포트에서 exe 아이콘을 뽑아 원숭이인 것 확인
+- `build-release.ps1` (커밋 `11d69c6`, 213.2MB, 검증 PASS) → steamcmd **BuildID 26106660** (캐시 로그인) → default 지정 (업데이트 3.1MB, "Set Build Live Now" 확인창은 갑이 누름)
+
+### 이슈 / 남은 것
+
+- 시작 화면이 실제로 안 뜨는지는 눈으로 확인 안 했다 - 설치본 한 번 켜 볼 것
+- `--import` 중 `Unable to start the timer because it's not inside the scene tree` 한 줄 - 이번 변경과 무관해 보이나 원인 미확인
+- `game/GameRoot.cs` 에 공백만 바뀐 미커밋 변경이 있다(이번 커밋 제외). 빌드는 작업 트리로 뽑으므로 26106660 에는 들어갔다 - 동작 영향 없음
+- 10/27 02:00 (KST) Release App 누르기
