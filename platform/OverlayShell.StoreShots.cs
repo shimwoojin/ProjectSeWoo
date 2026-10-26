@@ -30,6 +30,20 @@ public partial class OverlayShell
     /// </summary>
     private const float StoreShotScale = 1.5f;
 
+    /// <summary>
+    /// 내 창·내 커서 배율을 바꿔 찍는다 (2026-10-26). 스토어 썸네일(600x338)에서 1.5 로는 원숭이가 작아서
+    /// 스크린샷은 옵션 최대인 <c>--shot-scale=2 --shot-cursor-scale=2</c> 로 찍는다. 친구 칸은 그대로 - 로비 장면에서 세 칸이
+    /// 세로로 안 들어간다. 안 주면 예전과 같다(설명란 그림·트레일러).
+    /// </summary>
+    private const string ShotScalePrefix = "--shot-scale=", ShotCursorScalePrefix = "--shot-cursor-scale=";
+
+    private static float ArgFloat(string prefix, float fallback)
+    {
+        string arg = Array.Find(OS.GetCmdlineUserArgs(), a => a.StartsWith(prefix, StringComparison.Ordinal));
+        return arg != null && float.TryParse(arg[prefix.Length..], System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : fallback;
+    }
+
     /// <summary>찍을 때 보유한 것으로 둘 장식 (도감이 "절반 넘게" 로 보이게).</summary>
     private static readonly string[] StoreShotOwned =
     {
@@ -259,9 +273,9 @@ public partial class OverlayShell
     /// </summary>
     private void SetStoreShotScales()
     {
-        SetScale(StoreShotScale);
+        SetScale(ArgFloat(ShotScalePrefix, StoreShotScale));
         SetFriendScale(StoreShotScale);
-        SetCursorScale(1f);
+        SetCursorScale(ArgFloat(ShotCursorScalePrefix, 1f));
         SetFriendCursorScale(1f);
     }
 

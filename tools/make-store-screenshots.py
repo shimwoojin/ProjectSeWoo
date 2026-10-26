@@ -48,6 +48,8 @@ class Raw:
     def __init__(self, folder):
         self.folder = folder
         self.pos = {}
+        # 원판 창 배율 (--shot-scale) - 배율 1 메인 창 너비가 420 이다
+        self.scale = Image.open(os.path.join(folder, "idle__root.png")).width / 420
         with open(os.path.join(folder, "manifest.tsv"), encoding="utf-8") as f:
             for row in csv.DictReader(f, delimiter="\t"):
                 self.pos[(row["shot"], row["window"])] = (int(row["x"]), int(row["y"]))
@@ -294,7 +296,9 @@ def cursor(bg, raw, shot, tip):
     """커서 장식 창(CURSOR_TIP = 커서 끝점) + 시스템 화살표(150% 배율 크기)."""
     if raw.has(shot, "CursorWindow"):
         deco = raw.img(shot, "CursorWindow")
-        bg.alpha_composite(deco, (round(tip[0] - CURSOR_TIP[0]), round(tip[1] - CURSOR_TIP[1])))
+        # 커서 크기 옵션을 키워 찍으면 창과 끝점이 같이 커진다 (CursorLayer.SetScale) - 창 너비로 배율을 되짚는다
+        s = round(deco.width / 224 * 4) / 4
+        bg.alpha_composite(deco, (round(tip[0] - CURSOR_TIP[0] * s), round(tip[1] - CURSOR_TIP[1] * s)))
     a = arrow(46)
     bg.alpha_composite(a, (round(tip[0] - 3), round(tip[1] - 3)))
 
@@ -356,7 +360,7 @@ def shot_work(raw):
     bg = wallpaper(0)
     code_editor(bg, (40, 30, 1270, H - TASKBAR - 30))
     game_at(bg, raw, "punch_1")
-    cursor(bg, raw, "punch_1", (960, 600))
+    cursor(bg, raw, "punch_1", (960, 600) if raw.scale < 2 else (860, 470))
     taskbar(bg)
     return bg
 
@@ -376,10 +380,13 @@ def shot_cursor(raw):
     game_at(bg, raw, "shop_tab0")
     tip = (820, 300)
     cursor(bg, raw, "shop_tab0", tip)
-    # 원숭이(바나나 아래 약 125px)를 두 배로 - B17 전에는 작은 장식이라 3.4배였다
-    focus = (tip[0] - 4, tip[1] + 62)
-    src, mask = magnifier(bg, focus, 210, 2.0)
-    place_magnifier(bg, src, mask, (420, 640), focus, src_r=105)
+    # 원숭이(바나나 아래 약 125px)를 두 배로 - B17 전에는 작은 장식이라 3.4배였다.
+    # 커서 2.0 원판은 원숭이가 이미 두 배라 1.35배만 (2026-10-26)
+    big = raw.scale >= 2
+    focus = (tip[0] - 4, tip[1] + (124 if big else 62))
+    zoom = 1.35 if big else 2.0
+    src, mask = magnifier(bg, focus, 230 if big else 210, zoom)
+    place_magnifier(bg, src, mask, (420, 680 if big else 640), focus, src_r=round((230 if big else 210) / zoom))
     taskbar(bg)
     return bg
 
@@ -388,7 +395,7 @@ def shot_collection(raw):
     bg = wallpaper(1)
     document(bg, (60, 30, work_right(raw, "shop_tab4", 1250), H - TASKBAR - 30))
     game_at(bg, raw, "shop_tab4")
-    cursor(bg, raw, "shop_tab4", (1500, 330))
+    cursor(bg, raw, "shop_tab4", (1500, 330) if raw.scale < 2 else (1130, 620))
     taskbar(bg)
     return bg
 
@@ -407,10 +414,16 @@ def shot_lobby(raw):
 
 def shot_friends(raw):
     bg = wallpaper(1)
-    document(bg, (60, 30, 1250, H - TASKBAR - 30))
-    game_at(bg, raw, "lobby_2")
-    friends(bg, raw, "lobby_2", [(1290, 40), (1500, 40), (1710, 40)])
-    cursor(bg, raw, "lobby_2", (760, 460))
+    if raw.scale < 2:
+        document(bg, (60, 30, 1250, H - TASKBAR - 30))
+        game_at(bg, raw, "lobby_2")
+        friends(bg, raw, "lobby_2", [(1290, 40), (1500, 40), (1710, 40)])
+        cursor(bg, raw, "lobby_2", (760, 460))
+    else:   # 나무가 커서 위쪽 오른편에 친구 칸 셋이 안 들어간다 - 문서를 줄이고 그 옆에 둔다
+        document(bg, (60, 30, 880, H - TASKBAR - 30))
+        game_at(bg, raw, "lobby_2")
+        friends(bg, raw, "lobby_2", [(890, 30), (1100, 30), (890, 350)])
+        cursor(bg, raw, "lobby_2", (560, 430))
     taskbar(bg)
     return bg
 
@@ -501,7 +514,10 @@ def main():
         im.save(os.path.join(OUT, f"{name}.jpg"), quality=92)
         shots[name] = im
         print(name)
-    sections(shots, raw)
+    if raw.scale == 1.5:
+        sections(shots, raw)
+    else:   # 설명란 그림의 자르는 자리는 1.5 원판 기준이다 - 다른 배율로는 뽑지 않는다
+        print(f"원판 배율 {raw.scale} - 설명란 그림은 건너뛴다 (1.5 원판으로 따로 돌릴 것)")
 
 
 if __name__ == "__main__":
